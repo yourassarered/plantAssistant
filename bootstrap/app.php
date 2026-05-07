@@ -13,7 +13,64 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         //
+              $middleware->api(prepend: [
+            \App\Http\Middleware\ForceJsonResponse::class,
+        ]);
     })
-    ->withExceptions(function (Exceptions $exceptions): void {
-        //
+  ->withExceptions(function (Exceptions $exceptions) {
+        // Обработка 404 для API маршрутов
+        $exceptions->render(function (NotFoundHttpException $e, Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'message' => 'Ресурс не найден',
+                    'status' => 404,
+                ], 404);
+            }
+        });
+
+        // Обработка 405 Method Not Allowed для API
+        $exceptions->render(function (MethodNotAllowedHttpException $e, Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'message' => 'Метод не разрешён для этого маршрута',
+                    'status' => 405,
+                ], 405);
+            }
+        });
+
+        // Обработка всех остальных ошибок для API
+        $exceptions->render(function (Throwable $e, Request $request) {
+            if ($request->is('api/*')) {
+                // Если это валидация
+                if ($e instanceof \Illuminate\Validation\ValidationException) {
+                    return response()->json([
+                        'message' => 'Ошибка валидации',
+                        'errors' => $e->errors(),
+                        'status' => 422,
+                    ], 422);
+                }
+
+                // Если это аутентификация
+                if ($e instanceof \Illuminate\Auth\AuthenticationException) {
+                    return response()->json([
+                        'message' => 'Требуется аутентификация',
+                        'status' => 401,
+                    ], 401);
+                }
+
+                // Если это авторизация
+                if ($e instanceof \Illuminate\Auth\Access\AuthorizationException) {
+                    return response()->json([
+                        'message' => 'Доступ запрещён',
+                        'status' => 403,
+                    ], 403);
+                }
+
+                // Для всех остальных ошибок
+                return response()->json([
+                    'message' => $e->getMessage() ?: 'Ошибка сервера',
+                    'status' => method_exists($e, 'getStatusCode') ? $e->getStatusCode() : 500,
+                ], method_exists($e, 'getStatusCode') ? $e->getStatusCode() : 500);
+            }
+        });
     })->create();

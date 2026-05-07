@@ -2,13 +2,10 @@
 
 namespace App\Models;
 
-use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\{
-    BelongsTo, HasMany, BelongsToMany
-};
+use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
@@ -19,6 +16,7 @@ class User extends Authenticatable
         'email',
         'password',
         'role_id',
+        'rank',
     ];
 
     protected $hidden = [
@@ -26,60 +24,65 @@ class User extends Authenticatable
         'remember_token',
     ];
 
-    protected function casts(): array
-    {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-        ];
-    }
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+        'password' => 'hashed',
+        'rank' => 'integer',
+    ];
 
-    // --- Связи ---
-
-    public function role(): BelongsTo
+    /**
+     * Роль пользователя
+     */
+    public function role()
     {
         return $this->belongsTo(Role::class);
     }
 
-    public function plants(): HasMany
+    /**
+     * Растения пользователя
+     */
+    public function plants()
     {
         return $this->hasMany(Plant::class);
     }
 
-    public function rooms(): HasMany
+    /**
+     * Комнаты пользователя
+     */
+    public function rooms()
     {
         return $this->hasMany(Room::class);
     }
 
-    public function tips(): HasMany
+    /**
+     * Советы, оставленные пользователем
+     */
+    public function tips()
     {
         return $this->hasMany(Tip::class, 'author_id');
     }
 
-    public function likes(): HasMany
+    /**
+     * Лайки пользователя
+     */
+    public function likes()
     {
         return $this->hasMany(Like::class);
     }
 
-    // Подписчики
-    public function followers(): BelongsToMany
+    /**
+     * Подписчики (кто подписан на этого пользователя)
+     */
+    public function followers()
     {
-        return $this->belongsToMany(
-            User::class,
-            'follows',
-            'following_id',
-            'follower_id'
-        );
+        return $this->hasMany(Follow::class, 'following_id');
     }
 
-    // На кого подписан
-    public function following(): BelongsToMany
+    /**
+     * Подписки (на кого подписан этот пользователь)
+     */
+    public function following()
     {
-        return $this->belongsToMany(
-            User::class,
-            'follows',
-            'follower_id',
-            'following_id'
-        );
+        return $this->hasMany(Follow::class, 'follower_id');
     }
 }

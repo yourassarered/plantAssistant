@@ -120,15 +120,16 @@ Route::middleware('auth:sanctum')->group(function () {
     // TIPS (Советы)
     // ========================================================================
 
-    Route::get('/plants/{plantId}/tips', [TipController::class, 'index']);
-    Route::post('/plants/{plantId}/tips', [TipController::class, 'store']);
-    Route::get('/tips/{id}', [TipController::class, 'show']);
-    Route::get('/tips/my', [TipController::class, 'myTips']);
-    Route::get('/tips/received', [TipController::class, 'receivedTips']);
-    Route::get('/tips/received/{status}', [TipController::class, 'receivedTipsByStatus']);
-    Route::put('/tips/{id}/status', [TipController::class, 'updateStatus']);
-    Route::delete('/tips/{id}', [TipController::class, 'destroy']);
-    Route::get('/tips/stats', [TipController::class, 'tipStats']);
+
+Route::get('/tips/my', [TipController::class, 'myTips']);
+Route::get('/tips/received', [TipController::class, 'receivedTips']);
+Route::get('/tips/stats', [TipController::class, 'tipStats']);
+Route::get('/tips/received/{status}', [TipController::class, 'receivedTipsByStatus']);
+Route::get('/plants/{plantId}/tips', [TipController::class, 'index']);
+Route::post('/plants/{plantId}/tips', [TipController::class, 'store']);
+Route::get('/tips/{id}', [TipController::class, 'show']);
+Route::put('/tips/{id}/status', [TipController::class, 'updateStatus']);
+Route::delete('/tips/{id}', [TipController::class, 'destroy']);
 
     // ========================================================================
     // LIKES

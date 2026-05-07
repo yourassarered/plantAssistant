@@ -2,11 +2,8 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\{
-    BelongsTo, HasMany
-};
+use Illuminate\Database\Eloquent\Model;
 
 class Plant extends Model
 {
@@ -21,42 +18,56 @@ class Plant extends Model
         'room_id',
     ];
 
-    protected function casts(): array
-    {
-        return [
-            'planted_at' => 'date',
-            'is_public' => 'boolean',
-        ];
-    }
+    protected $casts = [
+        'planted_at' => 'datetime',
+        'is_public' => 'boolean',
+        'height' => 'float',
+    ];
 
-    // --- Связи ---
-
-    public function user(): BelongsTo
+    /**
+     * Пользователь, которому принадлежит растение
+     */
+    public function user()
     {
         return $this->belongsTo(User::class);
     }
 
-    public function room(): BelongsTo
+    /**
+     * Комната, в которой находится растение
+     */
+    public function room()
     {
         return $this->belongsTo(Room::class);
     }
 
-    public function careSettings(): HasMany
+    /**
+     * Настройки ухода за растением
+     */
+    public function careSettings()
     {
         return $this->hasMany(CareSetting::class);
     }
 
-    public function logs(): HasMany
+    /**
+     * История ухода за растением
+     */
+    public function careLogs()
     {
         return $this->hasMany(CareLog::class);
     }
 
-    public function tips(): HasMany
+    /**
+     * Советы для растения
+     */
+    public function tips()
     {
         return $this->hasMany(Tip::class);
     }
 
-    public function likes(): HasMany
+    /**
+     * Лайки растения
+     */
+    public function likes()
     {
         return $this->hasMany(Like::class);
     }

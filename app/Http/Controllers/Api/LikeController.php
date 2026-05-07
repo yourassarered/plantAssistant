@@ -64,7 +64,7 @@ class LikeController extends Controller
     {
         $plant = Plant::findOrFail($plantId);
 
-        // Может просмотреть лайки только для своих растений или публичных
+        // Может просмотреть лайки для своих растений или публичных
         if ($plant->user_id !== $request->user()->id && !$plant->is_public) {
             abort(403, 'Unauthorized');
         }
@@ -99,28 +99,24 @@ class LikeController extends Controller
             ->exists();
 
         return response()->json([
-            'plant_id' => $plantId,
+            'plant_id' => (int) $plantId,
             'liked' => $liked,
         ]);
     }
 
-    /**
-     * Количество лайков для растения
-     */
-    public function count($plantId)
-    {
-        $plant = Plant::findOrFail($plantId);
+/**
+ * Количество лайков для растения
+ */
+public function count($plantId)
+{
+    // Проверяем только существование растения
+    Plant::findOrFail($plantId);
 
-        // Может просмотреть количество лайков только для публичных растений или своих
-        if (!$plant->is_public) {
-            abort(403, 'Unauthorized');
-        }
+    $count = Like::where('plant_id', $plantId)->count();
 
-        $count = Like::where('plant_id', $plantId)->count();
-
-        return response()->json([
-            'plant_id' => $plantId,
-            'likes_count' => $count,
-        ]);
-    }
+    return response()->json([
+        'plant_id' => (int) $plantId,
+        'likes_count' => $count,
+    ]);
+}
 }
