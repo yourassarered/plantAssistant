@@ -81,7 +81,12 @@ class LikeController extends Controller
     public function count(Request $request, $plantId)
     {
         $plant = Plant::findOrFail($plantId);
-        $this->authorize('viewPlantLikes', [Like::class, $plant]);
+        $user = $request->user();
+
+        abort_unless(
+            $plant->is_public || ($user && ($plant->user_id === $user->id || $user->isAdmin())),
+            403
+        );
 
         return response()->json([
             'plant_id' => (int) $plantId,

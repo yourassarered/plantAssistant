@@ -9,7 +9,7 @@ use App\Models\Plant;
 
 class FeedQueryService
 {
-    public function publicFeed(int $userId, QueryFiltersData $filters): array
+    public function publicFeed(?int $userId, QueryFiltersData $filters): array
     {
         $query = Plant::where('is_public', true)
             ->with(['user.role', 'room', 'latestImage', 'likes'])
@@ -43,7 +43,7 @@ class FeedQueryService
         ];
     }
 
-    public function trendingFeed(int $userId, QueryFiltersData $filters): array
+    public function trendingFeed(?int $userId, QueryFiltersData $filters): array
     {
         $query = Plant::where('is_public', true)
             ->where('created_at', '>=', now()->subDays($filters->days)->startOfDay())
@@ -60,7 +60,7 @@ class FeedQueryService
         ];
     }
 
-    public function userPlantsFeed(int $currentUserId, int $targetUserId, QueryFiltersData $filters): array
+    public function userPlantsFeed(?int $currentUserId, int $targetUserId, QueryFiltersData $filters): array
     {
         $query = Plant::where('user_id', $targetUserId)
             ->where('is_public', true)
@@ -76,7 +76,7 @@ class FeedQueryService
         ];
     }
 
-    public function withTipsFeed(int $userId, QueryFiltersData $filters): array
+    public function withTipsFeed(?int $userId, QueryFiltersData $filters): array
     {
         $query = Plant::where('is_public', true)
             ->whereHas('tips')
@@ -133,8 +133,12 @@ class FeedQueryService
         ];
     }
 
-    private function likedIds(int $userId): array
+    private function likedIds(?int $userId): array
     {
+        if (! $userId) {
+            return [];
+        }
+
         return Like::where('user_id', $userId)->pluck('plant_id')->toArray();
     }
 

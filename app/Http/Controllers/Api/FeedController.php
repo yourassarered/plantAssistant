@@ -19,19 +19,17 @@ class FeedController extends Controller
 
     public function index(FeedQueryRequest $request)
     {
-        $this->authorize('viewAny', Plant::class);
-
-        $userId = $request->user()->id;
+        $userId = auth('sanctum')->user()?->id;
         $filters = QueryFiltersData::fromFeedRequest($request);
 
         $payload = $this->cache->remember(
             ['feed'],
-            "feed:index:{$userId}:".md5(json_encode($request->query())),
+            'feed:v2:index:'.($userId ?? 'guest').':'.md5(json_encode($request->query())),
             120,
-            fn () => $this->service->publicFeed($userId, $filters)
+            fn () => $this->packPayload($this->service->publicFeed($userId, $filters))
         );
 
-        return $this->responseFromPayload($payload);
+        return response()->json($payload);
     }
 
     public function personal(FeedQueryRequest $request)
@@ -43,65 +41,57 @@ class FeedController extends Controller
 
         $payload = $this->cache->remember(
             ['feed'],
-            "feed:personal:{$userId}:".md5(json_encode($request->query())),
+            "feed:v2:personal:{$userId}:".md5(json_encode($request->query())),
             120,
-            fn () => $this->service->personalFeed($userId, $filters)
+            fn () => $this->packPayload($this->service->personalFeed($userId, $filters))
         );
 
-        return $this->responseFromPayload($payload);
+        return response()->json($payload);
     }
 
     public function trending(FeedQueryRequest $request)
     {
-        $this->authorize('viewAny', Plant::class);
-
-        $userId = $request->user()->id;
+        $userId = auth('sanctum')->user()?->id;
         $filters = QueryFiltersData::fromFeedRequest($request);
 
         $payload = $this->cache->remember(
             ['feed'],
-            "feed:trending:{$userId}:".md5(json_encode($request->query())),
+            'feed:v2:trending:'.($userId ?? 'guest').':'.md5(json_encode($request->query())),
             120,
-            fn () => $this->service->trendingFeed($userId, $filters)
+            fn () => $this->packPayload($this->service->trendingFeed($userId, $filters))
         );
 
-        return $this->responseFromPayload($payload, [
-            'period_days' => $payload['period_days'] ?? $filters->days,
-        ]);
+        return response()->json($payload);
     }
 
     public function userPlants(FeedQueryRequest $request, $userId)
     {
-        $this->authorize('viewAny', Plant::class);
-
-        $currentUserId = $request->user()->id;
+        $currentUserId = auth('sanctum')->user()?->id;
         $filters = QueryFiltersData::fromFeedRequest($request);
 
         $payload = $this->cache->remember(
             ['feed'],
-            "feed:user:{$currentUserId}:{$userId}:".md5(json_encode($request->query())),
+            'feed:v2:user:'.($currentUserId ?? 'guest').":{$userId}:".md5(json_encode($request->query())),
             120,
-            fn () => $this->service->userPlantsFeed($currentUserId, (int) $userId, $filters)
+            fn () => $this->packPayload($this->service->userPlantsFeed($currentUserId, (int) $userId, $filters))
         );
 
-        return $this->responseFromPayload($payload, ['user_id' => (int) $userId]);
+        return response()->json(array_merge($payload, ['user_id' => (int) $userId]));
     }
 
     public function withTips(FeedQueryRequest $request)
     {
-        $this->authorize('viewAny', Plant::class);
-
-        $userId = $request->user()->id;
+        $userId = auth('sanctum')->user()?->id;
         $filters = QueryFiltersData::fromFeedRequest($request);
 
         $payload = $this->cache->remember(
             ['feed'],
-            "feed:with_tips:{$userId}:".md5(json_encode($request->query())),
+            'feed:v2:with_tips:'.($userId ?? 'guest').':'.md5(json_encode($request->query())),
             120,
-            fn () => $this->service->withTipsFeed($userId, $filters)
+            fn () => $this->packPayload($this->service->withTipsFeed($userId, $filters))
         );
 
-        return $this->responseFromPayload($payload);
+        return response()->json($payload);
     }
 
     public function recommendations(FeedQueryRequest $request)
@@ -113,12 +103,12 @@ class FeedController extends Controller
 
         $payload = $this->cache->remember(
             ['feed'],
-            "feed:recommendations:{$userId}:".md5(json_encode($request->query())),
+            "feed:v2:recommendations:{$userId}:".md5(json_encode($request->query())),
             120,
-            fn () => $this->service->recommendationsFeed($userId, $filters)
+            fn () => $this->packPayload($this->service->recommendationsFeed($userId, $filters))
         );
 
-        return $this->responseFromPayload($payload);
+        return response()->json($payload);
     }
 
     public function likedPlants(FeedQueryRequest $request)
@@ -130,20 +120,22 @@ class FeedController extends Controller
 
         $payload = $this->cache->remember(
             ['feed'],
-            "feed:liked:{$userId}:".md5(json_encode($request->query())),
+            "feed:v2:liked:{$userId}:".md5(json_encode($request->query())),
             120,
-            fn () => $this->service->likedPlantsFeed($userId, $filters)
+            fn () => $this->packPayload($this->service->likedPlantsFeed($userId, $filters))
         );
 
-        return $this->responseFromPayload($payload);
+        return response()->json($payload);
     }
 
-    private function responseFromPayload(array $payload, array $extra = [])
+    private function packPayload(array $payload): array
     {
         $paginator = $payload['paginator'];
+        $resolved = PlantResource::collection($paginator->getCollection())->resolve();
+        $data = is_array($resolved) && array_key_exists('data', $resolved) ? $resolved['data'] : $resolved;
 
-        return response()->json(array_merge($extra, [
-            'data' => PlantResource::collection($paginator),
+        $response = [
+            'data' => $data,
             'liked_plants' => $payload['liked_plant_ids'] ?? [],
             'pagination' => [
                 'current_page' => $paginator->currentPage(),
@@ -151,6 +143,12 @@ class FeedController extends Controller
                 'total' => $paginator->total(),
                 'last_page' => $paginator->lastPage(),
             ],
-        ]));
+        ];
+
+        if (array_key_exists('period_days', $payload)) {
+            $response['period_days'] = $payload['period_days'];
+        }
+
+        return $response;
     }
 }

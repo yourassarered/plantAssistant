@@ -38,6 +38,18 @@ Route::post('/auth/register', [AuthController::class, 'register']);
 Route::post('/auth/login', [AuthController::class, 'login']);
 
 // ============================================================================
+// PUBLIC READ-ONLY ROUTES
+// ============================================================================
+
+Route::get('/plants/public', [PlantController::class, 'public']);
+Route::get('/plants/{plantId}/tips', [TipController::class, 'index']);
+Route::get('/plants/{plantId}/likes/count', [LikeController::class, 'count']);
+Route::get('/feed', [FeedController::class, 'index']);
+Route::get('/feed/trending', [FeedController::class, 'trending']);
+Route::get('/feed/user/{userId}', [FeedController::class, 'userPlants']);
+Route::get('/feed/with-tips', [FeedController::class, 'withTips']);
+
+// ============================================================================
 // PROTECTED ROUTES (Require Authentication)
 // ============================================================================
 
@@ -90,7 +102,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/plants', [PlantController::class, 'index']);
     Route::post('/plants', [PlantController::class, 'store']);
-    Route::get('/plants/public', [PlantController::class, 'public']);
     Route::get('/plants/todays-care', [PlantController::class, 'todaysCare']);
     Route::get('/plants/{id}', [PlantController::class, 'show']);
     Route::put('/plants/{id}', [PlantController::class, 'update']);
@@ -141,7 +152,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/tips/received', [TipController::class, 'receivedTips']);
     Route::get('/tips/stats', [TipController::class, 'tipStats']);
     Route::get('/tips/received/{status}', [TipController::class, 'receivedTipsByStatus']);
-    Route::get('/plants/{plantId}/tips', [TipController::class, 'index']);
     Route::post('/plants/{plantId}/tips', [TipController::class, 'store']);
     Route::get('/tips/{id}', [TipController::class, 'show']);
     Route::put('/tips/{id}/status', [TipController::class, 'updateStatus']);
@@ -156,7 +166,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/plants/{plantId}/like', [LikeController::class, 'toggle']);
     Route::get('/plants/{plantId}/likes', [LikeController::class, 'index']);
-    Route::get('/plants/{plantId}/likes/count', [LikeController::class, 'count']);
     Route::get('/plants/{plantId}/likes/is-liked', [LikeController::class, 'isLiked']);
     Route::get('/likes/my', [LikeController::class, 'myLikes']);
 
@@ -177,11 +186,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // FEED (Лента)
     // ========================================================================
 
-    Route::get('/feed', [FeedController::class, 'index']);
     Route::get('/feed/personal', [FeedController::class, 'personal']);
-    Route::get('/feed/trending', [FeedController::class, 'trending']);
-    Route::get('/feed/user/{userId}', [FeedController::class, 'userPlants']);
-    Route::get('/feed/with-tips', [FeedController::class, 'withTips']);
     Route::get('/feed/recommendations', [FeedController::class, 'recommendations']);
     Route::get('/feed/liked', [FeedController::class, 'likedPlants']);
 

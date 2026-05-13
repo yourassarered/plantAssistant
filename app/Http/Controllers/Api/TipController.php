@@ -15,7 +15,12 @@ class TipController extends Controller
     public function index(Request $request, $plantId)
     {
         $plant = Plant::findOrFail($plantId);
-        $this->authorize('view', $plant);
+        $user = $request->user();
+
+        abort_unless(
+            $plant->is_public || ($user && ($plant->user_id === $user->id || $user->isAdmin())),
+            403
+        );
 
         $tips = Tip::where('plant_id', $plantId)
             ->with('author')

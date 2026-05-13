@@ -115,8 +115,6 @@ class PlantController extends Controller
 
     public function public(PlantIndexRequest $request)
     {
-        $this->authorize('viewAny', Plant::class);
-
         $filters = PlantFiltersData::fromRequest($request);
 
         $query = Plant::where('is_public', true)
