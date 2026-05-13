@@ -4,9 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PlantResource;
-use App\Models\Plant;
-use App\Models\Like;
 use App\Models\Follow;
+use App\Models\Like;
+use App\Models\Plant;
 use Illuminate\Http\Request;
 
 class FeedController extends Controller
@@ -19,7 +19,7 @@ class FeedController extends Controller
         $userId = $request->user()->id;
 
         $plants = Plant::where('is_public', true)
-            ->with(['user', 'room', 'likes'])
+            ->with(['user.role', 'room', 'latestImage', 'likes'])
             ->withCount('likes')
             ->orderBy('created_at', 'desc');
 
@@ -37,7 +37,7 @@ class FeedController extends Controller
             $plants->orderBy('created_at', 'desc');
         }
 
-        $plantsCollection = $plants->paginate($request->get('per_page', 15));
+        $plantsCollection = $plants->paginate(min($request->integer('per_page', 15), 100));
 
         // Добавляем информацию о том, лайкнул ли текущий пользователь
         $likedPlantIds = Like::where('user_id', $userId)
@@ -73,7 +73,7 @@ class FeedController extends Controller
 
         $plants = Plant::where('is_public', true)
             ->whereIn('user_id', $followingIds)
-            ->with(['user', 'room', 'likes'])
+            ->with(['user.role', 'room', 'latestImage', 'likes'])
             ->withCount('likes')
             ->orderBy('created_at', 'desc');
 
@@ -91,7 +91,7 @@ class FeedController extends Controller
             $plants->orderBy('created_at', 'desc');
         }
 
-        $plantsCollection = $plants->paginate($request->get('per_page', 15));
+        $plantsCollection = $plants->paginate(min($request->integer('per_page', 15), 100));
 
         // Добавляем информацию о том, лайкнул ли текущий пользователь
         $likedPlantIds = Like::where('user_id', $userId)
@@ -118,7 +118,7 @@ class FeedController extends Controller
         $userId = $request->user()->id;
 
         $plants = Plant::where('is_public', true)
-            ->with(['user', 'room', 'likes'])
+            ->with(['user.role', 'room', 'latestImage', 'likes'])
             ->withCount('likes')
             ->orderBy('likes_count', 'desc');
 
@@ -129,12 +129,12 @@ class FeedController extends Controller
         }
 
         // Период для трендов (по умолчанию за последнюю неделю)
-        $days = $request->get('days', 7);
+        $days = min(max($request->integer('days', 7), 1), 90);
         $startDate = now()->subDays($days)->startOfDay();
 
         $plants->where('created_at', '>=', $startDate);
 
-        $plantsCollection = $plants->paginate($request->get('per_page', 15));
+        $plantsCollection = $plants->paginate(min($request->integer('per_page', 15), 100));
 
         // Добавляем информацию о том, лайкнул ли текущий пользователь
         $likedPlantIds = Like::where('user_id', $userId)
@@ -163,7 +163,7 @@ class FeedController extends Controller
 
         $plants = Plant::where('user_id', $userId)
             ->where('is_public', true)
-            ->with(['user', 'room', 'likes'])
+            ->with(['user.role', 'room', 'latestImage', 'likes'])
             ->withCount('likes')
             ->orderBy('created_at', 'desc');
 
@@ -181,7 +181,7 @@ class FeedController extends Controller
             $plants->orderBy('created_at', 'desc');
         }
 
-        $plantsCollection = $plants->paginate($request->get('per_page', 15));
+        $plantsCollection = $plants->paginate(min($request->integer('per_page', 15), 100));
 
         // Добавляем информацию о том, лайкнул ли текущий пользователь
         $likedPlantIds = Like::where('user_id', $currentUserId)
@@ -210,13 +210,13 @@ class FeedController extends Controller
 
         $plants = Plant::where('is_public', true)
             ->whereHas('tips')
-            ->with(['user', 'room', 'likes', 'tips' => function ($query) {
+            ->with(['user.role', 'room', 'latestImage', 'likes', 'tips' => function ($query) {
                 $query->where('status', 'accepted');
             }])
             ->withCount('likes')
             ->orderBy('created_at', 'desc');
 
-        $plantsCollection = $plants->paginate($request->get('per_page', 15));
+        $plantsCollection = $plants->paginate(min($request->integer('per_page', 15), 100));
 
         // Добавляем информацию о том, лайкнул ли текущий пользователь
         $likedPlantIds = Like::where('user_id', $userId)
@@ -261,11 +261,11 @@ class FeedController extends Controller
 
         $plants = Plant::where('is_public', true)
             ->whereIn('id', $recommendedPlantIds)
-            ->with(['user', 'room', 'likes'])
+            ->with(['user.role', 'room', 'latestImage', 'likes'])
             ->withCount('likes')
             ->orderBy('likes_count', 'desc');
 
-        $plantsCollection = $plants->paginate($request->get('per_page', 15));
+        $plantsCollection = $plants->paginate(min($request->integer('per_page', 15), 100));
 
         return response()->json([
             'data' => PlantResource::collection($plantsCollection),
@@ -290,7 +290,7 @@ class FeedController extends Controller
             ->whereIn('id',
                 Like::where('user_id', $userId)->pluck('plant_id')
             )
-            ->with(['user', 'room', 'likes'])
+            ->with(['user.role', 'room', 'latestImage', 'likes'])
             ->withCount('likes')
             ->orderBy('created_at', 'desc');
 
@@ -308,7 +308,7 @@ class FeedController extends Controller
             $plants->orderBy('created_at', 'desc');
         }
 
-        $plantsCollection = $plants->paginate($request->get('per_page', 15));
+        $plantsCollection = $plants->paginate(min($request->integer('per_page', 15), 100));
 
         // Все растения в этом списке лайкнуты текущим пользователем
         $likedPlantIds = $plantsCollection->pluck('id')->toArray();

@@ -2,11 +2,11 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\Plant;
-use App\Models\User;
 use App\Models\Room;
+use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Database\Seeder;
 
 class PlantSeeder extends Seeder
 {
@@ -42,7 +42,7 @@ class PlantSeeder extends Seeder
 
         foreach ($users as $user) {
             $rooms = Room::where('user_id', $user->id)->get();
-            
+
             // Каждому пользователю создаём 3-8 растений
             $plantCount = rand(3, 8);
 

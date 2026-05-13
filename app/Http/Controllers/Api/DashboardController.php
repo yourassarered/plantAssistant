@@ -3,14 +3,14 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\CareLog;
+use App\Models\Follow;
+use App\Models\Like;
 use App\Models\Plant;
 use App\Models\Room;
-use App\Models\CareLog;
-use App\Models\Like;
 use App\Models\Tip;
-use App\Models\Follow;
-use Illuminate\Http\Request;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
@@ -30,7 +30,7 @@ class DashboardController extends Controller
         $followingCount = Follow::where('follower_id', $userId)->count();
 
         // Количество полученных лайков
-        $likesCount = Like::whereIn('plant_id', 
+        $likesCount = Like::whereIn('plant_id',
             Plant::where('user_id', $userId)->pluck('id')
         )->count();
 
@@ -77,7 +77,7 @@ class DashboardController extends Controller
             'activity' => [
                 'care_actions_month' => $logsCount,
             ],
-            'top_plants' => $topPlants->map(fn($plant) => [
+            'top_plants' => $topPlants->map(fn ($plant) => [
                 'id' => $plant->id,
                 'name' => $plant->name,
                 'likes_count' => $plant->likes_count,
@@ -91,7 +91,7 @@ class DashboardController extends Controller
     public function activityStats(Request $request)
     {
         $userId = $request->user()->id;
-        $days = $request->get('days', 30);
+        $days = min(max($request->integer('days', 30), 1), 365);
 
         $startDate = now()->subDays($days)->startOfDay();
         $endDate = now()->endOfDay();
@@ -163,14 +163,14 @@ class DashboardController extends Controller
             $maxOverdueDays = 0;
 
             foreach ($plant->careSettings as $setting) {
-                if (!$setting->is_enabled) {
+                if (! $setting->is_enabled) {
                     continue;
                 }
 
                 $baseDate = $setting->last_done_at ?? $plant->planted_at;
                 $nextDueDate = $baseDate->copy()->addDays($setting->interval_days);
 
-                $overdueDays = Carbon::parse($today)->diffInDays($nextDueDate, false);
+                $overdueDays = $nextDueDate->diffInDays(Carbon::parse($today), false);
 
                 if ($overdueDays > 0) {
                     $hasOverdueTasks = true;
@@ -178,7 +178,7 @@ class DashboardController extends Controller
                 }
             }
 
-            if (!$hasOverdueTasks) {
+            if (! $hasOverdueTasks) {
                 $wellCaredFor++;
             } elseif ($maxOverdueDays > 7) {
                 $needsUrgentAttention++;
@@ -192,7 +192,7 @@ class DashboardController extends Controller
             'well_cared_for' => $wellCaredFor,
             'needs_attention' => $needsAttention,
             'needs_urgent_attention' => $needsUrgentAttention,
-            'health_percentage' => $plants->count() > 0 
+            'health_percentage' => $plants->count() > 0
                 ? round(($wellCaredFor / $plants->count()) * 100, 2)
                 : 100,
         ]);

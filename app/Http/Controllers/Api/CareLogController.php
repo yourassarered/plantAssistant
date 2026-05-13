@@ -7,9 +7,9 @@ use App\Http\Resources\CareLogResource;
 use App\Models\CareLog;
 use App\Models\CareSetting;
 use App\Models\Plant;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
-use Carbon\Carbon;
 
 class CareLogController extends Controller
 {
@@ -40,8 +40,8 @@ class CareLogController extends Controller
             'comment' => 'nullable|string|max:1000',
         ]);
 
-        $performedAt = isset($validated['performed_at']) 
-            ? Carbon::parse($validated['performed_at']) 
+        $performedAt = isset($validated['performed_at'])
+            ? Carbon::parse($validated['performed_at'])
             : now();
 
         // 1. Создаем запись в истории
@@ -52,7 +52,7 @@ class CareLogController extends Controller
             'comment' => $validated['comment'] ?? null,
         ]);
 
-        // 2. Обновляем `last_done_at` в настройках ухода, 
+        // 2. Обновляем `last_done_at` в настройках ухода,
         // если дата выполнения новее, чем текущая last_done_at
         $setting = CareSetting::where('plant_id', $plantId)
             ->where('type', $validated['type'])
@@ -60,8 +60,8 @@ class CareLogController extends Controller
 
         if ($setting) {
             $currentLastDone = $setting->last_done_at;
-            
-            if (!$currentLastDone || $performedAt->greaterThan($currentLastDone)) {
+
+            if (! $currentLastDone || $performedAt->greaterThan($currentLastDone)) {
                 $setting->update(['last_done_at' => $performedAt]);
             }
         }
@@ -101,8 +101,8 @@ class CareLogController extends Controller
     private function authorizePlantAccess($userId, $plantId)
     {
         $plant = Plant::where('user_id', $userId)->find($plantId);
-        
-        if (!$plant) {
+
+        if (! $plant) {
             abort(403, 'Plant not found or does not belong to you');
         }
     }

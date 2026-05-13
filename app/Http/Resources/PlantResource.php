@@ -23,6 +23,7 @@ class PlantResource extends JsonResource
             'user_id' => $this->user_id,
             'room' => new RoomResource($this->whenLoaded('room')),
             'room_id' => $this->room_id,
+            'latest_image' => new PlantImageResource($this->whenLoaded('latestImage')),
             'care_settings' => CareSettingResource::collection($this->whenLoaded('careSettings')),
             'care_logs' => CareLogResource::collection($this->whenLoaded('careLogs')),
             'tips' => TipResource::collection($this->whenLoaded('tips')),

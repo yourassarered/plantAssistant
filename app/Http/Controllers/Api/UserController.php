@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
-use App\Models\User;
 use App\Models\Role;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
@@ -20,7 +20,7 @@ class UserController extends Controller
 
         // Фильтр по роли
         if ($request->has('role')) {
-            $query->whereHas('role', function ($q) {
+            $query->whereHas('role', function ($q) use ($request) {
                 $q->where('name', $request->role);
             });
         }
@@ -30,7 +30,7 @@ class UserController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'ilike', "%{$search}%")
-                  ->orWhere('email', 'ilike', "%{$search}%");
+                    ->orWhere('email', 'ilike', "%{$search}%");
             });
         }
 
@@ -39,7 +39,7 @@ class UserController extends Controller
             $query->orderBy('rank', 'desc');
         }
 
-        $users = $query->paginate($request->get('per_page', 15));
+        $users = $query->with('role')->paginate(min($request->integer('per_page', 15), 100));
 
         return UserResource::collection($users);
     }
@@ -49,7 +49,7 @@ class UserController extends Controller
      */
     public function show($id)
     {
-        $user = User::findOrFail($id);
+        $user = User::with('role')->findOrFail($id);
 
         return new UserResource($user);
     }
@@ -63,7 +63,7 @@ class UserController extends Controller
 
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
-            'email' => 'sometimes|string|email|max:255|unique:users,email,' . $user->id,
+            'email' => 'sometimes|string|email|max:255|unique:users,email,'.$user->id,
             'password' => 'sometimes|string|min:8|confirmed',
         ]);
 

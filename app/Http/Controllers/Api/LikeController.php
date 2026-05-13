@@ -18,7 +18,7 @@ class LikeController extends Controller
         $plant = Plant::findOrFail($plantId);
 
         // Можно лайкнуть только публичные растения
-        if (!$plant->is_public) {
+        if (! $plant->is_public) {
             return response()->json([
                 'message' => 'Can only like public plants',
             ], 403);
@@ -65,13 +65,13 @@ class LikeController extends Controller
         $plant = Plant::findOrFail($plantId);
 
         // Может просмотреть лайки для своих растений или публичных
-        if ($plant->user_id !== $request->user()->id && !$plant->is_public) {
+        if ($plant->user_id !== $request->user()->id && ! $plant->is_public) {
             abort(403, 'Unauthorized');
         }
 
         $likes = Like::where('plant_id', $plantId)
             ->with('user')
-            ->paginate($request->get('per_page', 15));
+            ->paginate(min($request->integer('per_page', 15), 100));
 
         return LikeResource::collection($likes);
     }
@@ -84,7 +84,7 @@ class LikeController extends Controller
         $likes = Like::where('user_id', $request->user()->id)
             ->with('plant', 'plant.user')
             ->orderBy('created_at', 'desc')
-            ->paginate($request->get('per_page', 15));
+            ->paginate(min($request->integer('per_page', 15), 100));
 
         return LikeResource::collection($likes);
     }
@@ -104,19 +104,22 @@ class LikeController extends Controller
         ]);
     }
 
-/**
- * Количество лайков для растения
- */
-public function count($plantId)
-{
-    // Проверяем только существование растения
-    Plant::findOrFail($plantId);
+    /**
+     * Количество лайков для растения
+     */
+    public function count(Request $request, $plantId)
+    {
+        $plant = Plant::findOrFail($plantId);
 
-    $count = Like::where('plant_id', $plantId)->count();
+        if ($plant->user_id !== $request->user()->id && ! $plant->is_public && ! $request->user()->isAdmin()) {
+            abort(403, 'Unauthorized');
+        }
 
-    return response()->json([
-        'plant_id' => (int) $plantId,
-        'likes_count' => $count,
-    ]);
-}
+        $count = Like::where('plant_id', $plantId)->count();
+
+        return response()->json([
+            'plant_id' => (int) $plantId,
+            'likes_count' => $count,
+        ]);
+    }
 }

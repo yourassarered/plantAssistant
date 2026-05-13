@@ -83,7 +83,7 @@ class CareSettingController extends Controller
         $setting = CareSetting::findOrFail($id);
         $this->authorizePlantAccess($request->user()->id, $setting->plant_id);
 
-        $setting->is_enabled = !$setting->is_enabled;
+        $setting->is_enabled = ! $setting->is_enabled;
         $setting->save();
 
         return new CareSettingResource($setting);
@@ -110,8 +110,8 @@ class CareSettingController extends Controller
     private function authorizePlantAccess($userId, $plantId)
     {
         $plant = Plant::where('user_id', $userId)->find($plantId);
-        
-        if (!$plant) {
+
+        if (! $plant) {
             abort(403, 'Plant not found or does not belong to you');
         }
     }

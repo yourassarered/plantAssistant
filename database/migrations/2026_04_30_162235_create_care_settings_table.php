@@ -11,20 +11,20 @@ return new class extends Migration
      */
     public function up(): void
     {
-       Schema::create('care_settings', function (Blueprint $table) {
-    $table->id();
+        Schema::create('care_settings', function (Blueprint $table) {
+            $table->id();
 
-    $table->foreignId('plant_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('plant_id')->constrained()->cascadeOnDelete();
 
-    $table->enum('type', ['watering', 'fertilizing', 'pruning', 'rotation']);
+            $table->enum('type', ['watering', 'fertilizing', 'pruning', 'rotation']);
 
-    $table->integer('interval_days')->nullable();
-    $table->boolean('is_enabled')->default(true);
+            $table->integer('interval_days')->nullable();
+            $table->boolean('is_enabled')->default(true);
 
-    $table->timestamp('last_done_at')->nullable();
+            $table->timestamp('last_done_at')->nullable();
 
-    $table->timestamps();
-});
+            $table->timestamps();
+        });
     }
 
     /**

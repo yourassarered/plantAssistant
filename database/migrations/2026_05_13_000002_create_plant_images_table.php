@@ -6,31 +6,20 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        Schema::create('tips', function (Blueprint $table) {
+        Schema::create('plant_images', function (Blueprint $table) {
             $table->id();
-
             $table->foreignId('plant_id')->constrained()->cascadeOnDelete();
-
-            $table->foreignId('author_id')->constrained('users')->cascadeOnDelete();
-
-            $table->text('content');
-
-            $table->enum('status', ['pending', 'accepted', 'rejected'])->default('pending');
-
+            $table->string('path');
+            $table->string('original_name')->nullable();
+            $table->unsignedBigInteger('size')->default(0);
             $table->timestamps();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        Schema::dropIfExists('tips');
+        Schema::dropIfExists('plant_images');
     }
 };

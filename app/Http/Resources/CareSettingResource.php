@@ -23,7 +23,9 @@ class CareSettingResource extends JsonResource
     // Вспомогательный метод для удобства на фронте
     private function calculateNextDueDate()
     {
-        if (!$this->is_enabled) return null;
+        if (! $this->is_enabled) {
+            return null;
+        }
 
         if ($this->last_done_at) {
             return $this->last_done_at->copy()->addDays($this->interval_days)->toDateString();

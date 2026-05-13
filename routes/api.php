@@ -1,20 +1,22 @@
 <?php
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
-
+use App\Http\Controllers\Api\AdminReportController;
 use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\UserController;
-use App\Http\Controllers\Api\RoomController;
-use App\Http\Controllers\Api\PlantController;
-use App\Http\Controllers\Api\CareSettingController;
+use App\Http\Controllers\Api\AvatarController;
 use App\Http\Controllers\Api\CareLogController;
 use App\Http\Controllers\Api\CareScheduleController;
-use App\Http\Controllers\Api\TipController;
-use App\Http\Controllers\Api\LikeController;
-use App\Http\Controllers\Api\FollowController;
-use App\Http\Controllers\Api\FeedController;
+use App\Http\Controllers\Api\CareSettingController;
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\FeedController;
+use App\Http\Controllers\Api\FollowController;
+use App\Http\Controllers\Api\LikeController;
+use App\Http\Controllers\Api\PlantController;
+use App\Http\Controllers\Api\PlantImageController;
+use App\Http\Controllers\Api\ReportController;
+use App\Http\Controllers\Api\RoomController;
+use App\Http\Controllers\Api\TipController;
+use App\Http\Controllers\Api\UserController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -55,11 +57,19 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/users', [UserController::class, 'index']);
     Route::get('/users/{id}', [UserController::class, 'show']);
     Route::put('/users/profile', [UserController::class, 'update']);
+    Route::get('/users/{id}/avatar', [AvatarController::class, 'show']);
+    Route::post('/users/profile/avatar', [AvatarController::class, 'update']);
+    Route::delete('/users/profile/avatar', [AvatarController::class, 'destroy']);
 
     // Admin only routes
     Route::middleware('admin')->group(function () {
         Route::delete('/users/{id}', [UserController::class, 'destroy']);
         Route::put('/users/{id}/role', [UserController::class, 'updateRole']);
+        Route::delete('/users/{id}/avatar', [AvatarController::class, 'destroyForUser']);
+
+        Route::get('/admin/reports', [AdminReportController::class, 'index']);
+        Route::get('/admin/reports/{id}', [AdminReportController::class, 'show']);
+        Route::put('/admin/reports/{id}/review', [AdminReportController::class, 'review']);
     });
 
     // ========================================================================
@@ -86,6 +96,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/plants/{id}/toggle-public', [PlantController::class, 'togglePublic']);
     Route::get('/plants/{id}/schedule', [PlantController::class, 'schedule']);
     Route::get('/rooms/{roomId}/plants', [PlantController::class, 'byRoom']);
+    Route::get('/plants/{plantId}/images', [PlantImageController::class, 'index']);
+    Route::post('/plants/{plantId}/images', [PlantImageController::class, 'store']);
+    Route::get('/plant-images/{id}', [PlantImageController::class, 'show']);
+    Route::put('/plant-images/{id}', [PlantImageController::class, 'update']);
+    Route::delete('/plant-images/{id}', [PlantImageController::class, 'destroy']);
 
     // ========================================================================
     // CARE SETTINGS (Настройки ухода)
@@ -120,16 +135,18 @@ Route::middleware('auth:sanctum')->group(function () {
     // TIPS (Советы)
     // ========================================================================
 
+    Route::get('/tips/my', [TipController::class, 'myTips']);
+    Route::get('/tips/received', [TipController::class, 'receivedTips']);
+    Route::get('/tips/stats', [TipController::class, 'tipStats']);
+    Route::get('/tips/received/{status}', [TipController::class, 'receivedTipsByStatus']);
+    Route::get('/plants/{plantId}/tips', [TipController::class, 'index']);
+    Route::post('/plants/{plantId}/tips', [TipController::class, 'store']);
+    Route::get('/tips/{id}', [TipController::class, 'show']);
+    Route::put('/tips/{id}/status', [TipController::class, 'updateStatus']);
+    Route::delete('/tips/{id}', [TipController::class, 'destroy']);
 
-Route::get('/tips/my', [TipController::class, 'myTips']);
-Route::get('/tips/received', [TipController::class, 'receivedTips']);
-Route::get('/tips/stats', [TipController::class, 'tipStats']);
-Route::get('/tips/received/{status}', [TipController::class, 'receivedTipsByStatus']);
-Route::get('/plants/{plantId}/tips', [TipController::class, 'index']);
-Route::post('/plants/{plantId}/tips', [TipController::class, 'store']);
-Route::get('/tips/{id}', [TipController::class, 'show']);
-Route::put('/tips/{id}/status', [TipController::class, 'updateStatus']);
-Route::delete('/tips/{id}', [TipController::class, 'destroy']);
+    Route::post('/plants/{plantId}/reports', [ReportController::class, 'reportPlant']);
+    Route::post('/tips/{tipId}/reports', [ReportController::class, 'reportTip']);
 
     // ========================================================================
     // LIKES

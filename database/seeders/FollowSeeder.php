@@ -2,9 +2,9 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\Follow;
 use App\Models\User;
+use Illuminate\Database\Seeder;
 
 class FollowSeeder extends Seeder
 {
@@ -17,6 +17,7 @@ class FollowSeeder extends Seeder
 
         if ($users->count() < 2) {
             $this->command->warn('Недостаточно пользователей для создания подписок');
+
             return;
         }
 
@@ -41,7 +42,7 @@ class FollowSeeder extends Seeder
                     ->where('following_id', $targetUser->id)
                     ->exists();
 
-                if (!$exists) {
+                if (! $exists) {
                     Follow::create([
                         'follower_id' => $user->id,
                         'following_id' => $targetUser->id,

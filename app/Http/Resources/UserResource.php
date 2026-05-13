@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
 
 class UserResource extends JsonResource
 {
@@ -17,8 +18,11 @@ class UserResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
-            'email' => $this->email,
+            'email' => $this->when($request->user()?->id === $this->id || $request->user()?->isAdmin(), $this->email),
             'rank' => $this->rank,
+            'avatar_url' => $this->avatar_path
+                ? Storage::disk('public')->url($this->avatar_path)
+                : asset('images/placeholders/avatar-placeholder.png'),
             'role' => [
                 'id' => $this->role->id,
                 'name' => $this->role->name,

@@ -59,7 +59,7 @@ class FollowController extends Controller
             ->where('following_id', $userId)
             ->first();
 
-        if (!$follow) {
+        if (! $follow) {
             return response()->json([
                 'message' => 'You are not following this user',
             ], 422);

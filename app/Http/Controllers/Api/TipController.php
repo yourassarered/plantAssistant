@@ -4,9 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\TipResource;
-use App\Models\Tip;
 use App\Models\Plant;
-use App\Models\User;
+use App\Models\Tip;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -20,7 +19,7 @@ class TipController extends Controller
         $plant = Plant::findOrFail($plantId);
 
         // Может просмотреть советы только для своих растений или публичных
-        if ($plant->user_id !== $request->user()->id && !$plant->is_public) {
+        if ($plant->user_id !== $request->user()->id && ! $plant->is_public) {
             abort(403, 'Unauthorized');
         }
 
@@ -40,7 +39,7 @@ class TipController extends Controller
         $plant = Plant::findOrFail($plantId);
 
         // Можно оставить совет только для публичных растений
-        if (!$plant->is_public) {
+        if (! $plant->is_public) {
             return response()->json([
                 'message' => 'Can only leave tips for public plants',
             ], 403);
@@ -76,7 +75,7 @@ class TipController extends Controller
 
         // Проверяем доступ
         $plant = $tip->plant;
-        if ($plant->user_id !== $request->user()->id && !$plant->is_public) {
+        if ($plant->user_id !== $request->user()->id && ! $plant->is_public) {
             abort(403, 'Unauthorized');
         }
 
@@ -103,7 +102,7 @@ class TipController extends Controller
     {
         $userId = $request->user()->id;
 
-        $tips = Tip::whereIn('plant_id', 
+        $tips = Tip::whereIn('plant_id',
             Plant::where('user_id', $userId)->pluck('id')
         )
             ->with(['plant', 'author'])
@@ -119,8 +118,8 @@ class TipController extends Controller
     public function receivedTipsByStatus(Request $request, $status)
     {
         $validStatuses = ['pending', 'accepted', 'rejected'];
-        
-        if (!in_array($status, $validStatuses)) {
+
+        if (! in_array($status, $validStatuses)) {
             return response()->json([
                 'message' => 'Invalid status',
             ], 422);

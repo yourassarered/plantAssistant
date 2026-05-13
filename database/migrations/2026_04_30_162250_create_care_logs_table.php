@@ -11,18 +11,18 @@ return new class extends Migration
      */
     public function up(): void
     {
-    Schema::create('care_logs', function (Blueprint $table) {
-    $table->id();
+        Schema::create('care_logs', function (Blueprint $table) {
+            $table->id();
 
-    $table->foreignId('plant_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('plant_id')->constrained()->cascadeOnDelete();
 
-    $table->enum('type', ['watering', 'fertilizing', 'pruning', 'rotation']);
+            $table->enum('type', ['watering', 'fertilizing', 'pruning', 'rotation']);
 
-    $table->timestamp('performed_at');
-    $table->text('comment')->nullable();
+            $table->timestamp('performed_at');
+            $table->text('comment')->nullable();
 
-    $table->timestamps();
-});
+            $table->timestamps();
+        });
     }
 
     /**

@@ -4,9 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Plant;
-use App\Models\CareSetting;
-use Illuminate\Http\Request;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 
 class CareScheduleController extends Controller
 {
@@ -38,7 +37,7 @@ class CareScheduleController extends Controller
                 'end' => $endDate->toDateString(),
             ],
             'schedule' => $schedule,
-            'total_tasks' => collect($schedule)->sum(fn($day) => count($day['tasks'])),
+            'total_tasks' => collect($schedule)->sum(fn ($day) => count($day['tasks'])),
         ]);
     }
 
@@ -60,7 +59,7 @@ class CareScheduleController extends Controller
         foreach ($plants as $plant) {
             $tasksForPlant = $this->getTasksForDate($plant, $today);
 
-            if (!empty($tasksForPlant)) {
+            if (! empty($tasksForPlant)) {
                 $plantsNeedingCare[] = [
                     'plant' => [
                         'id' => $plant->id,
@@ -79,8 +78,9 @@ class CareScheduleController extends Controller
 
         // Сортируем по статусу "просроченный"
         usort($plantsNeedingCare, function ($a, $b) {
-            $aOverdue = collect($a['tasks'])->filter(fn($t) => $t['is_overdue'])->count();
-            $bOverdue = collect($b['tasks'])->filter(fn($t) => $t['is_overdue'])->count();
+            $aOverdue = collect($a['tasks'])->filter(fn ($t) => $t['is_overdue'])->count();
+            $bOverdue = collect($b['tasks'])->filter(fn ($t) => $t['is_overdue'])->count();
+
             return $bOverdue <=> $aOverdue;
         });
 
@@ -99,8 +99,8 @@ class CareScheduleController extends Controller
     {
         $userId = $request->user()->id;
 
-        $month = $request->get('month', now()->month);
-        $year = $request->get('year', now()->year);
+        $month = min(max($request->integer('month', now()->month), 1), 12);
+        $year = min(max($request->integer('year', now()->year), 2000), 2100);
 
         $startDate = Carbon::createFromDate($year, $month, 1)->startOfDay();
         $endDate = $startDate->copy()->endOfMonth();
@@ -131,8 +131,8 @@ class CareScheduleController extends Controller
 
                 $tasksForDate = $this->getTasksForDate($plant, $dateStr);
 
-                if (!empty($tasksForDate)) {
-                    if (!isset($schedule[$dateStr])) {
+                if (! empty($tasksForDate)) {
+                    if (! isset($schedule[$dateStr])) {
                         $schedule[$dateStr] = [];
                     }
 
@@ -186,65 +186,65 @@ class CareScheduleController extends Controller
         ]);
     }
 
-   /**
- * Предстоящие задачи на N дней вперед
- */
-public function upcomingCare(Request $request)
-{
-    $userId = $request->user()->id;
-    $days = (int) $request->get('days', 7); // Явное приведение к int
+    /**
+     * Предстоящие задачи на N дней вперед
+     */
+    public function upcomingCare(Request $request)
+    {
+        $userId = $request->user()->id;
+        $days = min(max($request->integer('days', 7), 1), 90);
 
-    $startDate = now()->startOfDay();
-    $endDate = $startDate->copy()->addDays($days)->endOfDay();
+        $startDate = now()->startOfDay();
+        $endDate = $startDate->copy()->addDays($days)->endOfDay();
 
-    $plants = Plant::where('user_id', $userId)
-        ->with(['careSettings', 'room'])
-        ->get();
+        $plants = Plant::where('user_id', $userId)
+            ->with(['careSettings', 'room'])
+            ->get();
 
-    $schedule = [];
+        $schedule = [];
 
-    foreach ($plants as $plant) {
-        $currentDate = $startDate->copy();
+        foreach ($plants as $plant) {
+            $currentDate = $startDate->copy();
 
-        while ($currentDate->lte($endDate)) {
-            $dateStr = $currentDate->toDateString();
+            while ($currentDate->lte($endDate)) {
+                $dateStr = $currentDate->toDateString();
 
-            $tasksForDate = $this->getTasksForDate($plant, $dateStr);
+                $tasksForDate = $this->getTasksForDate($plant, $dateStr);
 
-            if (!empty($tasksForDate)) {
-                if (!isset($schedule[$dateStr])) {
-                    $schedule[$dateStr] = [
-                        'date' => $dateStr,
-                        'tasks' => [],
-                    ];
+                if (! empty($tasksForDate)) {
+                    if (! isset($schedule[$dateStr])) {
+                        $schedule[$dateStr] = [
+                            'date' => $dateStr,
+                            'tasks' => [],
+                        ];
+                    }
+
+                    foreach ($tasksForDate as $task) {
+                        $schedule[$dateStr]['tasks'][] = [
+                            'plant_id' => $plant->id,
+                            'plant_name' => $plant->name,
+                            'room_name' => $plant->room?->name,
+                            'type' => $task['type'],
+                            'setting_id' => $task['id'],
+                        ];
+                    }
                 }
 
-                foreach ($tasksForDate as $task) {
-                    $schedule[$dateStr]['tasks'][] = [
-                        'plant_id' => $plant->id,
-                        'plant_name' => $plant->name,
-                        'room_name' => $plant->room?->name,
-                        'type' => $task['type'],
-                        'setting_id' => $task['id'],
-                    ];
-                }
+                $currentDate->addDay();
             }
-
-            $currentDate->addDay();
         }
+
+        // Сортируем по датам
+        ksort($schedule);
+
+        return response()->json([
+            'period_days' => $days,
+            'start_date' => $startDate->toDateString(),
+            'end_date' => $endDate->toDateString(),
+            'tasks' => array_values($schedule),
+            'total_tasks' => collect($schedule)->sum(fn ($day) => count($day['tasks'])),
+        ]);
     }
-
-    // Сортируем по датам
-    ksort($schedule);
-
-    return response()->json([
-        'period_days' => $days,
-        'start_date' => $startDate->toDateString(),
-        'end_date' => $endDate->toDateString(),
-        'tasks' => array_values($schedule),
-        'total_tasks' => collect($schedule)->sum(fn($day) => count($day['tasks'])),
-    ]);
-}
 
     /**
      * Просроченные задачи
@@ -280,7 +280,7 @@ public function upcomingCare(Request $request)
         }
 
         // Сортируем по количеству просроченных дней (убывание)
-        usort($overdueTasks, fn($a, $b) => $b['overdue_days'] <=> $a['overdue_days']);
+        usort($overdueTasks, fn ($a, $b) => $b['overdue_days'] <=> $a['overdue_days']);
 
         return response()->json([
             'date' => $today,
@@ -289,70 +289,71 @@ public function upcomingCare(Request $request)
         ]);
     }
 
-   /**
- * Вспомогательный метод: получить задачи для конкретного растения на конкретную дату
- */
-private function getTasksForDate(Plant $plant, $dateStr)
-{
-    $date = Carbon::parse($dateStr)->toDateString();
-    $tasks = [];
+    /**
+     * Вспомогательный метод: получить задачи для конкретного растения на конкретную дату
+     */
+    private function getTasksForDate(Plant $plant, $dateStr)
+    {
+        $date = Carbon::parse($dateStr)->toDateString();
+        $tasks = [];
 
-    foreach ($plant->careSettings as $setting) {
-        if (!$setting->is_enabled) {
-            continue;
+        foreach ($plant->careSettings as $setting) {
+            if (! $setting->is_enabled) {
+                continue;
+            }
+
+            // Приводим interval_days к int
+            $intervalDays = (int) $setting->interval_days;
+
+            // Вычисляем дату последнего выполнения
+            $baseDate = $setting->last_done_at ?? $plant->planted_at;
+
+            // Вычисляем следующую дату выполнения
+            $nextDueDate = $baseDate->copy()->addDays($intervalDays);
+
+            // Проверяем, нужно ли выполнить уход в эту дату
+            if ($nextDueDate->toDateString() <= $date) {
+                $overdueDays = $nextDueDate->diffInDays(Carbon::parse($date), false);
+
+                $tasks[] = [
+                    'id' => $setting->id,
+                    'type' => $setting->type,
+                    'interval_days' => $intervalDays,
+                    'last_done_at' => $setting->last_done_at?->toISOString(),
+                    'next_due_date' => $nextDueDate->toDateString(),
+                    'is_overdue' => $overdueDays > 0,
+                    'overdue_days' => max(0, $overdueDays),
+                ];
+            }
         }
 
-        // Приводим interval_days к int
-        $intervalDays = (int) $setting->interval_days;
+        return $tasks;
+    }
 
-        // Вычисляем дату последнего выполнения
-        $baseDate = $setting->last_done_at ?? $plant->planted_at;
+    /**
+     * Вспомогательный метод: генерация расписания для растения на период
+     */
+    private function generateSchedule(Plant $plant, Carbon $startDate, Carbon $endDate)
+    {
+        $schedule = [];
 
-        // Вычисляем следующую дату выполнения
-        $nextDueDate = $baseDate->copy()->addDays($intervalDays);
+        $currentDate = $startDate->copy();
 
-        // Проверяем, нужно ли выполнить уход в эту дату
-        if ($nextDueDate->toDateString() <= $date) {
-            $overdueDays = Carbon::parse($date)->diffInDays($nextDueDate, false);
+        while ($currentDate->lte($endDate)) {
+            $dateStr = $currentDate->toDateString();
+            $tasksForDate = $this->getTasksForDate($plant, $dateStr);
 
-            $tasks[] = [
-                'id' => $setting->id,
-                'type' => $setting->type,
-                'interval_days' => $intervalDays,
-                'last_done_at' => $setting->last_done_at?->toISOString(),
-                'next_due_date' => $nextDueDate->toDateString(),
-                'is_overdue' => $overdueDays > 0,
-                'overdue_days' => max(0, $overdueDays),
+            $schedule[] = [
+                'date' => $dateStr,
+                'tasks' => $tasksForDate,
             ];
+
+            $currentDate->addDay();
         }
+
+        return $schedule;
     }
 
-    return $tasks;
-}
-
-  /**
- * Вспомогательный метод: генерация расписания для растения на период
- */
-private function generateSchedule(Plant $plant, Carbon $startDate, Carbon $endDate)
-{
-    $schedule = [];
-
-    $currentDate = $startDate->copy();
-
-    while ($currentDate->lte($endDate)) {
-        $dateStr = $currentDate->toDateString();
-        $tasksForDate = $this->getTasksForDate($plant, $dateStr);
-
-        $schedule[] = [
-            'date' => $dateStr,
-            'tasks' => $tasksForDate,
-        ];
-
-        $currentDate->addDay();
-    }
-
-    return $schedule;
-}
     /**
      * Проверка доступа к растению
      */
@@ -360,7 +361,7 @@ private function generateSchedule(Plant $plant, Carbon $startDate, Carbon $endDa
     {
         $plant = Plant::where('user_id', $userId)->find($plantId);
 
-        if (!$plant) {
+        if (! $plant) {
             abort(403, 'Plant not found or does not belong to you');
         }
     }

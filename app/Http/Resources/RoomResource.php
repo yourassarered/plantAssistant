@@ -18,8 +18,8 @@ class RoomResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'user_id' => $this->user_id,
-            'plants_count' => $this->plants->count(),
-            'plants' => PlantResource::collection($this->plants ?? []),
+            'plants_count' => $this->whenLoaded('plants', fn () => $this->plants->count()),
+            'plants' => PlantResource::collection($this->whenLoaded('plants')),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];

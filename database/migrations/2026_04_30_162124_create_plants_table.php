@@ -11,20 +11,20 @@ return new class extends Migration
      */
     public function up(): void
     {
-       Schema::create('plants', function (Blueprint $table) {
-    $table->id();
+        Schema::create('plants', function (Blueprint $table) {
+            $table->id();
 
-    $table->string('name');
-    $table->date('planted_at')->nullable();
-    $table->float('height')->nullable();
+            $table->string('name');
+            $table->date('planted_at')->nullable();
+            $table->float('height')->nullable();
 
-    $table->boolean('is_public')->default(false);
+            $table->boolean('is_public')->default(false);
 
-    $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-    $table->foreignId('room_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('room_id')->nullable()->constrained()->nullOnDelete();
 
-    $table->timestamps();
-});
+            $table->timestamps();
+        });
     }
 
     /**

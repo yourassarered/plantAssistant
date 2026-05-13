@@ -1,8 +1,16 @@
 <?php
 
+use App\Http\Middleware\AdminMiddleware;
+use App\Http\Middleware\ForceJsonResponse;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -12,12 +20,15 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
-              $middleware->api(prepend: [
-            \App\Http\Middleware\ForceJsonResponse::class,
+        $middleware->api(prepend: [
+            ForceJsonResponse::class,
+        ]);
+
+        $middleware->alias([
+            'admin' => AdminMiddleware::class,
         ]);
     })
-  ->withExceptions(function (Exceptions $exceptions) {
+    ->withExceptions(function (Exceptions $exceptions) {
         // Обработка 404 для API маршрутов
         $exceptions->render(function (NotFoundHttpException $e, Request $request) {
             if ($request->is('api/*')) {
@@ -42,7 +53,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (Throwable $e, Request $request) {
             if ($request->is('api/*')) {
                 // Если это валидация
-                if ($e instanceof \Illuminate\Validation\ValidationException) {
+                if ($e instanceof ValidationException) {
                     return response()->json([
                         'message' => 'Ошибка валидации',
                         'errors' => $e->errors(),
@@ -51,7 +62,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 }
 
                 // Если это аутентификация
-                if ($e instanceof \Illuminate\Auth\AuthenticationException) {
+                if ($e instanceof AuthenticationException) {
                     return response()->json([
                         'message' => 'Требуется аутентификация',
                         'status' => 401,
@@ -59,7 +70,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 }
 
                 // Если это авторизация
-                if ($e instanceof \Illuminate\Auth\Access\AuthorizationException) {
+                if ($e instanceof AuthorizationException) {
                     return response()->json([
                         'message' => 'Доступ запрещён',
                         'status' => 403,

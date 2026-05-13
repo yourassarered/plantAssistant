@@ -12,23 +12,23 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('roles', function (Blueprint $table) {
-    $table->id();
-    $table->string('name'); // user, admin
-    $table->timestamps();
-});
+            $table->id();
+            $table->string('name')->unique(); // user, admin
+            $table->timestamps();
+        });
 
-Schema::create('users', function (Blueprint $table) {
-    $table->id();
-    $table->string('name');
-    $table->string('email')->unique();
-    $table->string('password');
+        Schema::create('users', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->string('email')->unique();
+            $table->string('password');
 
-    $table->foreignId('role_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('role_id')->constrained()->cascadeOnDelete();
 
-    $table->integer('rank')->default(0); // количество принятых советов
+            $table->integer('rank')->default(0); // количество принятых советов
 
-    $table->timestamps();
-});
+            $table->timestamps();
+        });
     }
 
     /**
@@ -37,7 +37,6 @@ Schema::create('users', function (Blueprint $table) {
     public function down(): void
     {
         Schema::dropIfExists('users');
-        Schema::dropIfExists('password_reset_tokens');
-        Schema::dropIfExists('sessions');
+        Schema::dropIfExists('roles');
     }
 };

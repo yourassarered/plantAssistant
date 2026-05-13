@@ -2,11 +2,10 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\CareLog;
 use App\Models\Plant;
-use App\Models\CareSetting;
 use Carbon\Carbon;
+use Illuminate\Database\Seeder;
 
 class CareLogSeeder extends Seeder
 {

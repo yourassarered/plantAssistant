@@ -17,6 +17,7 @@ class User extends Authenticatable
         'password',
         'role_id',
         'rank',
+        'avatar_path',
     ];
 
     protected $hidden = [
@@ -84,5 +85,10 @@ class User extends Authenticatable
     public function following()
     {
         return $this->hasMany(Follow::class, 'follower_id');
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->role?->name === 'admin';
     }
 }

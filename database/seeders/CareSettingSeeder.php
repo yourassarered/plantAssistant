@@ -2,10 +2,10 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\CareSetting;
 use App\Models\Plant;
 use Carbon\Carbon;
+use Illuminate\Database\Seeder;
 
 class CareSettingSeeder extends Seeder
 {
@@ -28,7 +28,7 @@ class CareSettingSeeder extends Seeder
             $typesCount = rand(2, 4);
             $selectedTypes = array_rand($careTypes, $typesCount);
 
-            if (!is_array($selectedTypes)) {
+            if (! is_array($selectedTypes)) {
                 $selectedTypes = [$selectedTypes];
             }
 
@@ -37,7 +37,7 @@ class CareSettingSeeder extends Seeder
                 $interval = $intervals[array_rand($intervals)];
 
                 // Последнее выполнение от 0 до interval дней назад
-                $lastDoneAt = rand(0, 100) > 30 
+                $lastDoneAt = rand(0, 100) > 30
                     ? Carbon::now()->subDays(rand(0, $interval))
                     : null;
 

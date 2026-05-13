@@ -5,16 +5,21 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Storage;
 
-class Tip extends Model
+class PlantImage extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'plant_id',
-        'author_id',
-        'content',
-        'status',
+        'path',
+        'original_name',
+        'size',
+    ];
+
+    protected $casts = [
+        'size' => 'integer',
     ];
 
     public function plant(): BelongsTo
@@ -22,8 +27,8 @@ class Tip extends Model
         return $this->belongsTo(Plant::class);
     }
 
-    public function author(): BelongsTo
+    public function url(): string
     {
-        return $this->belongsTo(User::class, 'author_id');
+        return Storage::disk('public')->url($this->path);
     }
 }

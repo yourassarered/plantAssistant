@@ -2,10 +2,10 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
-use App\Models\Tip;
 use App\Models\Plant;
+use App\Models\Tip;
 use App\Models\User;
+use Illuminate\Database\Seeder;
 
 class TipSeeder extends Seeder
 {
@@ -20,6 +20,7 @@ class TipSeeder extends Seeder
         // Если нет публичных растений или пользователей - выходим
         if ($publicPlants->isEmpty() || $users->isEmpty()) {
             $this->command->warn('Нет публичных растений или пользователей для создания советов');
+
             return;
         }
 

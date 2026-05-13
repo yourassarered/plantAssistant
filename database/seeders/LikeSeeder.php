@@ -2,10 +2,10 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\Like;
 use App\Models\Plant;
 use App\Models\User;
+use Illuminate\Database\Seeder;
 
 class LikeSeeder extends Seeder
 {
@@ -19,6 +19,7 @@ class LikeSeeder extends Seeder
 
         if ($publicPlants->isEmpty() || $users->isEmpty()) {
             $this->command->warn('Нет публичных растений или пользователей для создания лайков');
+
             return;
         }
 
@@ -43,7 +44,7 @@ class LikeSeeder extends Seeder
                     ->where('plant_id', $plant->id)
                     ->exists();
 
-                if (!$exists) {
+                if (! $exists) {
                     Like::create([
                         'user_id' => $user->id,
                         'plant_id' => $plant->id,

@@ -2,9 +2,9 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\Room;
 use App\Models\User;
+use Illuminate\Database\Seeder;
 
 class RoomSeeder extends Seeder
 {
@@ -30,7 +30,7 @@ class RoomSeeder extends Seeder
             $roomCount = rand(2, 4);
             $selectedRooms = array_rand(array_flip($roomTemplates), $roomCount);
 
-            if (!is_array($selectedRooms)) {
+            if (! is_array($selectedRooms)) {
                 $selectedRooms = [$selectedRooms];
             }
 

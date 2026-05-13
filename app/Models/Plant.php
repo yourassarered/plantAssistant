@@ -71,4 +71,14 @@ class Plant extends Model
     {
         return $this->hasMany(Like::class);
     }
+
+    public function images()
+    {
+        return $this->hasMany(PlantImage::class)->latest();
+    }
+
+    public function latestImage()
+    {
+        return $this->hasOne(PlantImage::class)->latestOfMany();
+    }
 }

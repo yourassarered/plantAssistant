@@ -11,16 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-      Schema::create('follows', function (Blueprint $table) {
-    $table->id();
+        Schema::create('follows', function (Blueprint $table) {
+            $table->id();
 
-    $table->foreignId('follower_id')->constrained('users')->cascadeOnDelete();
-    $table->foreignId('following_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('follower_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('following_id')->constrained('users')->cascadeOnDelete();
 
-    $table->unique(['follower_id', 'following_id']);
+            $table->unique(['follower_id', 'following_id']);
 
-    $table->timestamps();
-});
+            $table->timestamps();
+        });
     }
 
     /**
