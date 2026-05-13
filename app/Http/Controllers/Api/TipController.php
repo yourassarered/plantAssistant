@@ -3,54 +3,32 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\UpdateTipStatusRequest;
 use App\Http\Resources\TipResource;
 use App\Models\Plant;
 use App\Models\Tip;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
 
 class TipController extends Controller
 {
-    /**
-     * Все советы для конкретного растения
-     */
     public function index(Request $request, $plantId)
     {
         $plant = Plant::findOrFail($plantId);
-
-        // Может просмотреть советы только для своих растений или публичных
-        if ($plant->user_id !== $request->user()->id && ! $plant->is_public) {
-            abort(403, 'Unauthorized');
-        }
+        $this->authorize('view', $plant);
 
         $tips = Tip::where('plant_id', $plantId)
             ->with('author')
             ->orderBy('created_at', 'desc')
-            ->paginate($request->get('per_page', 15));
+            ->paginate(min($request->integer('per_page', 15), 100));
 
         return TipResource::collection($tips);
     }
 
-    /**
-     * Создание совета для растения
-     */
     public function store(Request $request, $plantId)
     {
         $plant = Plant::findOrFail($plantId);
-
-        // Можно оставить совет только для публичных растений
-        if (! $plant->is_public) {
-            return response()->json([
-                'message' => 'Can only leave tips for public plants',
-            ], 403);
-        }
-
-        // Нельзя оставить совет для своего же растения
-        if ($plant->user_id === $request->user()->id) {
-            return response()->json([
-                'message' => 'You cannot leave tips for your own plants',
-            ], 422);
-        }
+        $this->authorize('create', [Tip::class, $plant->user_id, (bool) $plant->is_public]);
 
         $validated = $request->validate([
             'content' => 'required|string|max:1000',
@@ -66,38 +44,24 @@ class TipController extends Controller
         return new TipResource($tip->load('author'));
     }
 
-    /**
-     * Просмотр конкретного совета
-     */
     public function show(Request $request, $id)
     {
         $tip = Tip::with('author', 'plant')->findOrFail($id);
-
-        // Проверяем доступ
-        $plant = $tip->plant;
-        if ($plant->user_id !== $request->user()->id && ! $plant->is_public) {
-            abort(403, 'Unauthorized');
-        }
+        $this->authorize('view', $tip);
 
         return new TipResource($tip);
     }
 
-    /**
-     * Советы, созданные текущим пользователем
-     */
     public function myTips(Request $request)
     {
         $tips = Tip::where('author_id', $request->user()->id)
             ->with(['plant', 'author'])
             ->orderBy('created_at', 'desc')
-            ->paginate($request->get('per_page', 15));
+            ->paginate(min($request->integer('per_page', 15), 100));
 
         return TipResource::collection($tips);
     }
 
-    /**
-     * Советы, полученные для растений текущего пользователя
-     */
     public function receivedTips(Request $request)
     {
         $userId = $request->user()->id;
@@ -107,19 +71,16 @@ class TipController extends Controller
         )
             ->with(['plant', 'author'])
             ->orderBy('created_at', 'desc')
-            ->paginate($request->get('per_page', 15));
+            ->paginate(min($request->integer('per_page', 15), 100));
 
         return TipResource::collection($tips);
     }
 
-    /**
-     * Фильтрация полученных советов по статусу
-     */
     public function receivedTipsByStatus(Request $request, $status)
     {
         $validStatuses = ['pending', 'accepted', 'rejected'];
 
-        if (! in_array($status, $validStatuses)) {
+        if (! in_array($status, $validStatuses, true)) {
             return response()->json([
                 'message' => 'Invalid status',
             ], 422);
@@ -133,76 +94,56 @@ class TipController extends Controller
             ->where('status', $status)
             ->with(['plant', 'author'])
             ->orderBy('created_at', 'desc')
-            ->paginate($request->get('per_page', 15));
+            ->paginate(min($request->integer('per_page', 15), 100));
 
         return TipResource::collection($tips);
     }
 
-    /**
-     * Изменение статуса совета (принять/отклонить)
-     */
-    public function updateStatus(Request $request, $id)
+    public function updateStatus(UpdateTipStatusRequest $request, $id)
     {
-        $tip = Tip::with('plant')->findOrFail($id);
+        $tip = Tip::with(['plant', 'author'])->findOrFail($id);
+        $this->authorize('updateStatus', $tip);
 
-        // Может менять статус только владелец растения
-        if ($tip->plant->user_id !== $request->user()->id) {
-            abort(403, 'Unauthorized');
-        }
+        $newStatus = $request->string('status')->value();
 
-        $validated = $request->validate([
-            'status' => ['required', Rule::in(['accepted', 'rejected'])],
-        ]);
+        $tip = DB::transaction(function () use ($tip, $newStatus) {
+            $oldStatus = $tip->status;
 
-        $oldStatus = $tip->status;
-        $newStatus = $validated['status'];
+            if ($newStatus === 'accepted' && $oldStatus !== 'accepted') {
+                $tip->author->increment('rank');
+            }
 
-        // Если совет принят и это первый раз (был pending), увеличиваем ранг автора
-        if ($newStatus === 'accepted' && $oldStatus !== 'accepted') {
-            $author = $tip->author;
-            $author->increment('rank');
-        }
+            if ($newStatus === 'rejected' && $oldStatus === 'accepted') {
+                $tip->author->decrement('rank');
+            }
 
-        // Если совет был принят, но теперь его отклоняют, уменьшаем ранг
-        if ($newStatus === 'rejected' && $oldStatus === 'accepted') {
-            $author = $tip->author;
-            $author->decrement('rank');
-        }
+            $tip->status = $newStatus;
+            $tip->save();
 
-        $tip->status = $newStatus;
-        $tip->save();
+            return $tip;
+        });
 
-        return new TipResource($tip->load('author'));
+        return new TipResource($tip->fresh('author'));
     }
 
-    /**
-     * Удаление совета (может удалить автор или владелец растения)
-     */
     public function destroy(Request $request, $id)
     {
-        $tip = Tip::with('plant')->findOrFail($id);
+        $tip = Tip::with(['plant', 'author'])->findOrFail($id);
+        $this->authorize('delete', $tip);
 
-        // Может удалить только автор совета или владелец растения
-        if ($tip->author_id !== $request->user()->id && $tip->plant->user_id !== $request->user()->id) {
-            abort(403, 'Unauthorized');
-        }
+        DB::transaction(function () use ($tip): void {
+            if ($tip->status === 'accepted') {
+                $tip->author->decrement('rank');
+            }
 
-        // Если совет был принят, уменьшаем ранг автора
-        if ($tip->status === 'accepted') {
-            $author = $tip->author;
-            $author->decrement('rank');
-        }
-
-        $tip->delete();
+            $tip->delete();
+        });
 
         return response()->json([
             'message' => 'Tip deleted successfully',
         ]);
     }
 
-    /**
-     * Количество советов по статусам для текущего пользователя
-     */
     public function tipStats(Request $request)
     {
         $userId = $request->user()->id;

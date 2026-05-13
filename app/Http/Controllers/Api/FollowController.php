@@ -10,36 +10,21 @@ use Illuminate\Http\Request;
 
 class FollowController extends Controller
 {
-    /**
-     * Подписаться на пользователя
-     */
     public function follow(Request $request, $userId)
     {
         $targetUser = User::findOrFail($userId);
-        $currentUser = $request->user();
+        $this->authorize('follow', [Follow::class, $targetUser]);
 
-        // Нельзя подписаться на себя
-        if ($targetUser->id === $currentUser->id) {
-            return response()->json([
-                'message' => 'You cannot follow yourself',
-            ], 422);
-        }
+        $follow = Follow::firstOrCreate([
+            'follower_id' => $request->user()->id,
+            'following_id' => $userId,
+        ]);
 
-        // Проверяем, не подписаны ли уже
-        $follow = Follow::where('follower_id', $currentUser->id)
-            ->where('following_id', $userId)
-            ->first();
-
-        if ($follow) {
+        if (! $follow->wasRecentlyCreated) {
             return response()->json([
                 'message' => 'You are already following this user',
             ], 422);
         }
-
-        Follow::create([
-            'follower_id' => $currentUser->id,
-            'following_id' => $userId,
-        ]);
 
         return response()->json([
             'message' => 'Successfully followed user',
@@ -47,15 +32,12 @@ class FollowController extends Controller
         ]);
     }
 
-    /**
-     * Отписаться от пользователя
-     */
     public function unfollow(Request $request, $userId)
     {
         $targetUser = User::findOrFail($userId);
-        $currentUser = $request->user();
+        $this->authorize('unfollow', [Follow::class, $targetUser]);
 
-        $follow = Follow::where('follower_id', $currentUser->id)
+        $follow = Follow::where('follower_id', $request->user()->id)
             ->where('following_id', $userId)
             ->first();
 
@@ -73,41 +55,35 @@ class FollowController extends Controller
         ]);
     }
 
-    /**
-     * Список подписчиков пользователя
-     */
     public function followers(Request $request, $userId)
     {
-        $user = User::findOrFail($userId);
+        $targetUser = User::findOrFail($userId);
+        $this->authorize('viewRelations', [Follow::class, $targetUser]);
 
         $followers = User::whereIn('id',
             Follow::where('following_id', $userId)->pluck('follower_id')
-        )
-            ->paginate($request->get('per_page', 15));
+        )->paginate(min($request->integer('per_page', 15), 100));
 
         return UserResource::collection($followers);
     }
 
-    /**
-     * Список пользователей, на которых подписан пользователь
-     */
     public function following(Request $request, $userId)
     {
-        $user = User::findOrFail($userId);
+        $targetUser = User::findOrFail($userId);
+        $this->authorize('viewRelations', [Follow::class, $targetUser]);
 
         $following = User::whereIn('id',
             Follow::where('follower_id', $userId)->pluck('following_id')
-        )
-            ->paginate($request->get('per_page', 15));
+        )->paginate(min($request->integer('per_page', 15), 100));
 
         return UserResource::collection($following);
     }
 
-    /**
-     * Проверка подписки (подписан ли текущий пользователь на целевого)
-     */
     public function isFollowing(Request $request, $userId)
     {
+        $targetUser = User::findOrFail($userId);
+        $this->authorize('viewRelations', [Follow::class, $targetUser]);
+
         $isFollowing = Follow::where('follower_id', $request->user()->id)
             ->where('following_id', $userId)
             ->exists();
@@ -118,11 +94,11 @@ class FollowController extends Controller
         ]);
     }
 
-    /**
-     * Проверить отношение между пользователями
-     */
     public function checkRelationship(Request $request, $userId)
     {
+        $targetUser = User::findOrFail($userId);
+        $this->authorize('viewRelations', [Follow::class, $targetUser]);
+
         $currentUser = $request->user();
 
         $iFollowThem = Follow::where('follower_id', $currentUser->id)
@@ -141,29 +117,25 @@ class FollowController extends Controller
         ]);
     }
 
-    /**
-     * Количество подписчиков пользователя
-     */
     public function followerCount($userId)
     {
-        $count = Follow::where('following_id', $userId)->count();
+        $targetUser = User::findOrFail($userId);
+        $this->authorize('viewRelations', [Follow::class, $targetUser]);
 
         return response()->json([
             'user_id' => $userId,
-            'followers_count' => $count,
+            'followers_count' => Follow::where('following_id', $userId)->count(),
         ]);
     }
 
-    /**
-     * Количество подписок пользователя
-     */
     public function followingCount($userId)
     {
-        $count = Follow::where('follower_id', $userId)->count();
+        $targetUser = User::findOrFail($userId);
+        $this->authorize('viewRelations', [Follow::class, $targetUser]);
 
         return response()->json([
             'user_id' => $userId,
-            'following_count' => $count,
+            'following_count' => Follow::where('follower_id', $userId)->count(),
         ]);
     }
 }

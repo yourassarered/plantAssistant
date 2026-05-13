@@ -9,16 +9,11 @@ use Illuminate\Http\Request;
 
 class CareScheduleController extends Controller
 {
-    /**
-     * Расписание ухода для конкретного растения
-     */
     public function plantSchedule(Request $request, $plantId)
     {
-        $this->authorizePlantAccess($request->user()->id, $plantId);
-
         $plant = Plant::with('careSettings')->findOrFail($plantId);
+        $this->authorize('update', $plant);
 
-        // Получаем даты диапазона
         $startDate = $request->has('start_date')
             ? Carbon::parse($request->start_date)->startOfDay()
             : now()->startOfMonth();
@@ -41,11 +36,10 @@ class CareScheduleController extends Controller
         ]);
     }
 
-    /**
-     * Все растения, которым нужен уход на сегодняшний день
-     */
     public function todaysCare(Request $request)
     {
+        $this->authorize('viewAny', Plant::class);
+
         $userId = $request->user()->id;
         $today = now()->toDateString();
 
@@ -76,7 +70,6 @@ class CareScheduleController extends Controller
             }
         }
 
-        // Сортируем по статусу "просроченный"
         usort($plantsNeedingCare, function ($a, $b) {
             $aOverdue = collect($a['tasks'])->filter(fn ($t) => $t['is_overdue'])->count();
             $bOverdue = collect($b['tasks'])->filter(fn ($t) => $t['is_overdue'])->count();
@@ -92,22 +85,18 @@ class CareScheduleController extends Controller
         ]);
     }
 
-    /**
-     * Расписание ухода на месяц
-     */
     public function monthSchedule(Request $request)
     {
-        $userId = $request->user()->id;
+        $this->authorize('viewAny', Plant::class);
 
+        $userId = $request->user()->id;
         $month = min(max($request->integer('month', now()->month), 1), 12);
         $year = min(max($request->integer('year', now()->year), 2000), 2100);
 
         $startDate = Carbon::createFromDate($year, $month, 1)->startOfDay();
         $endDate = $startDate->copy()->endOfMonth();
 
-        $plants = Plant::where('user_id', $userId)
-            ->with('careSettings')
-            ->get();
+        $plants = Plant::where('user_id', $userId)->with('careSettings')->get();
 
         $schedule = [];
         $statistics = [
@@ -123,12 +112,10 @@ class CareScheduleController extends Controller
 
         foreach ($plants as $plant) {
             $plantTasks = 0;
-
-            // Для каждого дня месяца
             $currentDate = $startDate->copy();
+
             while ($currentDate->lte($endDate)) {
                 $dateStr = $currentDate->toDateString();
-
                 $tasksForDate = $this->getTasksForDate($plant, $dateStr);
 
                 if (! empty($tasksForDate)) {
@@ -162,7 +149,6 @@ class CareScheduleController extends Controller
             }
         }
 
-        // Форматируем расписание в массив по дням
         $formattedSchedule = [];
         $currentDate = $startDate->copy();
         while ($currentDate->lte($endDate)) {
@@ -186,11 +172,10 @@ class CareScheduleController extends Controller
         ]);
     }
 
-    /**
-     * Предстоящие задачи на N дней вперед
-     */
     public function upcomingCare(Request $request)
     {
+        $this->authorize('viewAny', Plant::class);
+
         $userId = $request->user()->id;
         $days = min(max($request->integer('days', 7), 1), 90);
 
@@ -208,15 +193,11 @@ class CareScheduleController extends Controller
 
             while ($currentDate->lte($endDate)) {
                 $dateStr = $currentDate->toDateString();
-
                 $tasksForDate = $this->getTasksForDate($plant, $dateStr);
 
                 if (! empty($tasksForDate)) {
                     if (! isset($schedule[$dateStr])) {
-                        $schedule[$dateStr] = [
-                            'date' => $dateStr,
-                            'tasks' => [],
-                        ];
+                        $schedule[$dateStr] = ['date' => $dateStr, 'tasks' => []];
                     }
 
                     foreach ($tasksForDate as $task) {
@@ -234,7 +215,6 @@ class CareScheduleController extends Controller
             }
         }
 
-        // Сортируем по датам
         ksort($schedule);
 
         return response()->json([
@@ -246,11 +226,10 @@ class CareScheduleController extends Controller
         ]);
     }
 
-    /**
-     * Просроченные задачи
-     */
     public function overdueCare(Request $request)
     {
+        $this->authorize('viewAny', Plant::class);
+
         $userId = $request->user()->id;
         $today = now()->toDateString();
 
@@ -279,7 +258,6 @@ class CareScheduleController extends Controller
             }
         }
 
-        // Сортируем по количеству просроченных дней (убывание)
         usort($overdueTasks, fn ($a, $b) => $b['overdue_days'] <=> $a['overdue_days']);
 
         return response()->json([
@@ -289,10 +267,7 @@ class CareScheduleController extends Controller
         ]);
     }
 
-    /**
-     * Вспомогательный метод: получить задачи для конкретного растения на конкретную дату
-     */
-    private function getTasksForDate(Plant $plant, $dateStr)
+    private function getTasksForDate(Plant $plant, $dateStr): array
     {
         $date = Carbon::parse($dateStr)->toDateString();
         $tasks = [];
@@ -302,16 +277,10 @@ class CareScheduleController extends Controller
                 continue;
             }
 
-            // Приводим interval_days к int
             $intervalDays = (int) $setting->interval_days;
-
-            // Вычисляем дату последнего выполнения
             $baseDate = $setting->last_done_at ?? $plant->planted_at;
-
-            // Вычисляем следующую дату выполнения
             $nextDueDate = $baseDate->copy()->addDays($intervalDays);
 
-            // Проверяем, нужно ли выполнить уход в эту дату
             if ($nextDueDate->toDateString() <= $date) {
                 $overdueDays = $nextDueDate->diffInDays(Carbon::parse($date), false);
 
@@ -330,13 +299,9 @@ class CareScheduleController extends Controller
         return $tasks;
     }
 
-    /**
-     * Вспомогательный метод: генерация расписания для растения на период
-     */
-    private function generateSchedule(Plant $plant, Carbon $startDate, Carbon $endDate)
+    private function generateSchedule(Plant $plant, Carbon $startDate, Carbon $endDate): array
     {
         $schedule = [];
-
         $currentDate = $startDate->copy();
 
         while ($currentDate->lte($endDate)) {
@@ -352,17 +317,5 @@ class CareScheduleController extends Controller
         }
 
         return $schedule;
-    }
-
-    /**
-     * Проверка доступа к растению
-     */
-    private function authorizePlantAccess($userId, $plantId)
-    {
-        $plant = Plant::where('user_id', $userId)->find($plantId);
-
-        if (! $plant) {
-            abort(403, 'Plant not found or does not belong to you');
-        }
     }
 }

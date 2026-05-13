@@ -10,64 +10,39 @@ use Illuminate\Http\Request;
 
 class LikeController extends Controller
 {
-    /**
-     * Поставить/убрать лайк на растение
-     */
     public function toggle(Request $request, $plantId)
     {
         $plant = Plant::findOrFail($plantId);
-
-        // Можно лайкнуть только публичные растения
-        if (! $plant->is_public) {
-            return response()->json([
-                'message' => 'Can only like public plants',
-            ], 403);
-        }
-
-        // Нельзя лайкнуть свои растения
-        if ($plant->user_id === $request->user()->id) {
-            return response()->json([
-                'message' => 'You cannot like your own plants',
-            ], 422);
-        }
+        $this->authorize('toggle', [Like::class, $plant]);
 
         $like = Like::where('user_id', $request->user()->id)
             ->where('plant_id', $plantId)
             ->first();
 
         if ($like) {
-            // Лайк уже есть, удаляем его
             $like->delete();
 
             return response()->json([
                 'message' => 'Like removed',
                 'liked' => false,
             ]);
-        } else {
-            // Создаём лайк
-            Like::create([
-                'user_id' => $request->user()->id,
-                'plant_id' => $plantId,
-            ]);
-
-            return response()->json([
-                'message' => 'Like added',
-                'liked' => true,
-            ]);
         }
+
+        Like::create([
+            'user_id' => $request->user()->id,
+            'plant_id' => $plantId,
+        ]);
+
+        return response()->json([
+            'message' => 'Like added',
+            'liked' => true,
+        ]);
     }
 
-    /**
-     * Список пользователей, лайкнувших растение
-     */
     public function index(Request $request, $plantId)
     {
         $plant = Plant::findOrFail($plantId);
-
-        // Может просмотреть лайки для своих растений или публичных
-        if ($plant->user_id !== $request->user()->id && ! $plant->is_public) {
-            abort(403, 'Unauthorized');
-        }
+        $this->authorize('viewPlantLikes', [Like::class, $plant]);
 
         $likes = Like::where('plant_id', $plantId)
             ->with('user')
@@ -76,11 +51,10 @@ class LikeController extends Controller
         return LikeResource::collection($likes);
     }
 
-    /**
-     * Растения, лайкнутые текущим пользователем
-     */
     public function myLikes(Request $request)
     {
+        $this->authorize('viewMyLikes', Like::class);
+
         $likes = Like::where('user_id', $request->user()->id)
             ->with('plant', 'plant.user')
             ->orderBy('created_at', 'desc')
@@ -89,11 +63,11 @@ class LikeController extends Controller
         return LikeResource::collection($likes);
     }
 
-    /**
-     * Проверка, лайкнул ли пользователь это растение
-     */
     public function isLiked(Request $request, $plantId)
     {
+        $plant = Plant::findOrFail($plantId);
+        $this->authorize('viewLikeState', [Like::class, $plant]);
+
         $liked = Like::where('user_id', $request->user()->id)
             ->where('plant_id', $plantId)
             ->exists();
@@ -104,22 +78,14 @@ class LikeController extends Controller
         ]);
     }
 
-    /**
-     * Количество лайков для растения
-     */
     public function count(Request $request, $plantId)
     {
         $plant = Plant::findOrFail($plantId);
-
-        if ($plant->user_id !== $request->user()->id && ! $plant->is_public && ! $request->user()->isAdmin()) {
-            abort(403, 'Unauthorized');
-        }
-
-        $count = Like::where('plant_id', $plantId)->count();
+        $this->authorize('viewPlantLikes', [Like::class, $plant]);
 
         return response()->json([
             'plant_id' => (int) $plantId,
-            'likes_count' => $count,
+            'likes_count' => Like::where('plant_id', $plantId)->count(),
         ]);
     }
 }

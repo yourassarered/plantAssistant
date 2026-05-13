@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\DTO\PlantFiltersData;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\PlantIndexRequest;
 use App\Http\Resources\PlantResource;
 use App\Models\Plant;
 use App\Models\Room;
@@ -11,47 +13,36 @@ use Illuminate\Http\Request;
 
 class PlantController extends Controller
 {
-    /**
-     * Список растений текущего пользователя
-     */
-    public function index(Request $request)
+    public function index(PlantIndexRequest $request)
     {
+        $this->authorize('viewAny', Plant::class);
+
+        $filters = PlantFiltersData::fromRequest($request);
+
         $query = Plant::where('user_id', $request->user()->id)
             ->with(['room', 'latestImage', 'careSettings', 'careLogs']);
 
-        // Фильтр по комнате
-        if ($request->has('room_id')) {
-            $query->where('room_id', $request->room_id);
+        if ($filters->roomId) {
+            $query->where('room_id', $filters->roomId);
         }
 
-        // Фильтр по публичности
-        if ($request->has('is_public')) {
-            $query->where('is_public', $request->is_public);
+        if ($filters->isPublic !== null) {
+            $query->where('is_public', $filters->isPublic);
         }
 
-        // Поиск по названию
-        if ($request->has('search')) {
-            $search = $request->search;
-            $query->where('name', 'ilike', "%{$search}%");
+        if ($filters->search) {
+            $query->where('name', 'ilike', "%{$filters->search}%");
         }
 
-        // Сортировка
-        $sortBy = in_array($request->get('sort_by'), ['created_at', 'name', 'planted_at', 'height'], true)
-            ? $request->get('sort_by')
-            : 'created_at';
-        $sortOrder = $request->get('sort_order') === 'asc' ? 'asc' : 'desc';
-        $query->orderBy($sortBy, $sortOrder);
+        $query->orderBy($filters->sortBy, $filters->sortOrder);
 
-        $plants = $query->paginate(min($request->integer('per_page', 15), 100));
-
-        return PlantResource::collection($plants);
+        return PlantResource::collection($query->paginate($filters->perPage));
     }
 
-    /**
-     * Создание растения
-     */
     public function store(Request $request)
     {
+        $this->authorize('create', Plant::class);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'planted_at' => 'required|date',
@@ -60,9 +51,9 @@ class PlantController extends Controller
             'is_public' => 'boolean',
         ]);
 
-        // Проверяем, что комната принадлежит пользователю
-        if ($request->has('room_id') && $request->room_id) {
-            $this->validateRoomOwnership($request->user()->id, $request->room_id);
+        if (! empty($validated['room_id'])) {
+            $room = Room::findOrFail($validated['room_id']);
+            $this->authorize('update', $room);
         }
 
         $plant = Plant::create([
@@ -74,32 +65,23 @@ class PlantController extends Controller
             'user_id' => $request->user()->id,
         ]);
 
-        return new PlantResource($plant);
+        return new PlantResource($plant->load('latestImage'));
     }
 
-    /**
-     * Просмотр детальной информации о растении
-     */
     public function show(Request $request, $id)
     {
         $plant = Plant::with(['room', 'latestImage', 'careSettings', 'careLogs', 'tips', 'likes'])
             ->findOrFail($id);
 
-        // Проверка доступа: может просмотреть свои растения или публичные
-        if ($plant->user_id !== $request->user()->id && ! $plant->is_public) {
-            abort(403, 'Unauthorized');
-        }
+        $this->authorize('view', $plant);
 
         return new PlantResource($plant);
     }
 
-    /**
-     * Редактирование растения
-     */
     public function update(Request $request, $id)
     {
-        $plant = Plant::where('user_id', $request->user()->id)
-            ->findOrFail($id);
+        $plant = Plant::findOrFail($id);
+        $this->authorize('update', $plant);
 
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
@@ -109,23 +91,20 @@ class PlantController extends Controller
             'is_public' => 'sometimes|boolean',
         ]);
 
-        // Проверяем, что комната принадлежит пользователю
-        if ($request->has('room_id') && $request->room_id) {
-            $this->validateRoomOwnership($request->user()->id, $request->room_id);
+        if (! empty($validated['room_id'])) {
+            $room = Room::findOrFail($validated['room_id']);
+            $this->authorize('update', $room);
         }
 
         $plant->update($validated);
 
-        return new PlantResource($plant);
+        return new PlantResource($plant->fresh(['room', 'latestImage']));
     }
 
-    /**
-     * Удаление растения
-     */
     public function destroy(Request $request, $id)
     {
-        $plant = Plant::where('user_id', $request->user()->id)
-            ->findOrFail($id);
+        $plant = Plant::findOrFail($id);
+        $this->authorize('delete', $plant);
 
         $plant->delete();
 
@@ -134,43 +113,35 @@ class PlantController extends Controller
         ]);
     }
 
-    /**
-     * Список публичных растений (для ленты)
-     */
-    public function public(Request $request)
+    public function public(PlantIndexRequest $request)
     {
+        $this->authorize('viewAny', Plant::class);
+
+        $filters = PlantFiltersData::fromRequest($request);
+
         $query = Plant::where('is_public', true)
             ->with(['user.role', 'room', 'latestImage', 'likes'])
             ->withCount('likes');
 
-        // Поиск по названию
-        if ($request->has('search')) {
-            $search = $request->search;
-            $query->where('name', 'ilike', "%{$search}%");
+        if ($filters->search) {
+            $query->where('name', 'ilike', "%{$filters->search}%");
         }
 
-        // Сортировка по популярности (количество лайков)
         if ($request->get('sort_by') === 'likes') {
             $query->orderBy('likes_count', 'desc');
         } else {
-            $query->orderBy('created_at', 'desc');
+            $query->orderBy($filters->sortBy, $filters->sortOrder);
         }
 
-        $plants = $query->paginate(min($request->integer('per_page', 15), 100));
-
-        return PlantResource::collection($plants);
+        return PlantResource::collection($query->paginate($filters->perPage));
     }
 
-    /**
-     * Растения конкретной комнаты
-     */
     public function byRoom(Request $request, $roomId)
     {
-        // Проверяем принадлежность комнаты
-        $this->validateRoomOwnership($request->user()->id, $roomId);
+        $room = Room::findOrFail($roomId);
+        $this->authorize('view', $room);
 
-        $plants = Plant::where('user_id', $request->user()->id)
-            ->where('room_id', $roomId)
+        $plants = Plant::where('room_id', $roomId)
             ->with(['latestImage', 'careSettings', 'careLogs'])
             ->orderBy('name')
             ->paginate(min($request->integer('per_page', 15), 100));
@@ -178,29 +149,22 @@ class PlantController extends Controller
         return PlantResource::collection($plants);
     }
 
-    /**
-     * Переключение статуса публичности
-     */
     public function togglePublic(Request $request, $id)
     {
-        $plant = Plant::where('user_id', $request->user()->id)
-            ->findOrFail($id);
+        $plant = Plant::findOrFail($id);
+        $this->authorize('update', $plant);
 
         $plant->is_public = ! $plant->is_public;
         $plant->save();
 
-        return new PlantResource($plant);
+        return new PlantResource($plant->fresh('latestImage'));
     }
 
-    /**
-     * Все растения, которым нужен уход на сегодняшний день
-     */
     public function todaysCare(Request $request)
     {
         $userId = $request->user()->id;
         $today = now()->toDateString();
 
-        // Получаем все растения пользователя с настройками ухода
         $plants = Plant::where('user_id', $userId)
             ->with(['careSettings', 'room'])
             ->get();
@@ -211,20 +175,15 @@ class PlantController extends Controller
             $tasksForPlant = [];
 
             foreach ($plant->careSettings as $setting) {
-                // Пропускаем отключённые настройки
                 if (! $setting->is_enabled) {
                     continue;
                 }
 
-                // Приводим к int
                 $intervalDays = (int) $setting->interval_days;
-
-                // Вычисляем следующую дату выполнения
                 $nextDueDate = $setting->last_done_at
                     ? $setting->last_done_at->copy()->addDays($intervalDays)->toDateString()
                     : $plant->planted_at->copy()->addDays($intervalDays)->toDateString();
 
-                // Проверяем, нужно ли выполнить уход сегодня
                 if ($nextDueDate <= $today) {
                     $overdueDays = Carbon::parse($nextDueDate)->diffInDays(now(), false);
 
@@ -240,7 +199,6 @@ class PlantController extends Controller
                 }
             }
 
-            // Если есть задачи для этого растения, добавляем его в результат
             if (! empty($tasksForPlant)) {
                 $plantsNeedingCare[] = [
                     'plant' => new PlantResource($plant),
@@ -257,14 +215,10 @@ class PlantController extends Controller
         ]);
     }
 
-    /**
-     * Расписание ухода для конкретного растения
-     */
     public function schedule(Request $request, $id)
     {
-        $plant = Plant::where('user_id', $request->user()->id)
-            ->with('careSettings')
-            ->findOrFail($id);
+        $plant = Plant::with('careSettings')->findOrFail($id);
+        $this->authorize('update', $plant);
 
         $startDate = $request->has('start_date')
             ? Carbon::parse($request->start_date)->toDateString()
@@ -281,15 +235,11 @@ class PlantController extends Controller
                 continue;
             }
 
-            // Приводим к int
             $intervalDays = (int) $setting->interval_days;
-
-            // Определяем первую дату
             $currentDate = $setting->last_done_at
                 ? $setting->last_done_at->copy()->addDays($intervalDays)
                 : $plant->planted_at->copy()->addDays($intervalDays);
 
-            // Генерируем даты в диапазоне
             while ($currentDate->toDateString() <= $endDate) {
                 if ($currentDate->toDateString() >= $startDate) {
                     $dateStr = $currentDate->toDateString();
@@ -309,7 +259,6 @@ class PlantController extends Controller
             }
         }
 
-        // Форматируем вывод
         $formattedSchedule = [];
         foreach ($schedule as $date => $tasks) {
             $formattedSchedule[] = [
@@ -327,19 +276,5 @@ class PlantController extends Controller
             ],
             'schedule' => $formattedSchedule,
         ]);
-    }
-
-    /**
-     * Проверка принадлежности комнаты пользователю
-     */
-    private function validateRoomOwnership($userId, $roomId)
-    {
-        $room = Room::where('user_id', $userId)
-            ->where('id', $roomId)
-            ->first();
-
-        if (! $room) {
-            abort(403, 'Room not found or does not belong to you');
-        }
     }
 }

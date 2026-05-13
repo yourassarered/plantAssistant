@@ -3,29 +3,31 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\UpdateUserRoleRequest;
 use App\Http\Resources\UserResource;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\ModeratorAuditLogger;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
-    /**
-     * Список пользователей (для администратора или ленты)
-     */
+    public function __construct(private readonly ModeratorAuditLogger $audit) {}
+
     public function index(Request $request)
     {
+        $this->authorize('viewAny', User::class);
+
         $query = User::query();
 
-        // Фильтр по роли
         if ($request->has('role')) {
             $query->whereHas('role', function ($q) use ($request) {
                 $q->where('name', $request->role);
             });
         }
 
-        // Поиск по имени или email
         if ($request->has('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
@@ -34,7 +36,6 @@ class UserController extends Controller
             });
         }
 
-        // Сортировка по рангу
         if ($request->has('sort_by_rank')) {
             $query->orderBy('rank', 'desc');
         }
@@ -44,22 +45,18 @@ class UserController extends Controller
         return UserResource::collection($users);
     }
 
-    /**
-     * Просмотр профиля пользователя
-     */
     public function show($id)
     {
         $user = User::with('role')->findOrFail($id);
+        $this->authorize('view', $user);
 
         return new UserResource($user);
     }
 
-    /**
-     * Обновление собственного профиля
-     */
     public function update(Request $request)
     {
         $user = $request->user();
+        $this->authorize('updateProfile', $user);
 
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
@@ -81,19 +78,15 @@ class UserController extends Controller
 
         $user->save();
 
-        return new UserResource($user);
+        return new UserResource($user->fresh('role'));
     }
 
-    /**
-     * Удаление пользователя (администратор)
-     */
     public function destroy(Request $request, $id)
     {
-        $this->authorizeAdmin($request);
+        $this->authorize('manage', User::class);
 
         $user = User::findOrFail($id);
 
-        // Нельзя удалить себя
         if ($user->id === $request->user()->id) {
             return response()->json([
                 'message' => 'You cannot delete your own account',
@@ -102,45 +95,49 @@ class UserController extends Controller
 
         $user->delete();
 
+        $this->audit->log(
+            actor: $request->user(),
+            action: 'user.delete',
+            targetType: User::class,
+            targetId: (int) $id,
+            payload: null,
+            request: $request
+        );
+
         return response()->json([
             'message' => 'User deleted successfully',
         ]);
     }
 
-    /**
-     * Изменение роли пользователя (администратор)
-     */
-    public function updateRole(Request $request, $id)
+    public function updateRole(UpdateUserRoleRequest $request, $id)
     {
-        $this->authorizeAdmin($request);
-
-        $validated = $request->validate([
-            'role_name' => 'required|string|exists:roles,name',
-        ]);
+        $this->authorize('manage', User::class);
 
         $user = User::findOrFail($id);
 
-        // Нельзя менять свою роль
         if ($user->id === $request->user()->id) {
             return response()->json([
                 'message' => 'You cannot change your own role',
             ], 403);
         }
 
-        $role = Role::where('name', $validated['role_name'])->first();
-        $user->role_id = $role->id;
-        $user->save();
+        $user = DB::transaction(function () use ($request, $user) {
+            $role = Role::where('name', $request->string('role_name')->value())->firstOrFail();
+            $user->role_id = $role->id;
+            $user->save();
 
-        return new UserResource($user);
-    }
+            return $user;
+        });
 
-    /**
-     * Проверка прав администратора
-     */
-    private function authorizeAdmin(Request $request)
-    {
-        if ($request->user()->role->name !== 'admin') {
-            abort(403, 'Only administrators can perform this action');
-        }
+        $this->audit->log(
+            actor: $request->user(),
+            action: 'user.role_update',
+            targetType: User::class,
+            targetId: $user->id,
+            payload: ['role_name' => $request->string('role_name')->value()],
+            request: $request
+        );
+
+        return new UserResource($user->fresh('role'));
     }
 }

@@ -9,30 +9,27 @@ use App\Models\CareSetting;
 use App\Models\Plant;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class CareLogController extends Controller
 {
-    /**
-     * История ухода для растения
-     */
     public function index(Request $request, $plantId)
     {
-        $this->authorizePlantAccess($request->user()->id, $plantId);
+        $plant = Plant::findOrFail($plantId);
+        $this->authorize('update', $plant);
 
         $logs = CareLog::where('plant_id', $plantId)
             ->orderBy('performed_at', 'desc')
-            ->paginate($request->get('per_page', 15));
+            ->paginate(min($request->integer('per_page', 15), 100));
 
         return CareLogResource::collection($logs);
     }
 
-    /**
-     * Добавление записи о выполненном уходе
-     */
     public function store(Request $request, $plantId)
     {
-        $this->authorizePlantAccess($request->user()->id, $plantId);
+        $plant = Plant::findOrFail($plantId);
+        $this->authorize('create', [CareLog::class, $plant->user_id]);
 
         $validated = $request->validate([
             'type' => ['required', Rule::in(['watering', 'fertilizing', 'pruning', 'rotation'])],
@@ -44,66 +41,45 @@ class CareLogController extends Controller
             ? Carbon::parse($validated['performed_at'])
             : now();
 
-        // 1. Создаем запись в истории
-        $log = CareLog::create([
-            'plant_id' => $plantId,
-            'type' => $validated['type'],
-            'performed_at' => $performedAt,
-            'comment' => $validated['comment'] ?? null,
-        ]);
+        $log = DB::transaction(function () use ($plantId, $validated, $performedAt) {
+            $log = CareLog::create([
+                'plant_id' => $plantId,
+                'type' => $validated['type'],
+                'performed_at' => $performedAt,
+                'comment' => $validated['comment'] ?? null,
+            ]);
 
-        // 2. Обновляем `last_done_at` в настройках ухода,
-        // если дата выполнения новее, чем текущая last_done_at
-        $setting = CareSetting::where('plant_id', $plantId)
-            ->where('type', $validated['type'])
-            ->first();
+            $setting = CareSetting::where('plant_id', $plantId)
+                ->where('type', $validated['type'])
+                ->first();
 
-        if ($setting) {
-            $currentLastDone = $setting->last_done_at;
-
-            if (! $currentLastDone || $performedAt->greaterThan($currentLastDone)) {
+            if ($setting && (! $setting->last_done_at || $performedAt->greaterThan($setting->last_done_at))) {
                 $setting->update(['last_done_at' => $performedAt]);
             }
-        }
+
+            return $log;
+        });
 
         return new CareLogResource($log);
     }
 
-    /**
-     * Просмотр конкретной записи
-     */
     public function show(Request $request, $id)
     {
-        $log = CareLog::findOrFail($id);
-        $this->authorizePlantAccess($request->user()->id, $log->plant_id);
+        $log = CareLog::with('plant')->findOrFail($id);
+        $this->authorize('view', $log);
 
         return new CareLogResource($log);
     }
 
-    /**
-     * Удаление записи из истории
-     */
     public function destroy(Request $request, $id)
     {
-        $log = CareLog::findOrFail($id);
-        $this->authorizePlantAccess($request->user()->id, $log->plant_id);
+        $log = CareLog::with('plant')->findOrFail($id);
+        $this->authorize('delete', $log);
 
         $log->delete();
 
         return response()->json([
             'message' => 'Care log deleted successfully',
         ]);
-    }
-
-    /**
-     * Проверка доступа к растению
-     */
-    private function authorizePlantAccess($userId, $plantId)
-    {
-        $plant = Plant::where('user_id', $userId)->find($plantId);
-
-        if (! $plant) {
-            abort(403, 'Plant not found or does not belong to you');
-        }
     }
 }

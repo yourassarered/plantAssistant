@@ -9,24 +9,22 @@ use Illuminate\Http\Request;
 
 class RoomController extends Controller
 {
-    /**
-     * Список комнат текущего пользователя
-     */
     public function index(Request $request)
     {
+        $this->authorize('viewAny', Room::class);
+
         $rooms = Room::where('user_id', $request->user()->id)
             ->with('plants')
             ->orderBy('name')
-            ->paginate($request->get('per_page', 15));
+            ->paginate(min($request->integer('per_page', 15), 100));
 
         return RoomResource::collection($rooms);
     }
 
-    /**
-     * Создание комнаты
-     */
     public function store(Request $request)
     {
+        $this->authorize('create', Room::class);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
         ]);
@@ -39,25 +37,18 @@ class RoomController extends Controller
         return new RoomResource($room);
     }
 
-    /**
-     * Просмотр комнаты с растениями
-     */
     public function show(Request $request, $id)
     {
-        $room = Room::where('user_id', $request->user()->id)
-            ->with('plants')
-            ->findOrFail($id);
+        $room = Room::with('plants')->findOrFail($id);
+        $this->authorize('view', $room);
 
         return new RoomResource($room);
     }
 
-    /**
-     * Редактирование комнаты
-     */
     public function update(Request $request, $id)
     {
-        $room = Room::where('user_id', $request->user()->id)
-            ->findOrFail($id);
+        $room = Room::findOrFail($id);
+        $this->authorize('update', $room);
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -68,16 +59,12 @@ class RoomController extends Controller
         return new RoomResource($room);
     }
 
-    /**
-     * Удаление комнаты
-     */
     public function destroy(Request $request, $id)
     {
-        $room = Room::where('user_id', $request->user()->id)
-            ->findOrFail($id);
+        $room = Room::findOrFail($id);
+        $this->authorize('delete', $room);
 
         $room->plants()->update(['room_id' => null]);
-
         $room->delete();
 
         return response()->json([

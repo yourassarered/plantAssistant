@@ -2,18 +2,24 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\DTO\ReportReviewData;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\ReviewReportRequest;
 use App\Http\Resources\ReportResource;
 use App\Models\Report;
 use App\Models\Tip;
+use App\Services\ModeratorAuditLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 
 class AdminReportController extends Controller
 {
+    public function __construct(private readonly ModeratorAuditLogger $audit) {}
+
     public function index(Request $request)
     {
+        $this->authorize('viewAny', Report::class);
+
         $query = Report::with(['reporter', 'reviewer'])->latest();
 
         if ($request->has('status')) {
@@ -29,35 +35,48 @@ class AdminReportController extends Controller
 
     public function show(int $id)
     {
-        return new ReportResource(Report::with(['reporter', 'reviewer'])->findOrFail($id));
+        $report = Report::with(['reporter', 'reviewer'])->findOrFail($id);
+        $this->authorize('view', $report);
+
+        return new ReportResource($report);
     }
 
-    public function review(Request $request, int $id)
+    public function review(ReviewReportRequest $request, int $id)
     {
-        $validated = $request->validate([
-            'status' => ['required', Rule::in(['accepted', 'rejected'])],
-            'admin_comment' => 'nullable|string|max:1000',
-        ]);
+        $data = ReportReviewData::fromRequest($request);
 
-        $report = DB::transaction(function () use ($request, $id, $validated) {
+        $report = DB::transaction(function () use ($request, $id, $data) {
             $report = Report::lockForUpdate()->findOrFail($id);
+            $this->authorize('review', $report);
+
             $wasAccepted = $report->status === 'accepted';
 
             $report->update([
-                'status' => $validated['status'],
-                'admin_comment' => $validated['admin_comment'] ?? null,
+                'status' => $data->status,
+                'admin_comment' => $data->adminComment,
                 'reviewed_by' => $request->user()->id,
                 'reviewed_at' => now(),
             ]);
 
-            // A confirmed complaint about a tip penalizes the author once.
-            if ($report->target_type === Report::TARGET_TIP && ! $wasAccepted && $validated['status'] === 'accepted') {
+            if ($report->target_type === Report::TARGET_TIP && ! $wasAccepted && $data->status === 'accepted') {
                 $tip = Tip::with('author')->find($report->target_id);
                 $tip?->author?->decrement('rank');
             }
 
             return $report;
         });
+
+        $this->audit->log(
+            actor: $request->user(),
+            action: 'report.review',
+            targetType: Report::class,
+            targetId: $report->id,
+            payload: [
+                'status' => $data->status,
+                'admin_comment' => $data->adminComment,
+            ],
+            request: $request
+        );
 
         return new ReportResource($report->load(['reporter', 'reviewer']));
     }

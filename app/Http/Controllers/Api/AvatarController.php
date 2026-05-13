@@ -3,52 +3,76 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\UpdateAvatarRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Services\ImageStorageService;
+use App\Services\ModeratorAuditLogger;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class AvatarController extends Controller
 {
-    public function show(Request $request, int $userId)
+    public function __construct(private readonly ModeratorAuditLogger $audit) {}
+
+    public function show(int $userId)
     {
-        return new UserResource(User::with('role')->findOrFail($userId));
+        $user = User::with('role')->findOrFail($userId);
+        $this->authorize('view', $user);
+
+        return new UserResource($user);
     }
 
-    public function update(Request $request, ImageStorageService $images)
+    public function update(UpdateAvatarRequest $request, ImageStorageService $images)
     {
-        $validated = $request->validate([
-            'avatar' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120',
-        ]);
-
         $user = $request->user();
-        $images->delete($user->avatar_path);
+        $this->authorize('updateProfile', $user);
+        $avatar = $request->file('avatar');
 
-        $user->avatar_path = $images->storeCompressed($validated['avatar'], 'avatars', 512, 84);
-        $user->save();
+        DB::transaction(function () use ($images, $user, $avatar): void {
+            $images->delete($user->avatar_path);
+            $user->avatar_path = $images->storeCompressed($avatar, 'avatars', 512, 84);
+            $user->save();
+        });
 
-        return new UserResource($user->load('role'));
+        return new UserResource($user->fresh('role'));
     }
 
     public function destroy(Request $request, ImageStorageService $images)
     {
         $user = $request->user();
-        $images->delete($user->avatar_path);
+        $this->authorize('updateProfile', $user);
 
-        $user->avatar_path = null;
-        $user->save();
+        DB::transaction(function () use ($images, $user): void {
+            $images->delete($user->avatar_path);
+            $user->avatar_path = null;
+            $user->save();
+        });
 
-        return new UserResource($user->load('role'));
+        return new UserResource($user->fresh('role'));
     }
 
-    public function destroyForUser(int $userId, ImageStorageService $images)
+    public function destroyForUser(Request $request, int $userId, ImageStorageService $images)
     {
+        $this->authorize('manage', User::class);
+
         $user = User::findOrFail($userId);
-        $images->delete($user->avatar_path);
 
-        $user->avatar_path = null;
-        $user->save();
+        DB::transaction(function () use ($images, $user): void {
+            $images->delete($user->avatar_path);
+            $user->avatar_path = null;
+            $user->save();
+        });
 
-        return new UserResource($user->load('role'));
+        $this->audit->log(
+            actor: $request->user(),
+            action: 'user.avatar_delete',
+            targetType: User::class,
+            targetId: $user->id,
+            payload: null,
+            request: $request
+        );
+
+        return new UserResource($user->fresh('role'));
     }
 }

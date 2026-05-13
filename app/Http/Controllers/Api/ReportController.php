@@ -3,44 +3,32 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\StoreReportRequest;
 use App\Http\Resources\ReportResource;
 use App\Models\Plant;
 use App\Models\Report;
 use App\Models\Tip;
-use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class ReportController extends Controller
 {
-    public function reportPlant(Request $request, int $plantId)
+    public function reportPlant(StoreReportRequest $request, int $plantId)
     {
         $plant = Plant::findOrFail($plantId);
-
-        if ($plant->user_id === $request->user()->id) {
-            return response()->json(['message' => 'You cannot report your own plant'], 422);
-        }
+        $this->authorize('createForPlant', [Report::class, $plant]);
 
         return $this->createReport($request, Report::TARGET_PLANT, $plant->id);
     }
 
-    public function reportTip(Request $request, int $tipId)
+    public function reportTip(StoreReportRequest $request, int $tipId)
     {
         $tip = Tip::findOrFail($tipId);
-
-        if ($tip->author_id === $request->user()->id) {
-            return response()->json(['message' => 'You cannot report your own tip'], 422);
-        }
+        $this->authorize('createForTip', [Report::class, $tip]);
 
         return $this->createReport($request, Report::TARGET_TIP, $tip->id);
     }
 
-    private function createReport(Request $request, string $targetType, int $targetId)
+    private function createReport(StoreReportRequest $request, string $targetType, int $targetId)
     {
-        $validated = $request->validate([
-            'reason' => ['required', Rule::in(['inappropriate_image', 'spam', 'abuse', 'misinformation', 'other'])],
-            'details' => 'nullable|string|max:1000',
-        ]);
-
         $report = Report::firstOrCreate(
             [
                 'reporter_id' => $request->user()->id,
@@ -48,8 +36,8 @@ class ReportController extends Controller
                 'target_id' => $targetId,
             ],
             [
-                'reason' => $validated['reason'],
-                'details' => $validated['details'] ?? null,
+                'reason' => $request->string('reason')->value(),
+                'details' => $request->input('details'),
             ]
         );
 

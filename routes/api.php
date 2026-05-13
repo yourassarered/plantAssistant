@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AdminMetricsController;
 use App\Http\Controllers\Api\AdminReportController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AvatarController;
@@ -62,7 +63,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/users/profile/avatar', [AvatarController::class, 'destroy']);
 
     // Admin only routes
-    Route::middleware('admin')->group(function () {
+    Route::middleware(['admin', 'throttle:admin-actions'])->group(function () {
         Route::delete('/users/{id}', [UserController::class, 'destroy']);
         Route::put('/users/{id}/role', [UserController::class, 'updateRole']);
         Route::delete('/users/{id}/avatar', [AvatarController::class, 'destroyForUser']);
@@ -70,6 +71,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/admin/reports', [AdminReportController::class, 'index']);
         Route::get('/admin/reports/{id}', [AdminReportController::class, 'show']);
         Route::put('/admin/reports/{id}/review', [AdminReportController::class, 'review']);
+        Route::get('/admin/metrics/traffic', [AdminMetricsController::class, 'traffic']);
     });
 
     // ========================================================================
