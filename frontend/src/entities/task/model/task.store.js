@@ -12,6 +12,7 @@ const buildTasksFromPlants = (plants) =>
             plantId: plant.apiId || plant.id,
             plantName: plant.name,
             room: plant.room,
+            plantImage: plant.image,
             type,
             dueAt: schedule.nextAt,
             completed: false,

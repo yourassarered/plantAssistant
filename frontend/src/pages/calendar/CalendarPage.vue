@@ -9,10 +9,8 @@ const plantStore = usePlantStore();
 const taskStore = useTaskStore();
 
 onMounted(async () => {
-    if (!plantStore.all.length) {
-        await plantStore.loadPlants();
-        taskStore.syncFromPlants(plantStore.all);
-    }
+    const ownPlants = await plantStore.loadOwnPlantsForCare();
+    taskStore.syncFromPlants(ownPlants);
 });
 </script>
 

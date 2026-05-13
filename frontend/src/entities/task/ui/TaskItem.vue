@@ -8,6 +8,7 @@ import UiBadge from "@/shared/ui/UiBadge.vue";
 
 const props = defineProps({
     task: { type: Object, required: true },
+    readonly: { type: Boolean, default: false },
 });
 
 const icons = {
@@ -21,7 +22,13 @@ const state = taskDateState(props.task);
 </script>
 
 <template>
-    <article class="task-item" :class="{ 'task-item--done': task.completed }">
+    <article
+        class="task-item"
+        :class="{
+            'task-item--done': task.completed,
+            'task-item--today': state === 'today' && !task.completed,
+        }"
+    >
         <span class="task-item__icon" :style="{ '--task-color': careTypes[task.type].color }">
             <component :is="icons[task.type]" :size="18" />
         </span>
@@ -36,7 +43,7 @@ const state = taskDateState(props.task);
             {{ task.dueAt }}
         </UiBadge>
 
-        <CompleteTaskToggle :task="task" />
+        <CompleteTaskToggle v-if="!readonly" :task="task" />
     </article>
 </template>
 
@@ -54,6 +61,11 @@ const state = taskDateState(props.task);
 
 .task-item--done {
     opacity: 0.58;
+}
+
+.task-item--today {
+    border-color: #f3c49f;
+    background: #fff6ef;
 }
 
 .task-item__icon {

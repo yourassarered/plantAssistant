@@ -53,9 +53,19 @@ const fields = {
 const fillForm = () => {
     if (!editingPlant.value) return;
 
+    const normalizeString = (value, fallback = "") => {
+        if (typeof value === "string") return value;
+        if (typeof value === "number") return String(value);
+        if (value && typeof value === "object") {
+            if (typeof value.name === "string") return value.name;
+            if (typeof value.value === "string") return value.value;
+        }
+        return fallback;
+    };
+
     setValues({
-        name: editingPlant.value.name,
-        room: editingPlant.value.room,
+        name: normalizeString(editingPlant.value.name, ""),
+        room: normalizeString(editingPlant.value.room, "Без комнаты"),
         height: editingPlant.value.height || 1,
         plantedAt: editingPlant.value.plantedAt || today,
         isPublic: editingPlant.value.isPublic,
@@ -109,8 +119,8 @@ const onSubmit = handleSubmit(async (values) => {
 });
 
 onMounted(async () => {
-    if (route.params.id && !plantStore.all.length) {
-        await plantStore.loadPlants();
+    if (route.params.id) {
+        await plantStore.loadPlant(route.params.id);
     }
     fillForm();
 });
