@@ -23,6 +23,29 @@ export const useSocialStore = defineStore("social", {
             if (typeof this.likeCounts[key] !== "number") this.likeCounts[key] = 0;
             if (typeof this.liked[key] !== "boolean") this.liked[key] = false;
         },
+        applyPlantSnapshot(plant) {
+            if (!plant) return;
+
+            const key = String(plant.apiId || plant.id);
+            const raw = plant.raw || {};
+            const tips = Array.isArray(raw.tips?.data)
+                ? raw.tips.data
+                : Array.isArray(raw.tips)
+                  ? raw.tips
+                  : null;
+
+            this.ensurePlantSocialDefaults(key);
+
+            if (tips) {
+                this.tipsByPlant[key] = tips;
+            }
+
+            this.likeCounts[key] = Number(raw.likes_count ?? plant.likesCount ?? this.likeCounts[key] ?? 0);
+
+            if (typeof raw.user_liked === "boolean") {
+                this.liked[key] = raw.user_liked;
+            }
+        },
         async loadLikeStatus(plantId) {
             if (!apiClient.token) return false;
             const key = String(plantId);

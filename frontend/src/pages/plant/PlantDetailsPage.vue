@@ -63,6 +63,7 @@ const canManagePlant = computed(() => authStore.isAdmin || isOwnPlant.value);
 const canSuggestForPlant = computed(() => authStore.isAuthenticated && !isOwnPlant.value);
 const canReportPlant = computed(() => authStore.isAuthenticated && !isOwnPlant.value);
 const canReportTip = computed(() => authStore.isAuthenticated && !isOwnPlant.value);
+const canLikePlant = computed(() => authStore.isAuthenticated && plant.value?.isPublic && !isOwnPlant.value);
 const canShowCalendar = computed(() => Boolean(plant.value));
 const needsFullPlantLoad = computed(
     () =>
@@ -218,8 +219,10 @@ const loadPage = async () => {
 
         taskStore.syncFromPlants(plantStore.all);
 
-        if (authStore.isAuthenticated) {
-            await socialStore.loadPlantSocial(plantApiId.value);
+        socialStore.applyPlantSnapshot(plant.value);
+
+        if (canLikePlant.value) {
+            await socialStore.loadLikeStatus(plantApiId.value);
         }
 
         if (authStore.isAuthenticated && canManagePlant.value) {
@@ -234,6 +237,7 @@ const loadPage = async () => {
 
 const toggleLike = async () => {
     try {
+        if (!canLikePlant.value) return;
         await socialStore.toggleLike(plantApiId.value);
     } catch (error) {
         toast.error(error.message);
@@ -375,7 +379,7 @@ watch(() => route.params.id, loadPage);
                 </div>
 
                 <div class="actions-row">
-                    <UiButton v-if="authStore.isAuthenticated" variant="ghost" @click="toggleLike">
+                    <UiButton v-if="canLikePlant" variant="ghost" @click="toggleLike">
                         <Heart :size="16" :fill="liked ? 'currentColor' : 'none'" />
                         {{ liked ? "Убрать лайк" : "Лайк" }}
                     </UiButton>
