@@ -1,0 +1,23 @@
+:root {
+    color-scheme: light;
+    --color-bg: #eef1ec;
+    --color-surface: #ffffff;
+    --color-surface-soft: #f7f8f4;
+    --color-ink: #172118;
+    --color-muted: #6b7568;
+    --color-border: #dbe2d6;
+    --color-green: #16843a;
+    --color-green-dark: #0c5e2a;
+    --color-green-soft: #dff3e5;
+    --color-lime: #b8d94c;
+    --color-blue: #3886d9;
+    --color-yellow: #f5c947;
+    --color-red: #e04532;
+    --color-orange: #f27036;
+    --shadow-card: 0 10px 24px rgba(24, 45, 28, 0.12);
+    --shadow-soft: 0 8px 22px rgba(37, 49, 39, 0.08);
+    --radius-xs: 6px;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --font-sans: "Trebuchet MS", "Segoe UI", sans-serif;
+}
