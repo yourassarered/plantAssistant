@@ -137,7 +137,14 @@ class PlantController extends Controller
     public function publicShow($id)
     {
         $plant = Plant::where('is_public', true)
-            ->with(['user.role', 'room', 'latestImage', 'careSettings', 'likes'])
+            ->with([
+                'user.role',
+                'room',
+                'latestImage',
+                'careSettings',
+                'likes',
+                'tips' => fn ($query) => $query->where('status', 'accepted')->with('author'),
+            ])
             ->withCount('likes')
             ->findOrFail($id);
 

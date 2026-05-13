@@ -16,16 +16,26 @@ class TipController extends Controller
     {
         $plant = Plant::findOrFail($plantId);
         $user = $request->user();
+        $canSeeAllTips = $user && ($plant->user_id === $user->id || $user->isAdmin());
+        $perPage = min($request->integer('per_page', 15), 100);
 
-        abort_unless(
-            $plant->is_public || ($user && ($plant->user_id === $user->id || $user->isAdmin())),
-            403
-        );
+        if (! $plant->is_public && ! $canSeeAllTips) {
+            return TipResource::collection(Tip::whereRaw('1 = 0')->paginate($perPage));
+        }
 
         $tips = Tip::where('plant_id', $plantId)
             ->with('author')
+            ->when(! $canSeeAllTips, function ($query) use ($user) {
+                $query->where(function ($query) use ($user) {
+                    $query->where('status', 'accepted');
+
+                    if ($user) {
+                        $query->orWhere('author_id', $user->id);
+                    }
+                });
+            })
             ->orderBy('created_at', 'desc')
-            ->paginate(min($request->integer('per_page', 15), 100));
+            ->paginate($perPage);
 
         return TipResource::collection($tips);
     }

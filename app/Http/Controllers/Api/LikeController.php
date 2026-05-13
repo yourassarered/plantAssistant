@@ -82,15 +82,11 @@ class LikeController extends Controller
     {
         $plant = Plant::findOrFail($plantId);
         $user = $request->user();
-
-        abort_unless(
-            $plant->is_public || ($user && ($plant->user_id === $user->id || $user->isAdmin())),
-            403
-        );
+        $canSeeCount = $plant->is_public || ($user && ($plant->user_id === $user->id || $user->isAdmin()));
 
         return response()->json([
             'plant_id' => (int) $plantId,
-            'likes_count' => Like::where('plant_id', $plantId)->count(),
+            'likes_count' => $canSeeCount ? Like::where('plant_id', $plantId)->count() : 0,
         ]);
     }
 }
