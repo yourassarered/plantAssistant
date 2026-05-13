@@ -2,46 +2,30 @@
 
 namespace Database\Seeders;
 
+use App\Models\Role;
 use App\Models\Room;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 
 class RoomSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
-        $users = User::where('role_id', 2)->get(); // Только обычные пользователи
+        $userRoleId = Role::where('name', 'user')->firstOrFail()->id;
+        $users = User::where('role_id', $userRoleId)->get();
 
-        $roomTemplates = [
-            'Гостиная',
-            'Спальня',
-            'Кухня',
-            'Балкон',
-            'Кабинет',
-            'Ванная',
-            'Прихожая',
-        ];
+        $roomTemplates = ['Living Room', 'Bedroom', 'Kitchen', 'Balcony', 'Office', 'Bathroom', 'Hallway'];
 
         foreach ($users as $user) {
-            // Каждому пользователю создаём 2-4 случайные комнаты
-            $roomCount = rand(2, 4);
-            $selectedRooms = array_rand(array_flip($roomTemplates), $roomCount);
+            $targetCount = random_int(2, 4);
+            $selected = array_slice(fake()->shuffle($roomTemplates), 0, $targetCount);
 
-            if (! is_array($selectedRooms)) {
-                $selectedRooms = [$selectedRooms];
-            }
-
-            foreach ($selectedRooms as $roomName) {
-                Room::create([
-                    'name' => $roomName,
+            foreach ($selected as $roomName) {
+                Room::firstOrCreate([
                     'user_id' => $user->id,
+                    'name' => $roomName,
                 ]);
             }
         }
-
-        $this->command->info('Комнаты созданы успешно!');
     }
 }

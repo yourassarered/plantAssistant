@@ -4,39 +4,35 @@ namespace Database\Seeders;
 
 use App\Models\CareLog;
 use App\Models\Plant;
-use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 
 class CareLogSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
-        $plants = Plant::with('careSettings')->get();
-
         $comments = [
-            'Растение выглядит здоровым',
-            'Земля была сухая, полил обильно',
-            'Листья стали более зелёными',
-            'Убрал сухие листья',
-            'Повернул на 90 градусов',
-            'Добавил удобрение согласно инструкции',
-            'Земля была влажная, полил умеренно',
-            'Появились новые побеги',
-            'Провёл опрыскивание листьев',
-            'Вода стекала быстро, земля рыхлая',
-            null, // иногда без комментария
+            'Plant looks healthy',
+            'Soil was dry, watered deeply',
+            'Leaves are greener after care',
+            'Removed dry leaves',
+            'Rotated pot by 90 degrees',
+            'Applied fertilizer as instructed',
+            'Watered moderately',
+            'New growth noticed',
+            null,
         ];
 
+        $plants = Plant::with('careSettings')->get();
         foreach ($plants as $plant) {
             foreach ($plant->careSettings as $setting) {
-                // Создаём 3-10 записей в истории для каждой настройки
-                $logCount = rand(3, 10);
+                $logCount = random_int(2, 8);
+                $latest = null;
 
                 for ($i = 0; $i < $logCount; $i++) {
-                    $performedAt = Carbon::now()->subDays(rand(1, 120));
+                    $performedAt = now()->subDays(random_int(1, 180));
+                    if ($latest === null || $performedAt->greaterThan($latest)) {
+                        $latest = $performedAt;
+                    }
 
                     CareLog::create([
                         'plant_id' => $plant->id,
@@ -45,9 +41,11 @@ class CareLogSeeder extends Seeder
                         'comment' => $comments[array_rand($comments)],
                     ]);
                 }
+
+                if ($latest !== null && ($setting->last_done_at === null || $latest->greaterThan($setting->last_done_at))) {
+                    $setting->update(['last_done_at' => $latest]);
+                }
             }
         }
-
-        $this->command->info('История ухода создана успешно!');
     }
 }

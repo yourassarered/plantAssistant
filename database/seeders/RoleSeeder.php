@@ -7,20 +7,10 @@ use Illuminate\Database\Seeder;
 
 class RoleSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
-        $roles = [
-            ['name' => 'user'],
-            ['name' => 'admin'],
-        ];
-
-        foreach ($roles as $role) {
-            Role::create($role);
+        foreach (['user', 'admin'] as $roleName) {
+            Role::firstOrCreate(['name' => $roleName]);
         }
-
-        $this->command->info('Роли созданы успешно!');
     }
 }

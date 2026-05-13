@@ -3,63 +3,55 @@
 namespace Database\Seeders;
 
 use App\Models\Plant;
+use App\Models\Role;
 use App\Models\Room;
 use App\Models\User;
-use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 
 class PlantSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
-        $plantNames = [
-            'Фикус Бенджамина',
-            'Монстера Деликатесная',
-            'Сансевиерия (Тёщин язык)',
-            'Спатифиллум (Женское счастье)',
-            'Драцена Маргината',
-            'Хлорофитум',
-            'Алоэ Вера',
-            'Кактус Опунция',
-            'Замиокулькас',
-            'Фиалка Узамбарская',
-            'Толстянка (Денежное дерево)',
-            'Бегония Королевская',
-            'Пеларгония (Герань)',
-            'Папоротник Нефролепис',
-            'Традесканция',
-            'Орхидея Фаленопсис',
-            'Плющ Обыкновенный',
-            'Антуриум',
-            'Каланхоэ',
-            'Азалия',
-        ];
+        $userRoleId = Role::where('name', 'user')->firstOrFail()->id;
+        $users = User::where('role_id', $userRoleId)->get();
 
-        $users = User::where('role_id', 2)->get();
+        $plantNames = [
+            'Ficus Benjamina',
+            'Monstera Deliciosa',
+            'Sansevieria',
+            'Spathiphyllum',
+            'Dracaena Marginata',
+            'Chlorophytum',
+            'Aloe Vera',
+            'Opuntia',
+            'Zamioculcas',
+            'Saintpaulia',
+            'Crassula',
+            'Begonia',
+            'Pelargonium',
+            'Nephrolepis',
+            'Tradescantia',
+            'Phalaenopsis',
+            'Hedera Helix',
+            'Anthurium',
+            'Kalanchoe',
+            'Azalea',
+        ];
 
         foreach ($users as $user) {
             $rooms = Room::where('user_id', $user->id)->get();
+            $targetCount = random_int(4, 10);
 
-            // Каждому пользователю создаём 3-8 растений
-            $plantCount = rand(3, 8);
-
-            for ($i = 0; $i < $plantCount; $i++) {
-                $plantedAt = Carbon::now()->subDays(rand(30, 365));
-
+            for ($i = 0; $i < $targetCount; $i++) {
                 Plant::create([
                     'name' => $plantNames[array_rand($plantNames)],
-                    'planted_at' => $plantedAt,
-                    'height' => rand(10, 150) + (rand(0, 9) / 10), // 10.5 - 150.9 см
-                    'is_public' => rand(0, 100) > 40, // 60% публичных
+                    'planted_at' => now()->subDays(random_int(15, 720)),
+                    'height' => random_int(10, 220) + (random_int(0, 9) / 10),
+                    'is_public' => random_int(1, 100) <= 65,
                     'user_id' => $user->id,
                     'room_id' => $rooms->isNotEmpty() ? $rooms->random()->id : null,
                 ]);
             }
         }
-
-        $this->command->info('Растения созданы успешно!');
     }
 }

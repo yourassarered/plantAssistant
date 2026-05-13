@@ -3,54 +3,32 @@
 namespace Database\Seeders;
 
 use App\Models\Follow;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 
 class FollowSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
-        $users = User::where('role_id', 2)->get();
+        $userRoleId = Role::where('name', 'user')->firstOrFail()->id;
+        $users = User::where('role_id', $userRoleId)->get();
 
         if ($users->count() < 2) {
-            $this->command->warn('Недостаточно пользователей для создания подписок');
-
             return;
         }
 
         foreach ($users as $user) {
-            // Находим пользователей, на которых можно подписаться
-            $availableUsers = $users->filter(function ($u) use ($user) {
-                return $u->id !== $user->id;
-            });
+            $availableUsers = $users->where('id', '!=', $user->id)->values();
+            $targetCount = min(random_int(3, 8), $availableUsers->count());
+            $toFollow = $availableUsers->shuffle()->take($targetCount);
 
-            if ($availableUsers->isEmpty()) {
-                continue;
-            }
-
-            // Каждый пользователь подписывается на 2-5 других пользователей
-            $followCount = rand(2, min(5, $availableUsers->count()));
-
-            $usersToFollow = $availableUsers->random($followCount);
-
-            foreach ($usersToFollow as $targetUser) {
-                // Проверяем, что подписка ещё не существует
-                $exists = Follow::where('follower_id', $user->id)
-                    ->where('following_id', $targetUser->id)
-                    ->exists();
-
-                if (! $exists) {
-                    Follow::create([
-                        'follower_id' => $user->id,
-                        'following_id' => $targetUser->id,
-                    ]);
-                }
+            foreach ($toFollow as $targetUser) {
+                Follow::firstOrCreate([
+                    'follower_id' => $user->id,
+                    'following_id' => $targetUser->id,
+                ]);
             }
         }
-
-        $this->command->info('Подписки созданы успешно!');
     }
 }
