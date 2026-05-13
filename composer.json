@@ -37,6 +37,7 @@
             "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
             "@php artisan key:generate",
             "@php artisan migrate --force",
+            "@php artisan openapi:generate",
             "npm install --ignore-scripts",
             "npm run build"
         ],
@@ -46,6 +47,7 @@
         ],
         "test": [
             "@php artisan config:clear --ansi",
+            "@php artisan openapi:generate",
             "@php artisan test"
         ],
         "post-autoload-dump": [
