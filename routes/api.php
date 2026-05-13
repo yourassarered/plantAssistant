@@ -42,6 +42,7 @@ Route::post('/auth/login', [AuthController::class, 'login']);
 // ============================================================================
 
 Route::get('/plants/public', [PlantController::class, 'public']);
+Route::get('/plants/public/{id}', [PlantController::class, 'publicShow']);
 Route::get('/plants/{plantId}/tips', [TipController::class, 'index']);
 Route::get('/plants/{plantId}/likes/count', [LikeController::class, 'count']);
 Route::get('/feed', [FeedController::class, 'index']);

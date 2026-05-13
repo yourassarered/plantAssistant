@@ -12,7 +12,7 @@ class FeedQueryService
     public function publicFeed(?int $userId, QueryFiltersData $filters): array
     {
         $query = Plant::where('is_public', true)
-            ->with(['user.role', 'room', 'latestImage', 'likes'])
+            ->with(['user.role', 'room', 'latestImage', 'careSettings', 'likes'])
             ->withCount('likes');
 
         $this->applyCommonFilters($query, $filters);
@@ -31,7 +31,7 @@ class FeedQueryService
 
         $query = Plant::where('is_public', true)
             ->whereIn('user_id', $followingIds)
-            ->with(['user.role', 'room', 'latestImage', 'likes'])
+            ->with(['user.role', 'room', 'latestImage', 'careSettings', 'likes'])
             ->withCount('likes');
 
         $this->applyCommonFilters($query, $filters);
@@ -47,7 +47,7 @@ class FeedQueryService
     {
         $query = Plant::where('is_public', true)
             ->where('created_at', '>=', now()->subDays($filters->days)->startOfDay())
-            ->with(['user.role', 'room', 'latestImage', 'likes'])
+            ->with(['user.role', 'room', 'latestImage', 'careSettings', 'likes'])
             ->withCount('likes')
             ->orderByDesc('likes_count');
 
@@ -64,7 +64,7 @@ class FeedQueryService
     {
         $query = Plant::where('user_id', $targetUserId)
             ->where('is_public', true)
-            ->with(['user.role', 'room', 'latestImage', 'likes'])
+            ->with(['user.role', 'room', 'latestImage', 'careSettings', 'likes'])
             ->withCount('likes');
 
         $this->applyCommonFilters($query, $filters);
@@ -80,7 +80,7 @@ class FeedQueryService
     {
         $query = Plant::where('is_public', true)
             ->whereHas('tips')
-            ->with(['user.role', 'room', 'latestImage', 'likes', 'tips' => function ($q) {
+            ->with(['user.role', 'room', 'latestImage', 'careSettings', 'likes', 'tips' => function ($q) {
                 $q->where('status', 'accepted');
             }])
             ->withCount('likes')
@@ -103,7 +103,7 @@ class FeedQueryService
 
         $query = Plant::where('is_public', true)
             ->whereIn('id', $recommendedPlantIds)
-            ->with(['user.role', 'room', 'latestImage', 'likes'])
+            ->with(['user.role', 'room', 'latestImage', 'careSettings', 'likes'])
             ->withCount('likes')
             ->orderByDesc('likes_count');
 
@@ -119,7 +119,7 @@ class FeedQueryService
     {
         $query = Plant::where('is_public', true)
             ->whereIn('id', Like::where('user_id', $userId)->pluck('plant_id'))
-            ->with(['user.role', 'room', 'latestImage', 'likes'])
+            ->with(['user.role', 'room', 'latestImage', 'careSettings', 'likes'])
             ->withCount('likes');
 
         $this->applyCommonFilters($query, $filters);

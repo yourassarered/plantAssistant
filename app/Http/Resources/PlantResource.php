@@ -21,6 +21,7 @@ class PlantResource extends JsonResource
             'height' => $this->height,
             'is_public' => $this->is_public,
             'user_id' => $this->user_id,
+            'user' => new UserResource($this->whenLoaded('user')),
             'room' => new RoomResource($this->whenLoaded('room')),
             'room_id' => $this->room_id,
             'latest_image' => new PlantImageResource($this->whenLoaded('latestImage')),

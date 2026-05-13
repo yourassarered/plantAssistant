@@ -104,10 +104,21 @@ export const usePlantStore = defineStore("plants", {
                 this.loading = false;
             }
         },
-        async loadPlant(id) {
-            if (!apiClient.token) return null;
+        async loadOwnPlantsForCare() {
+            if (!apiClient.token) return [];
 
-            const payload = await apiClient.get(`/plants/${id}`);
+            const params = new URLSearchParams({
+                per_page: "100",
+                sort_by: "created_at",
+                sort_order: "desc",
+            });
+
+            const payload = await apiClient.get(`/plants?${params.toString()}`);
+            return unwrapApiCollection(payload).map(mapApiPlant);
+        },
+        async loadPlant(id) {
+            const path = apiClient.token ? `/plants/${id}` : `/plants/public/${id}`;
+            const payload = await apiClient.get(path);
             const mapped = mapApiPlant(payload.data || payload);
             const existingIndex = this.plants.findIndex((plant) => plant.id === mapped.id);
 

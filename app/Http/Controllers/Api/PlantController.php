@@ -70,7 +70,7 @@ class PlantController extends Controller
 
     public function show(Request $request, $id)
     {
-        $plant = Plant::with(['room', 'latestImage', 'careSettings', 'careLogs', 'tips', 'likes'])
+        $plant = Plant::with(['user.role', 'room', 'latestImage', 'careSettings', 'careLogs', 'tips', 'likes'])
             ->findOrFail($id);
 
         $this->authorize('view', $plant);
@@ -118,7 +118,7 @@ class PlantController extends Controller
         $filters = PlantFiltersData::fromRequest($request);
 
         $query = Plant::where('is_public', true)
-            ->with(['user.role', 'room', 'latestImage', 'likes'])
+            ->with(['user.role', 'room', 'latestImage', 'careSettings', 'likes'])
             ->withCount('likes');
 
         if ($filters->search) {
@@ -132,6 +132,16 @@ class PlantController extends Controller
         }
 
         return PlantResource::collection($query->paginate($filters->perPage));
+    }
+
+    public function publicShow($id)
+    {
+        $plant = Plant::where('is_public', true)
+            ->with(['user.role', 'room', 'latestImage', 'careSettings', 'likes'])
+            ->withCount('likes')
+            ->findOrFail($id);
+
+        return new PlantResource($plant);
     }
 
     public function byRoom(Request $request, $roomId)
