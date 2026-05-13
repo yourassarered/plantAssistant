@@ -15,10 +15,28 @@ const dateOnly = (value) => {
     return String(value).slice(0, 10);
 };
 
+const stringValue = (value, fallback = "") => {
+    if (typeof value === "string") return value;
+    if (typeof value === "number") return String(value);
+    if (value && typeof value === "object") {
+        if (typeof value.name === "string") return value.name;
+        if (typeof value.value === "string") return value.value;
+    }
+    return fallback;
+};
+
 export const unwrapApiCollection = (payload) => payload?.data || [];
 
 export const mapApiPlant = (plant) => {
-    const care = (plant.care_settings || []).reduce((acc, setting) => {
+    const owner = plant.user?.data || plant.user || null;
+    const roomRaw = plant.room?.data || plant.room || null;
+    const careSettings = Array.isArray(plant.care_settings?.data)
+        ? plant.care_settings.data
+        : Array.isArray(plant.care_settings)
+          ? plant.care_settings
+          : [];
+
+    const care = careSettings.reduce((acc, setting) => {
         const type = apiCareTypeToUi[setting.type];
         if (!type || !setting.is_enabled) return acc;
 
@@ -35,19 +53,29 @@ export const mapApiPlant = (plant) => {
     return {
         id: String(plant.id),
         apiId: plant.id,
-        name: plant.name,
-        room: plant.room?.name || "Без комнаты",
-        roomId: plant.room_id,
+        name: stringValue(plant.name, "Без названия"),
+        room: stringValue(roomRaw?.name ?? roomRaw, "Без комнаты"),
+        roomId: roomRaw?.id ?? plant.room_id ?? null,
         image: resolveAssetUrl(plant.latest_image?.url),
         health: plant.care_logs?.length ? Math.max(55, 96 - plant.care_logs.length * 2) : 82,
         humidity: null,
-        height: plant.height || 0,
+        height: Number(plant.height || 0),
         plantedAt: dateOnly(plant.planted_at),
         note: plant.is_public ? "Публичное растение" : "Личное растение",
         isPublic: Boolean(plant.is_public),
-        likesCount: plant.likes_count || 0,
-        userLiked: Boolean(plant.user_liked),
+        likesCount: Number(plant.likes_count || 0),
+        userLiked: Boolean(
+            plant.user_liked ??
+                plant.is_liked ??
+                plant.liked_by_user ??
+                plant.viewer_has_liked ??
+                false,
+        ),
         userId: plant.user_id,
+        ownerId: owner?.id || null,
+        ownerName: stringValue(owner?.name, ""),
+        ownerRank: owner?.rank ?? null,
+        ownerAvatarUrl: owner?.avatar_url ? resolveAssetUrl(owner.avatar_url) : "",
         care,
         raw: plant,
     };
