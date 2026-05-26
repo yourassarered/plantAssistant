@@ -1,5 +1,12 @@
 ﻿<script setup>
-import { Leaf, ListTodo, Search, Shield, Sprout, UserRound } from "lucide-vue-next";
+import {
+    Leaf,
+    ListTodo,
+    Search,
+    Shield,
+    Sprout,
+    UserRound,
+} from "lucide-vue-next";
 import { computed } from "vue";
 
 import { useAuthStore } from "@/entities/auth/model/auth.store";
@@ -11,7 +18,9 @@ const navItems = computed(() => [
     { to: "/my-plants", label: "Мои растения", icon: Sprout },
     { to: "/tasks", label: "Задачи", icon: ListTodo },
     { to: "/profile", label: "Профиль", icon: UserRound },
-    ...(authStore.isAdmin ? [{ to: "/admin", label: "Админка", icon: Shield }] : []),
+    ...(authStore.isAdmin
+        ? [{ to: "/admin", label: "Админка", icon: Shield }]
+        : []),
 ]);
 </script>
 

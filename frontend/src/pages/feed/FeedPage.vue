@@ -30,27 +30,12 @@ const modes = computed(() => [
         : []),
 ]);
 
-const syncFeedLikes = async () => {
-    if (!authStore.isAuthenticated || !plantStore.all.length) return;
-
-    const states = await socialStore.hydrateLikeStates(plantStore.all.map((plant) => plant.apiId));
-    plantStore.all.forEach((plant) => {
-        const key = String(plant.apiId);
-        if (Object.prototype.hasOwnProperty.call(states, key)) {
-            plant.userLiked = Boolean(states[key]);
-        }
-    });
-};
+const resolveFeedMode = (mode = plantStore.feedMode) =>
+    modes.value.some((item) => item.value === mode) ? mode : "public";
 
 const refresh = async (mode = plantStore.feedMode) => {
-    await plantStore.loadPlants(mode);
-    if (mode !== "liked") {
-        await syncFeedLikes();
-    } else {
-        plantStore.all.forEach((plant) => {
-            plant.userLiked = true;
-        });
-    }
+    await plantStore.loadPlants(resolveFeedMode(mode));
+    plantStore.all.forEach((plant) => socialStore.applyPlantSnapshot(plant));
 };
 
 const changeMode = (mode) => {
@@ -60,7 +45,10 @@ const changeMode = (mode) => {
 
 const openSuggest = (plant) => {
     if (!authStore.isAuthenticated) {
-        router.push({ name: "profile", query: { redirect: `/plants/${plant.id}` } });
+        router.push({
+            name: "profile",
+            query: { redirect: `/plants/${plant.id}` },
+        });
         return;
     }
 
@@ -94,7 +82,10 @@ const sendSuggest = async () => {
 
 const toggleLike = async (plant) => {
     if (!authStore.isAuthenticated) {
-        router.push({ name: "profile", query: { redirect: `/plants/${plant.id}` } });
+        router.push({
+            name: "profile",
+            query: { redirect: `/plants/${plant.id}` },
+        });
         return;
     }
 
@@ -102,7 +93,7 @@ const toggleLike = async (plant) => {
         await socialStore.toggleLike(plant.apiId);
         const liked = socialStore.isLiked(plant.apiId);
         plant.userLiked = liked;
-        plant.likesCount = Math.max(0, Number(plant.likesCount || 0) + (liked ? 1 : -1));
+        plant.likesCount = socialStore.likeCountFor(plant.apiId);
     } catch (error) {
         toast.error(error.message);
     }
@@ -113,8 +104,22 @@ const openOwner = (ownerId) => {
     router.push(`/users/${ownerId}`);
 };
 
-onMounted(() => refresh("public"));
-watch(() => authStore.token, () => refresh(authStore.isAuthenticated ? "public" : "public"));
+onMounted(() =>
+    refresh(
+        authStore.isAuthenticated
+            ? resolveFeedMode(plantStore.feedMode)
+            : "public",
+    ),
+);
+watch(
+    () => authStore.token,
+    () =>
+        refresh(
+            authStore.isAuthenticated
+                ? resolveFeedMode(plantStore.feedMode)
+                : "public",
+        ),
+);
 </script>
 
 <template>
@@ -157,7 +162,10 @@ watch(() => authStore.token, () => refresh(authStore.isAuthenticated ? "public" 
 
             <select
                 :value="plantStore.sortBy"
-                @change="plantStore.setSort($event.target.value); refresh()"
+                @change="
+                    plantStore.setSort($event.target.value);
+                    refresh();
+                "
             >
                 <option value="created_at">Сначала новые</option>
                 <option value="likes">По лайкам</option>
@@ -168,7 +176,9 @@ watch(() => authStore.token, () => refresh(authStore.isAuthenticated ? "public" 
 
         <div v-if="plantStore.error" class="panel feed-state">
             <p>{{ plantStore.error }}</p>
-            <UiButton variant="ghost" @click="refresh()">Повторить запрос</UiButton>
+            <UiButton variant="ghost" @click="refresh()"
+                >Повторить запрос</UiButton
+            >
         </div>
 
         <div v-else-if="plantStore.loading" class="panel feed-state">
@@ -197,7 +207,11 @@ watch(() => authStore.token, () => refresh(authStore.isAuthenticated ? "public" 
             <section class="tip-modal__card">
                 <header>
                     <h2>Совет для {{ suggestPlant.name }}</h2>
-                    <button type="button" class="tip-modal__close" @click="closeSuggest">
+                    <button
+                        type="button"
+                        class="tip-modal__close"
+                        @click="closeSuggest"
+                    >
                         <X :size="18" />
                     </button>
                 </header>
@@ -209,7 +223,9 @@ watch(() => authStore.token, () => refresh(authStore.isAuthenticated ? "public" 
                 />
 
                 <div class="tip-modal__actions">
-                    <UiButton variant="ghost" @click="closeSuggest">Отмена</UiButton>
+                    <UiButton variant="ghost" @click="closeSuggest"
+                        >Отмена</UiButton
+                    >
                     <UiButton :disabled="sendingTip" @click="sendSuggest">
                         {{ sendingTip ? "Отправляем..." : "Отправить совет" }}
                     </UiButton>

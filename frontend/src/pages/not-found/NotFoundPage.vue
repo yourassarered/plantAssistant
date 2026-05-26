@@ -5,7 +5,9 @@
             <p class="page-subtitle">
                 Проверьте адрес или вернитесь в ленту растений.
             </p>
-            <RouterLink to="/feed" class="not-found__link">Перейти в ленту</RouterLink>
+            <RouterLink to="/feed" class="not-found__link"
+                >Перейти в ленту</RouterLink
+            >
         </div>
     </section>
 </template>

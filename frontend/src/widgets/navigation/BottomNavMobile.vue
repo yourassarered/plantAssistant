@@ -11,7 +11,9 @@ const items = computed(() => [
     { to: "/my-plants", label: "Мои", icon: Sprout },
     { to: "/tasks", label: "Уход", icon: ListTodo },
     { to: "/profile", label: "Профиль", icon: UserRound },
-    ...(authStore.isAdmin ? [{ to: "/admin", label: "Админ", icon: Shield }] : []),
+    ...(authStore.isAdmin
+        ? [{ to: "/admin", label: "Админ", icon: Shield }]
+        : []),
 ]);
 </script>
 

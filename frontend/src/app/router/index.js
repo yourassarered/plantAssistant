@@ -46,6 +46,18 @@ export const router = createRouter({
             meta: { requiresAuth: true },
         },
         {
+            path: "/plants/:id/care",
+            name: "edit-plant-care",
+            component: () => import("@/pages/plant-edit/PlantEditPage.vue"),
+            meta: { requiresAuth: true },
+        },
+        {
+            path: "/plants/:id/photos",
+            name: "edit-plant-photos",
+            component: () => import("@/pages/plant-edit/PlantEditPage.vue"),
+            meta: { requiresAuth: true },
+        },
+        {
             path: "/profile",
             name: "profile",
             component: () => import("@/pages/profile/ProfilePage.vue"),
