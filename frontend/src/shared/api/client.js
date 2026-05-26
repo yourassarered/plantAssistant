@@ -1,6 +1,13 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 const TOKEN_KEY = "plant-assistant-token";
 
+const readableErrorMessages = {
+    "The provided credentials are incorrect.": "Неверный email или пароль.",
+};
+
+const toReadableErrorMessage = (message) =>
+    readableErrorMessages[message] || message;
+
 export const apiClient = {
     get token() {
         return localStorage.getItem(TOKEN_KEY);
@@ -20,22 +27,35 @@ export const apiClient = {
             ...options,
             headers: {
                 Accept: "application/json",
-                ...(options.body && !isFormData ? { "Content-Type": "application/json" } : {}),
-                ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
+                ...(options.body && !isFormData
+                    ? { "Content-Type": "application/json" }
+                    : {}),
+                ...(this.token
+                    ? { Authorization: `Bearer ${this.token}` }
+                    : {}),
                 ...options.headers,
             },
-            body: isFormData ? options.body : options.body ? JSON.stringify(options.body) : undefined,
+            body: isFormData
+                ? options.body
+                : options.body
+                  ? JSON.stringify(options.body)
+                  : undefined,
         });
 
-        const payload = response.status === 204 ? null : await response.json().catch(() => null);
+        const payload =
+            response.status === 204
+                ? null
+                : await response.json().catch(() => null);
 
         if (!response.ok) {
             const validationMessage = payload?.errors
                 ? Object.values(payload.errors).flat().join(" ")
                 : "";
-            const error = new Error(
-                validationMessage || payload?.message || `API request failed: ${response.status}`,
-            );
+            const message =
+                validationMessage ||
+                payload?.message ||
+                `API request failed: ${response.status}`;
+            const error = new Error(toReadableErrorMessage(message));
             error.status = response.status;
             error.payload = payload;
             throw error;

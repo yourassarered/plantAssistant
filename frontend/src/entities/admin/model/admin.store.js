@@ -12,7 +12,8 @@ export const useAdminStore = defineStore("admin", {
         error: "",
     }),
     getters: {
-        pendingReports: (state) => state.reports.filter((report) => report.status === "pending"),
+        pendingReports: (state) =>
+            state.reports.filter((report) => report.status === "pending"),
     },
     actions: {
         async loadAll() {
@@ -20,11 +21,12 @@ export const useAdminStore = defineStore("admin", {
             this.error = "";
 
             try {
-                const [usersPayload, reportsPayload, trafficPayload] = await Promise.all([
-                    apiClient.get("/users?per_page=100"),
-                    apiClient.get("/admin/reports?per_page=100"),
-                    apiClient.get("/admin/metrics/traffic?minutes=60"),
-                ]);
+                const [usersPayload, reportsPayload, trafficPayload] =
+                    await Promise.all([
+                        apiClient.get("/users?per_page=100"),
+                        apiClient.get("/admin/reports?per_page=100"),
+                        apiClient.get("/admin/metrics/traffic?minutes=60"),
+                    ]);
 
                 this.users = unwrapApiCollection(usersPayload);
                 this.reports = unwrapApiCollection(reportsPayload);
@@ -41,10 +43,13 @@ export const useAdminStore = defineStore("admin", {
 
             const params = new URLSearchParams({ per_page: "100" });
             if (filters.status) params.set("status", filters.status);
-            if (filters.targetType) params.set("target_type", filters.targetType);
+            if (filters.targetType)
+                params.set("target_type", filters.targetType);
 
             try {
-                const payload = await apiClient.get(`/admin/reports?${params.toString()}`);
+                const payload = await apiClient.get(
+                    `/admin/reports?${params.toString()}`,
+                );
                 this.reports = unwrapApiCollection(payload);
             } catch (error) {
                 this.error = error.message;
@@ -62,7 +67,9 @@ export const useAdminStore = defineStore("admin", {
             if (filters.sortByRank) params.set("sort_by_rank", "1");
 
             try {
-                const payload = await apiClient.get(`/users?${params.toString()}`);
+                const payload = await apiClient.get(
+                    `/users?${params.toString()}`,
+                );
                 this.users = unwrapApiCollection(payload);
             } catch (error) {
                 this.error = error.message;
@@ -75,7 +82,9 @@ export const useAdminStore = defineStore("admin", {
             this.error = "";
 
             try {
-                this.traffic = await apiClient.get(`/admin/metrics/traffic?minutes=${minutes}`);
+                this.traffic = await apiClient.get(
+                    `/admin/metrics/traffic?minutes=${minutes}`,
+                );
             } catch (error) {
                 this.error = error.message;
             } finally {
@@ -83,12 +92,17 @@ export const useAdminStore = defineStore("admin", {
             }
         },
         async reviewReport(reportId, status, adminComment = "") {
-            const payload = await apiClient.put(`/admin/reports/${reportId}/review`, {
-                status,
-                admin_comment: adminComment,
-            });
+            const payload = await apiClient.put(
+                `/admin/reports/${reportId}/review`,
+                {
+                    status,
+                    admin_comment: adminComment,
+                },
+            );
             const updated = payload.data || payload;
-            this.reports = this.reports.map((report) => (report.id === updated.id ? updated : report));
+            this.reports = this.reports.map((report) =>
+                report.id === updated.id ? updated : report,
+            );
             return updated;
         },
         async updateUserRole(userId, roleName) {
@@ -96,7 +110,17 @@ export const useAdminStore = defineStore("admin", {
                 role_name: roleName,
             });
             const updated = payload.data || payload;
-            this.users = this.users.map((user) => (user.id === updated.id ? updated : user));
+            this.users = this.users.map((user) =>
+                user.id === updated.id ? updated : user,
+            );
+            return updated;
+        },
+        async updateUser(userId, values) {
+            const payload = await apiClient.put(`/users/${userId}`, values);
+            const updated = payload.data || payload;
+            this.users = this.users.map((user) =>
+                user.id === updated.id ? updated : user,
+            );
             return updated;
         },
         async deleteUser(userId) {

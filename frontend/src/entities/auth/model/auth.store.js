@@ -21,10 +21,14 @@ export const useAuthStore = defineStore("auth", {
             this.error = "";
 
             try {
-                const payload = await apiClient.post("/auth/login", credentials);
+                const payload = await apiClient.post(
+                    "/auth/login",
+                    credentials,
+                );
                 this.token = payload.access_token;
                 this.user = payload.user?.data || payload.user;
                 apiClient.setToken(payload.access_token);
+                await this.loadMe();
                 return payload;
             } catch (error) {
                 this.error = error.message;
@@ -38,10 +42,14 @@ export const useAuthStore = defineStore("auth", {
             this.error = "";
 
             try {
-                const response = await apiClient.post("/auth/register", payload);
+                const response = await apiClient.post(
+                    "/auth/register",
+                    payload,
+                );
                 this.token = response.access_token;
                 this.user = response.user?.data || response.user;
                 apiClient.setToken(response.access_token);
+                await this.loadMe();
                 return response;
             } catch (error) {
                 this.error = error.message;
@@ -100,7 +108,10 @@ export const useAuthStore = defineStore("auth", {
         async updateAvatar(file) {
             const formData = new FormData();
             formData.append("avatar", file);
-            const payload = await apiClient.postForm("/users/profile/avatar", formData);
+            const payload = await apiClient.postForm(
+                "/users/profile/avatar",
+                formData,
+            );
             this.user = payload.data || payload;
             return this.user;
         },

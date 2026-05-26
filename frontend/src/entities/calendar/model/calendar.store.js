@@ -11,6 +11,10 @@ export const useCalendarStore = defineStore("calendar", {
         activeDateObject: (state) => new Date(`${state.activeDate}T00:00:00`),
     },
     actions: {
+        focusDate(isoDate) {
+            this.activeDate = isoDate;
+            this.selectedDate = isoDate;
+        },
         selectDate(isoDate) {
             this.selectedDate = isoDate;
         },

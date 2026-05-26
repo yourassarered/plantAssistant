@@ -1,81 +1,173 @@
 import { apiCareTypeToUi, uiCareTypeToApi } from "@/shared/lib/careTypes";
+import { todayIsoDate, toIsoDate } from "@/shared/lib/date/calendarGrid";
 
 const apiOrigin = import.meta.env.VITE_API_ORIGIN || "";
 const placeholderImage =
     "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Crect width='400' height='400' fill='%23dfe8dc'/%3E%3Cpath d='M205 304c-43-44-48-104-15-153 18 21 26 48 24 82 26-48 61-72 105-72-7 75-45 124-114 143Z' fill='%2316843a'/%3E%3Cpath d='M179 306c-52-19-84-59-94-121 54 4 92 34 113 90 9-48 31-84 66-108 20 66-8 117-85 139Z' fill='%23b8d94c'/%3E%3C/svg%3E";
 
+const unwrapApiValue = (value) => {
+    let current = value;
+    const seen = new Set();
+
+    while (
+        current &&
+        typeof current === "object" &&
+        Object.prototype.hasOwnProperty.call(current, "data") &&
+        !seen.has(current)
+    ) {
+        seen.add(current);
+        current = current.data;
+    }
+
+    return current;
+};
+
+const objectField = (value, field) => {
+    const object = unwrapApiValue(value);
+
+    if (!object || typeof object !== "object") return undefined;
+
+    return unwrapApiValue(object[field]);
+};
+
 const resolveAssetUrl = (url) => {
-    if (!url) return placeholderImage;
-    if (url.startsWith("http") || url.startsWith("data:")) return url;
-    return `${apiOrigin}${url}`;
+    const normalizedUrl = stringValue(url, "");
+
+    if (!normalizedUrl) return placeholderImage;
+    if (apiOrigin && normalizedUrl.startsWith("http://localhost/storage/")) {
+        return normalizedUrl.replace("http://localhost", apiOrigin);
+    }
+    if (normalizedUrl.startsWith("http") || normalizedUrl.startsWith("data:")) {
+        return normalizedUrl;
+    }
+    return `${apiOrigin}${normalizedUrl}`;
 };
 
 const dateOnly = (value) => {
-    if (!value) return null;
-    return String(value).slice(0, 10);
+    const normalizedValue = unwrapApiValue(value);
+
+    if (!normalizedValue) return null;
+
+    const stringValue = String(normalizedValue);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(stringValue)) return stringValue;
+
+    const parsedDate = new Date(stringValue);
+    if (!Number.isNaN(parsedDate.getTime())) return toIsoDate(parsedDate);
+
+    return stringValue.slice(0, 10);
 };
 
 const stringValue = (value, fallback = "") => {
-    if (typeof value === "string") return value;
-    if (typeof value === "number") return String(value);
-    if (value && typeof value === "object") {
-        if (typeof value.name === "string") return value.name;
-        if (typeof value.value === "string") return value.value;
+    const normalizedValue = unwrapApiValue(value);
+
+    if (typeof normalizedValue === "string") return normalizedValue;
+    if (typeof normalizedValue === "number") return String(normalizedValue);
+    if (typeof normalizedValue === "boolean") return String(normalizedValue);
+    if (normalizedValue && typeof normalizedValue === "object") {
+        const scalarKey = ["name", "value", "label", "title", "url"].find(
+            (key) =>
+                ["string", "number", "boolean"].includes(
+                    typeof unwrapApiValue(normalizedValue[key]),
+                ),
+        );
+
+        if (scalarKey) return stringValue(normalizedValue[scalarKey], fallback);
     }
+
     return fallback;
 };
 
-export const unwrapApiCollection = (payload) => payload?.data || [];
+const numberValue = (value, fallback = 0) => {
+    const normalizedValue = unwrapApiValue(value);
+    const number = Number(normalizedValue);
+
+    return Number.isFinite(number) ? number : fallback;
+};
+
+export const unwrapApiCollection = (payload) => unwrapApiValue(payload) || [];
+
+export const mapApiPlantImage = (image) => ({
+    id: image.id,
+    plantId: image.plant_id,
+    url: resolveAssetUrl(image.url),
+    originalName: stringValue(image.original_name, "Фото растения"),
+    size: numberValue(image.size, 0),
+    createdAt: dateOnly(image.created_at),
+});
 
 export const mapApiPlant = (plant) => {
-    const owner = plant.user?.data || plant.user || null;
-    const roomRaw = plant.room?.data || plant.room || null;
-    const careSettings = Array.isArray(plant.care_settings?.data)
-        ? plant.care_settings.data
-        : Array.isArray(plant.care_settings)
-          ? plant.care_settings
-          : [];
+    const owner = unwrapApiValue(plant.user) || null;
+    const roomRaw = unwrapApiValue(plant.room) || null;
+    const latestImage = unwrapApiValue(plant.latest_image) || null;
+    const careSettingsRaw = unwrapApiValue(plant.care_settings);
+    const careLogs = unwrapApiCollection(plant.care_logs);
+    const careSettings = Array.isArray(careSettingsRaw)
+        ? careSettingsRaw.map(unwrapApiValue)
+        : [];
 
-    const care = careSettings.reduce((acc, setting) => {
+    const allCareSettings = careSettings.reduce((acc, setting) => {
         const type = apiCareTypeToUi[setting.type];
-        if (!type || !setting.is_enabled) return acc;
+        if (!type) return acc;
 
         acc[type] = {
             id: setting.id,
-            everyDays: setting.interval_days,
-            nextAt: setting.next_due_date || dateOnly(setting.last_done_at),
+            everyDays: numberValue(setting.interval_days, 0),
+            nextAt: dateOnly(setting.next_due_date || setting.last_done_at),
             apiType: setting.type,
+            isEnabled: Boolean(setting.is_enabled),
         };
 
         return acc;
     }, {});
+    const care = Object.fromEntries(
+        Object.entries(allCareSettings).filter(
+            ([, setting]) => setting.isEnabled,
+        ),
+    );
 
     return {
         id: String(plant.id),
         apiId: plant.id,
         name: stringValue(plant.name, "Без названия"),
-        room: stringValue(roomRaw?.name ?? roomRaw, "Без комнаты"),
-        roomId: roomRaw?.id ?? plant.room_id ?? null,
-        image: resolveAssetUrl(plant.latest_image?.url),
-        health: plant.care_logs?.length ? Math.max(55, 96 - plant.care_logs.length * 2) : 82,
+        room: stringValue(
+            objectField(roomRaw, "name") ?? roomRaw,
+            "Без комнаты",
+        ),
+        roomId: objectField(roomRaw, "id") ?? plant.room_id ?? null,
+        image: resolveAssetUrl(objectField(latestImage, "url")),
+        health: careLogs.length ? Math.max(55, 96 - careLogs.length * 2) : 82,
         humidity: null,
-        height: Number(plant.height || 0),
+        height: numberValue(plant.height, 0),
         plantedAt: dateOnly(plant.planted_at),
         note: plant.is_public ? "Публичное растение" : "Личное растение",
         isPublic: Boolean(plant.is_public),
-        likesCount: Number(plant.likes_count || 0),
+        likesCount: numberValue(plant.likes_count, 0),
         userLiked: Boolean(
             plant.user_liked ??
-                plant.is_liked ??
-                plant.liked_by_user ??
-                plant.viewer_has_liked ??
-                false,
+            plant.is_liked ??
+            plant.liked_by_user ??
+            plant.viewer_has_liked ??
+            false,
         ),
+        canManage: Boolean(plant.can_manage),
+        canDelete: Boolean(plant.can_delete),
+        canCompleteCare: Boolean(plant.can_complete_care),
         userId: plant.user_id,
-        ownerId: owner?.id || null,
-        ownerName: stringValue(owner?.name, ""),
-        ownerRank: owner?.rank ?? null,
-        ownerAvatarUrl: owner?.avatar_url ? resolveAssetUrl(owner.avatar_url) : "",
+        ownerId: objectField(owner, "id") || null,
+        ownerName: stringValue(objectField(owner, "name"), ""),
+        ownerRank: objectField(owner, "rank") ?? null,
+        ownerAvatarUrl: objectField(owner, "avatar_url")
+            ? resolveAssetUrl(objectField(owner, "avatar_url"))
+            : "",
+        careSettings: allCareSettings,
+        careLogs: careLogs.map((log) => ({
+            id: log.id,
+            plantId: log.plant_id,
+            type: apiCareTypeToUi[log.type] || log.type,
+            apiType: log.type,
+            performedAt: dateOnly(log.performed_at),
+            comment: stringValue(log.comment, ""),
+        })),
         care,
         raw: plant,
     };
@@ -83,7 +175,7 @@ export const mapApiPlant = (plant) => {
 
 export const mapPlantFormToApi = (values, roomId = null) => ({
     name: values.name,
-    planted_at: values.plantedAt || new Date().toISOString().slice(0, 10),
+    planted_at: values.plantedAt || todayIsoDate(),
     height: Number(values.height) || null,
     room_id: roomId,
     is_public: Boolean(values.isPublic),
@@ -91,14 +183,14 @@ export const mapPlantFormToApi = (values, roomId = null) => ({
 
 export const mapCareSettingsFromForm = (values) =>
     [
-        ["water", values.waterEveryDays],
-        ["feed", values.feedEveryDays],
-        ["prune", values.pruneEveryDays],
-        ["rotate", values.rotateEveryDays],
+        ["water", values.waterEveryDays, values.waterEnabled],
+        ["feed", values.feedEveryDays, values.feedEnabled],
+        ["prune", values.pruneEveryDays, values.pruneEnabled],
+        ["rotate", values.rotateEveryDays, values.rotateEnabled],
     ]
         .filter(([, interval]) => Number(interval) > 0)
-        .map(([type, interval]) => ({
+        .map(([type, interval, enabled]) => ({
             type: uiCareTypeToApi[type],
             interval_days: Number(interval),
-            is_enabled: true,
+            is_enabled: enabled === undefined ? true : Boolean(enabled),
         }));

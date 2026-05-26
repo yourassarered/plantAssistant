@@ -1,7 +1,8 @@
 import { careTypes } from "@/shared/lib/careTypes";
+import { todayIsoDate } from "@/shared/lib/date/calendarGrid";
 
 export const taskDateState = (task) => {
-    const todayIso = new Date().toISOString().slice(0, 10);
+    const todayIso = todayIsoDate();
 
     if (task.completed) return "done";
     if (task.dueAt < todayIso) return "overdue";
@@ -17,7 +18,7 @@ export const groupTasksByDate = (tasks) =>
     }, {});
 
 export const summarizePlantCare = (plant) => {
-    const todayIso = new Date().toISOString().slice(0, 10);
+    const todayIso = todayIsoDate();
     const markers = Object.entries(plant.care || {})
         .filter(([, schedule]) => schedule.nextAt)
         .map(([type, schedule]) => ({

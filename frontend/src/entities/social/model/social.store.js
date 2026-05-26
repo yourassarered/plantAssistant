@@ -12,15 +12,19 @@ export const useSocialStore = defineStore("social", {
         error: "",
     }),
     getters: {
-        tipsFor: (state) => (plantId) => state.tipsByPlant[String(plantId)] || [],
-        likeCountFor: (state) => (plantId) => state.likeCounts[String(plantId)] || 0,
+        tipsFor: (state) => (plantId) =>
+            state.tipsByPlant[String(plantId)] || [],
+        likeCountFor: (state) => (plantId) =>
+            state.likeCounts[String(plantId)] || 0,
         isLiked: (state) => (plantId) => Boolean(state.liked[String(plantId)]),
     },
     actions: {
         ensurePlantSocialDefaults(plantId) {
             const key = String(plantId);
-            if (!Array.isArray(this.tipsByPlant[key])) this.tipsByPlant[key] = [];
-            if (typeof this.likeCounts[key] !== "number") this.likeCounts[key] = 0;
+            if (!Array.isArray(this.tipsByPlant[key]))
+                this.tipsByPlant[key] = [];
+            if (typeof this.likeCounts[key] !== "number")
+                this.likeCounts[key] = 0;
             if (typeof this.liked[key] !== "boolean") this.liked[key] = false;
         },
         applyPlantSnapshot(plant) {
@@ -40,40 +44,62 @@ export const useSocialStore = defineStore("social", {
                 this.tipsByPlant[key] = tips;
             }
 
-            this.likeCounts[key] = Number(raw.likes_count ?? plant.likesCount ?? this.likeCounts[key] ?? 0);
+            this.likeCounts[key] = Number(
+                raw.likes_count ??
+                    plant.likesCount ??
+                    this.likeCounts[key] ??
+                    0,
+            );
 
             if (typeof raw.user_liked === "boolean") {
                 this.liked[key] = raw.user_liked;
+            } else if (typeof plant.userLiked === "boolean") {
+                this.liked[key] = plant.userLiked;
             }
         },
         async loadLikeStatus(plantId) {
             if (!apiClient.token) return false;
             const key = String(plantId);
 
-            try {
-                const payload = await apiClient.get(`/plants/${plantId}/likes/is-liked`);
-                const liked = Boolean(payload.liked);
-                this.liked[key] = liked;
-                return liked;
-            } catch (error) {
-                if (error?.status === 403) {
-                    this.liked[key] = false;
-                    return false;
-                }
-                throw error;
-            }
+            const states = await this.hydrateLikeStates([plantId]);
+            this.liked[key] = Boolean(states[key]);
+            return this.liked[key];
         },
         async hydrateLikeStates(plantIds = []) {
             if (!apiClient.token || !plantIds.length) return {};
 
-            const uniqueIds = [...new Set(plantIds.map((id) => String(id)).filter(Boolean))];
-            const results = await Promise.allSettled(uniqueIds.map((id) => this.loadLikeStatus(id)));
+            const uniqueIds = [
+                ...new Set(plantIds.map((id) => String(id)).filter(Boolean)),
+            ];
+            const params = new URLSearchParams();
+            uniqueIds.forEach((id) => params.append("plant_ids[]", id));
 
-            return uniqueIds.reduce((acc, id, index) => {
-                const result = results[index];
-                acc[id] = result.status === "fulfilled" ? Boolean(result.value) : false;
-                return acc;
-            }, {});
+            try {
+                const payload = await apiClient.get(
+                    `/likes/states?${params.toString()}`,
+                );
+                const states = payload.liked || {};
+
+                uniqueIds.forEach((id) => {
+                    this.liked[id] = Boolean(states[id]);
+                });
+
+                return uniqueIds.reduce((acc, id) => {
+                    acc[id] = Boolean(states[id]);
+                    return acc;
+                }, {});
+            } catch (error) {
+                if (error?.status === 403) {
+                    uniqueIds.forEach((id) => {
+                        this.liked[id] = false;
+                    });
+                    return uniqueIds.reduce((acc, id) => {
+                        acc[id] = false;
+                        return acc;
+                    }, {});
+                }
+                throw error;
+            }
         },
         async loadPlantSocial(plantId) {
             this.loading = true;
@@ -92,13 +118,17 @@ export const useSocialStore = defineStore("social", {
                 ]);
 
                 if (tipsResult.status === "fulfilled") {
-                    this.tipsByPlant[key] = unwrapApiCollection(tipsResult.value);
+                    this.tipsByPlant[key] = unwrapApiCollection(
+                        tipsResult.value,
+                    );
                 } else if (tipsResult.reason?.status !== 403) {
                     throw tipsResult.reason;
                 }
 
                 if (likesResult.status === "fulfilled") {
-                    this.likeCounts[key] = Number(likesResult.value.likes_count || 0);
+                    this.likeCounts[key] = Number(
+                        likesResult.value.likes_count || 0,
+                    );
                 } else if (likesResult.reason?.status !== 403) {
                     throw likesResult.reason;
                 }
@@ -117,17 +147,23 @@ export const useSocialStore = defineStore("social", {
 
             const payload = await apiClient.post(`/plants/${plantId}/like`);
             this.liked[String(plantId)] = Boolean(payload.liked);
-            this.likeCounts[String(plantId)] = Math.max(
-                0,
-                (this.likeCounts[String(plantId)] || 0) + (payload.liked ? 1 : -1),
-            );
+            this.likeCounts[String(plantId)] =
+                typeof payload.likes_count === "number"
+                    ? payload.likes_count
+                    : Math.max(
+                          0,
+                          (this.likeCounts[String(plantId)] || 0) +
+                              (payload.liked ? 1 : -1),
+                      );
         },
         async createTip(plantId, content) {
             if (!apiClient.token) {
                 throw new Error("Sign in to send tips.");
             }
 
-            const payload = await apiClient.post(`/plants/${plantId}/tips`, { content });
+            const payload = await apiClient.post(`/plants/${plantId}/tips`, {
+                content,
+            });
             const tip = payload.data || payload;
             const key = String(plantId);
             this.tipsByPlant[key] = [tip, ...(this.tipsByPlant[key] || [])];
@@ -138,11 +174,13 @@ export const useSocialStore = defineStore("social", {
                 throw new Error("Sign in to manage tips.");
             }
 
-            const payload = await apiClient.put(`/tips/${tipId}/status`, { status });
+            const payload = await apiClient.put(`/tips/${tipId}/status`, {
+                status,
+            });
             const updated = payload.data || payload;
             const key = String(plantId);
             this.tipsByPlant[key] = (this.tipsByPlant[key] || []).map((tip) =>
-                tip.id === updated.id ? updated : tip,
+                tip.id === updated.id ? { ...tip, ...updated } : tip,
             );
             return updated;
         },
@@ -151,14 +189,20 @@ export const useSocialStore = defineStore("social", {
                 throw new Error("Sign in to send reports.");
             }
 
-            return apiClient.post(`/plants/${plantId}/reports`, { reason, details });
+            return apiClient.post(`/plants/${plantId}/reports`, {
+                reason,
+                details,
+            });
         },
         async reportTip(tipId, reason, details = "") {
             if (!apiClient.token) {
                 throw new Error("Sign in to send reports.");
             }
 
-            return apiClient.post(`/tips/${tipId}/reports`, { reason, details });
+            return apiClient.post(`/tips/${tipId}/reports`, {
+                reason,
+                details,
+            });
         },
     },
 });

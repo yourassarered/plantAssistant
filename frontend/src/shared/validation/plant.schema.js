@@ -8,9 +8,13 @@ export const plantFormSchema = toTypedSchema(
         height: z.coerce.number().min(1, "Высота должна быть больше 0"),
         plantedAt: z.string().min(1, "Выберите дату посадки"),
         isPublic: z.boolean().default(false),
+        waterEnabled: z.boolean().default(true),
         waterEveryDays: z.coerce.number().min(1).max(60),
+        feedEnabled: z.boolean().default(true),
         feedEveryDays: z.coerce.number().min(1).max(90),
+        pruneEnabled: z.boolean().default(true),
         pruneEveryDays: z.coerce.number().min(1).max(120),
+        rotateEnabled: z.boolean().default(true),
         rotateEveryDays: z.coerce.number().min(1).max(60),
     }),
 );
