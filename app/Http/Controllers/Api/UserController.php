@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\AdminUpdateUserRequest;
 use App\Http\Requests\Api\UpdateUserRoleRequest;
 use App\Http\Resources\UserResource;
 use App\Models\Role;
@@ -107,6 +108,54 @@ class UserController extends Controller
         return response()->json([
             'message' => 'User deleted successfully',
         ]);
+    }
+
+    public function adminUpdate(AdminUpdateUserRequest $request, $id)
+    {
+        $this->authorize('manage', User::class);
+
+        $user = User::findOrFail($id);
+        $validated = $request->validated();
+
+        if ($user->id === $request->user()->id && $validated['role_name'] !== $user->role?->name) {
+            return response()->json([
+                'message' => 'You cannot change your own role',
+            ], 403);
+        }
+
+        $user = DB::transaction(function () use ($validated, $user) {
+            $role = Role::where('name', $validated['role_name'])->firstOrFail();
+
+            $user->name = $validated['name'];
+            $user->email = $validated['email'];
+            $user->rank = $validated['rank'];
+            $user->role_id = $role->id;
+
+            if (! empty($validated['password'])) {
+                $user->password = Hash::make($validated['password']);
+            }
+
+            $user->save();
+
+            return $user;
+        });
+
+        $this->audit->log(
+            actor: $request->user(),
+            action: 'user.update',
+            targetType: User::class,
+            targetId: $user->id,
+            payload: [
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'rank' => $validated['rank'],
+                'role_name' => $validated['role_name'],
+                'password_changed' => ! empty($validated['password']),
+            ],
+            request: $request
+        );
+
+        return new UserResource($user->fresh('role'));
     }
 
     public function updateRole(UpdateUserRoleRequest $request, $id)

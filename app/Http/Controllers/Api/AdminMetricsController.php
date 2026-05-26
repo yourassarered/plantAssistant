@@ -21,11 +21,15 @@ class AdminMetricsController extends Controller
             '4xx' => 0,
             '5xx' => 0,
         ];
+        $totalRequests = 0;
+        $peakRequestsPerMinute = 0;
 
         for ($i = $minutes - 1; $i >= 0; $i--) {
             $slot = now()->subMinutes($i);
             $minuteKey = $slot->format('YmdHi');
             $total = (int) Cache::get("metrics:traffic:total:{$minuteKey}", 0);
+            $totalRequests += $total;
+            $peakRequestsPerMinute = max($peakRequestsPerMinute, $total);
 
             $series[] = [
                 'timestamp' => $slot->toISOString(),
@@ -52,6 +56,10 @@ class AdminMetricsController extends Controller
             $statusBuckets['5xx'] += $status5xx;
         }
 
+        $errorRequests = $statusBuckets['4xx'] + $statusBuckets['5xx'];
+        $averageRequestsPerMinute = $minutes > 0 ? round($totalRequests / $minutes, 2) : 0;
+        $errorRatePercent = $totalRequests > 0 ? round(($errorRequests / $totalRequests) * 100, 2) : 0;
+
         $recentModeratorActions = ModeratorAuditLog::with('actor')
             ->latest()
             ->limit(20)
@@ -68,6 +76,11 @@ class AdminMetricsController extends Controller
 
         return response()->json([
             'window_minutes' => $minutes,
+            'total_requests' => $totalRequests,
+            'average_requests_per_minute' => $averageRequestsPerMinute,
+            'peak_requests_per_minute' => $peakRequestsPerMinute,
+            'error_requests' => $errorRequests,
+            'error_rate_percent' => $errorRatePercent,
             'traffic_series' => $series,
             'status_totals' => $statusBuckets,
             'recent_moderator_actions' => $recentModeratorActions,

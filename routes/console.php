@@ -163,6 +163,20 @@ Artisan::command('openapi:generate', function () {
                 ],
             ],
         ],
+        '/api/plants/public/{plantId}/images' => [
+            'get' => [
+                'tags' => ['Plant Images'],
+                'summary' => 'Public plant images',
+                'parameters' => [
+                    ['in' => 'path', 'name' => 'plantId', 'required' => true, 'schema' => ['type' => 'integer']],
+                    ['in' => 'query', 'name' => 'per_page', 'schema' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 100]],
+                ],
+                'responses' => [
+                    '200' => ['description' => 'Image list'],
+                    '404' => ['description' => 'Plant not found'],
+                ],
+            ],
+        ],
         '/api/admin/reports/{id}/review' => [
             'put' => [
                 'tags' => ['Admin Reports'],
@@ -198,6 +212,36 @@ Artisan::command('openapi:generate', function () {
                 'responses' => [
                     '200' => ['description' => 'Metrics payload'],
                     '429' => ['description' => 'Rate limited'],
+                ],
+            ],
+        ],
+        '/api/users/{id}' => [
+            'put' => [
+                'tags' => ['Users'],
+                'summary' => 'Admin update user',
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => [
+                                'type' => 'object',
+                                'required' => ['name', 'email', 'rank', 'role_name'],
+                                'properties' => [
+                                    'name' => ['type' => 'string', 'maxLength' => 255],
+                                    'email' => ['type' => 'string', 'format' => 'email'],
+                                    'rank' => ['type' => 'integer', 'minimum' => 0, 'maximum' => 100000],
+                                    'role_name' => ['type' => 'string', 'enum' => ['user', 'admin']],
+                                    'password' => ['type' => 'string', 'minLength' => 8, 'nullable' => true],
+                                    'password_confirmation' => ['type' => 'string', 'minLength' => 8, 'nullable' => true],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+                'responses' => [
+                    '200' => ['description' => 'User updated'],
+                    '403' => ['description' => 'Forbidden'],
+                    '422' => ['description' => 'Validation error'],
                 ],
             ],
         ],

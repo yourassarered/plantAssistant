@@ -200,9 +200,6 @@
                     "200": {
                         "description": "Authenticated"
                     },
-                    "201": {
-                        "description": "Created"
-                    },
                     "401": {
                         "description": "Unauthorized"
                     },
@@ -211,6 +208,9 @@
                     },
                     "422": {
                         "description": "Validation error"
+                    },
+                    "201": {
+                        "description": "Created"
                     }
                 },
                 "requestBody": {
@@ -248,9 +248,6 @@
                     "200": {
                         "description": "Successful response"
                     },
-                    "201": {
-                        "description": "Created"
-                    },
                     "401": {
                         "description": "Unauthorized"
                     },
@@ -259,6 +256,9 @@
                     },
                     "422": {
                         "description": "Validation error"
+                    },
+                    "201": {
+                        "description": "Created"
                     }
                 },
                 "requestBody": {
@@ -305,9 +305,6 @@
                     "200": {
                         "description": "Successful response"
                     },
-                    "201": {
-                        "description": "Created"
-                    },
                     "401": {
                         "description": "Unauthorized"
                     },
@@ -316,6 +313,9 @@
                     },
                     "422": {
                         "description": "Validation error"
+                    },
+                    "201": {
+                        "description": "Created"
                     }
                 },
                 "requestBody": {
@@ -340,9 +340,6 @@
                     "200": {
                         "description": "Successful response"
                     },
-                    "201": {
-                        "description": "Registered"
-                    },
                     "401": {
                         "description": "Unauthorized"
                     },
@@ -351,6 +348,9 @@
                     },
                     "422": {
                         "description": "Validation error"
+                    },
+                    "201": {
+                        "description": "Registered"
                     }
                 },
                 "requestBody": {
@@ -429,9 +429,6 @@
                     "200": {
                         "description": "Successful response"
                     },
-                    "204": {
-                        "description": "Deleted"
-                    },
                     "401": {
                         "description": "Unauthorized"
                     },
@@ -440,6 +437,9 @@
                     },
                     "422": {
                         "description": "Validation error"
+                    },
+                    "204": {
+                        "description": "Deleted"
                     }
                 },
                 "parameters": [
@@ -624,9 +624,6 @@
                     "200": {
                         "description": "Successful response"
                     },
-                    "204": {
-                        "description": "Deleted"
-                    },
                     "401": {
                         "description": "Unauthorized"
                     },
@@ -635,6 +632,9 @@
                     },
                     "422": {
                         "description": "Validation error"
+                    },
+                    "204": {
+                        "description": "Deleted"
                     }
                 },
                 "parameters": [
@@ -659,9 +659,6 @@
                     "200": {
                         "description": "Successful response"
                     },
-                    "201": {
-                        "description": "Created"
-                    },
                     "401": {
                         "description": "Unauthorized"
                     },
@@ -670,6 +667,9 @@
                     },
                     "422": {
                         "description": "Validation error"
+                    },
+                    "201": {
+                        "description": "Created"
                     }
                 },
                 "parameters": [
@@ -1007,6 +1007,28 @@
                 }
             }
         },
+        "/api/likes/states": {
+            "get": {
+                "tags": [
+                    "Likes"
+                ],
+                "summary": "GET /api/likes/states",
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                }
+            }
+        },
         "/api/plant-images/{id}": {
             "get": {
                 "tags": [
@@ -1087,9 +1109,6 @@
                     "200": {
                         "description": "Successful response"
                     },
-                    "204": {
-                        "description": "Deleted"
-                    },
                     "401": {
                         "description": "Unauthorized"
                     },
@@ -1098,6 +1117,9 @@
                     },
                     "422": {
                         "description": "Validation error"
+                    },
+                    "204": {
+                        "description": "Deleted"
                     }
                 },
                 "parameters": [
@@ -1199,8 +1221,62 @@
                     "200": {
                         "description": "Successful response"
                     },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
                     "201": {
                         "description": "Created"
+                    }
+                },
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/plants/public": {
+            "get": {
+                "tags": [
+                    "Plants"
+                ],
+                "summary": "GET /api/plants/public",
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                }
+            }
+        },
+        "/api/plants/public/{id}": {
+            "get": {
+                "tags": [
+                    "Plants"
+                ],
+                "summary": "GET /api/plants/public/{id}",
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
                     },
                     "401": {
                         "description": "Unauthorized"
@@ -1212,14 +1288,80 @@
                         "description": "Validation error"
                     }
                 },
-                "requestBody": {
-                    "required": false,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object"
-                            }
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
                         }
+                    }
+                ]
+            }
+        },
+        "/api/plants/public/{plantId}/images": {
+            "get": {
+                "tags": [
+                    "Plant Images"
+                ],
+                "summary": "Public plant images",
+                "responses": {
+                    "200": {
+                        "description": "Image list"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
+                    "404": {
+                        "description": "Plant not found"
+                    }
+                },
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "plantId",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "per_page",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                        }
+                    }
+                ]
+            }
+        },
+        "/api/plants/todays-care": {
+            "get": {
+                "tags": [
+                    "Plants"
+                ],
+                "summary": "GET /api/plants/todays-care",
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "422": {
+                        "description": "Validation error"
                     }
                 }
             }
@@ -1304,9 +1446,6 @@
                     "200": {
                         "description": "Successful response"
                     },
-                    "204": {
-                        "description": "Deleted"
-                    },
                     "401": {
                         "description": "Unauthorized"
                     },
@@ -1315,6 +1454,9 @@
                     },
                     "422": {
                         "description": "Validation error"
+                    },
+                    "204": {
+                        "description": "Deleted"
                     }
                 },
                 "parameters": [
@@ -1371,9 +1513,6 @@
                     "200": {
                         "description": "Successful response"
                     },
-                    "201": {
-                        "description": "Created"
-                    },
                     "401": {
                         "description": "Unauthorized"
                     },
@@ -1382,6 +1521,9 @@
                     },
                     "422": {
                         "description": "Validation error"
+                    },
+                    "201": {
+                        "description": "Created"
                     }
                 },
                 "parameters": [
@@ -1446,9 +1588,6 @@
                     "200": {
                         "description": "Successful response"
                     },
-                    "201": {
-                        "description": "Created"
-                    },
                     "401": {
                         "description": "Unauthorized"
                     },
@@ -1457,6 +1596,9 @@
                     },
                     "422": {
                         "description": "Validation error"
+                    },
+                    "201": {
+                        "description": "Created"
                     }
                 },
                 "parameters": [
@@ -1521,9 +1663,6 @@
                     "200": {
                         "description": "Successful response"
                     },
-                    "201": {
-                        "description": "Created"
-                    },
                     "401": {
                         "description": "Unauthorized"
                     },
@@ -1532,6 +1671,9 @@
                     },
                     "422": {
                         "description": "Validation error"
+                    },
+                    "201": {
+                        "description": "Created"
                     }
                 },
                 "parameters": [
@@ -1596,9 +1738,6 @@
                     "200": {
                         "description": "Successful response"
                     },
-                    "201": {
-                        "description": "Image created"
-                    },
                     "401": {
                         "description": "Unauthorized"
                     },
@@ -1607,6 +1746,9 @@
                     },
                     "422": {
                         "description": "Validation error"
+                    },
+                    "201": {
+                        "description": "Image created"
                     }
                 },
                 "parameters": [
@@ -1655,9 +1797,6 @@
                     "200": {
                         "description": "Successful response"
                     },
-                    "201": {
-                        "description": "Created"
-                    },
                     "401": {
                         "description": "Unauthorized"
                     },
@@ -1666,6 +1805,9 @@
                     },
                     "422": {
                         "description": "Validation error"
+                    },
+                    "201": {
+                        "description": "Created"
                     }
                 },
                 "parameters": [
@@ -1796,9 +1938,6 @@
                     "200": {
                         "description": "Successful response"
                     },
-                    "201": {
-                        "description": "Created"
-                    },
                     "401": {
                         "description": "Unauthorized"
                     },
@@ -1807,6 +1946,9 @@
                     },
                     "422": {
                         "description": "Validation error"
+                    },
+                    "201": {
+                        "description": "Created"
                     }
                 },
                 "parameters": [
@@ -1871,9 +2013,6 @@
                     "200": {
                         "description": "Successful response"
                     },
-                    "201": {
-                        "description": "Created"
-                    },
                     "401": {
                         "description": "Unauthorized"
                     },
@@ -1882,6 +2021,9 @@
                     },
                     "422": {
                         "description": "Validation error"
+                    },
+                    "201": {
+                        "description": "Created"
                     }
                 },
                 "parameters": [
@@ -1902,82 +2044,6 @@
                                 "type": "object"
                             }
                         }
-                    }
-                }
-            }
-        },
-        "/api/plants/public": {
-            "get": {
-                "tags": [
-                    "Plants"
-                ],
-                "summary": "GET /api/plants/public",
-                "responses": {
-                    "200": {
-                        "description": "Successful response"
-                    },
-                    "401": {
-                        "description": "Unauthorized"
-                    },
-                    "403": {
-                        "description": "Forbidden"
-                    },
-                    "422": {
-                        "description": "Validation error"
-                    }
-                }
-            }
-        },
-        "/api/plants/public/{id}": {
-            "get": {
-                "tags": [
-                    "Plants"
-                ],
-                "summary": "GET /api/plants/public/{id}",
-                "responses": {
-                    "200": {
-                        "description": "Successful response"
-                    },
-                    "401": {
-                        "description": "Unauthorized"
-                    },
-                    "403": {
-                        "description": "Forbidden"
-                    },
-                    "422": {
-                        "description": "Validation error"
-                    }
-                },
-                "parameters": [
-                    {
-                        "in": "path",
-                        "name": "id",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ]
-            }
-        },
-        "/api/plants/todays-care": {
-            "get": {
-                "tags": [
-                    "Plants"
-                ],
-                "summary": "GET /api/plants/todays-care",
-                "responses": {
-                    "200": {
-                        "description": "Successful response"
-                    },
-                    "401": {
-                        "description": "Unauthorized"
-                    },
-                    "403": {
-                        "description": "Forbidden"
-                    },
-                    "422": {
-                        "description": "Validation error"
                     }
                 }
             }
@@ -2012,9 +2078,6 @@
                     "200": {
                         "description": "Successful response"
                     },
-                    "201": {
-                        "description": "Created"
-                    },
                     "401": {
                         "description": "Unauthorized"
                     },
@@ -2023,6 +2086,9 @@
                     },
                     "422": {
                         "description": "Validation error"
+                    },
+                    "201": {
+                        "description": "Created"
                     }
                 },
                 "requestBody": {
@@ -2117,9 +2183,6 @@
                     "200": {
                         "description": "Successful response"
                     },
-                    "204": {
-                        "description": "Deleted"
-                    },
                     "401": {
                         "description": "Unauthorized"
                     },
@@ -2128,6 +2191,9 @@
                     },
                     "422": {
                         "description": "Validation error"
+                    },
+                    "204": {
+                        "description": "Deleted"
                     }
                 },
                 "parameters": [
@@ -2172,158 +2238,6 @@
                         }
                     }
                 ]
-            }
-        },
-        "/api/tips/{id}": {
-            "get": {
-                "tags": [
-                    "Tips"
-                ],
-                "summary": "GET /api/tips/{id}",
-                "responses": {
-                    "200": {
-                        "description": "Successful response"
-                    },
-                    "401": {
-                        "description": "Unauthorized"
-                    },
-                    "403": {
-                        "description": "Forbidden"
-                    },
-                    "422": {
-                        "description": "Validation error"
-                    }
-                },
-                "parameters": [
-                    {
-                        "in": "path",
-                        "name": "id",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ]
-            },
-            "delete": {
-                "tags": [
-                    "Tips"
-                ],
-                "summary": "DELETE /api/tips/{id}",
-                "responses": {
-                    "200": {
-                        "description": "Successful response"
-                    },
-                    "204": {
-                        "description": "Deleted"
-                    },
-                    "401": {
-                        "description": "Unauthorized"
-                    },
-                    "403": {
-                        "description": "Forbidden"
-                    },
-                    "422": {
-                        "description": "Validation error"
-                    }
-                },
-                "parameters": [
-                    {
-                        "in": "path",
-                        "name": "id",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ]
-            }
-        },
-        "/api/tips/{id}/status": {
-            "put": {
-                "tags": [
-                    "Tips"
-                ],
-                "summary": "PUT /api/tips/{id}/status",
-                "responses": {
-                    "200": {
-                        "description": "Successful response"
-                    },
-                    "401": {
-                        "description": "Unauthorized"
-                    },
-                    "403": {
-                        "description": "Forbidden"
-                    },
-                    "422": {
-                        "description": "Validation error"
-                    }
-                },
-                "parameters": [
-                    {
-                        "in": "path",
-                        "name": "id",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "requestBody": {
-                    "required": false,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/tips/{tipId}/reports": {
-            "post": {
-                "tags": [
-                    "Tips"
-                ],
-                "summary": "POST /api/tips/{tipId}/reports",
-                "responses": {
-                    "200": {
-                        "description": "Successful response"
-                    },
-                    "201": {
-                        "description": "Created"
-                    },
-                    "401": {
-                        "description": "Unauthorized"
-                    },
-                    "403": {
-                        "description": "Forbidden"
-                    },
-                    "422": {
-                        "description": "Validation error"
-                    }
-                },
-                "parameters": [
-                    {
-                        "in": "path",
-                        "name": "tipId",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "requestBody": {
-                    "required": false,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object"
-                            }
-                        }
-                    }
-                }
             }
         },
         "/api/tips/my": {
@@ -2424,6 +2338,158 @@
                 }
             }
         },
+        "/api/tips/{id}": {
+            "get": {
+                "tags": [
+                    "Tips"
+                ],
+                "summary": "GET /api/tips/{id}",
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Tips"
+                ],
+                "summary": "DELETE /api/tips/{id}",
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
+                    "204": {
+                        "description": "Deleted"
+                    }
+                },
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ]
+            }
+        },
+        "/api/tips/{id}/status": {
+            "put": {
+                "tags": [
+                    "Tips"
+                ],
+                "summary": "PUT /api/tips/{id}/status",
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/tips/{tipId}/reports": {
+            "post": {
+                "tags": [
+                    "Tips"
+                ],
+                "summary": "POST /api/tips/{tipId}/reports",
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
+                    "201": {
+                        "description": "Created"
+                    }
+                },
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "tipId",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/users": {
             "get": {
                 "tags": [
@@ -2442,6 +2508,96 @@
                     },
                     "422": {
                         "description": "Validation error"
+                    }
+                }
+            }
+        },
+        "/api/users/profile": {
+            "put": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "PUT /api/users/profile",
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/users/profile/avatar": {
+            "post": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "POST /api/users/profile/avatar",
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
+                    "201": {
+                        "description": "Created"
+                    }
+                },
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "DELETE /api/users/profile/avatar",
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
+                    "204": {
+                        "description": "Deleted"
                     }
                 }
             }
@@ -2486,8 +2642,38 @@
                     "200": {
                         "description": "Successful response"
                     },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
                     "204": {
                         "description": "Deleted"
+                    }
+                },
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Admin update user",
+                "responses": {
+                    "200": {
+                        "description": "User updated"
                     },
                     "401": {
                         "description": "Unauthorized"
@@ -2508,7 +2694,55 @@
                             "type": "string"
                         }
                     }
-                ]
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "name",
+                                    "email",
+                                    "rank",
+                                    "role_name"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "maxLength": 255
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email"
+                                    },
+                                    "rank": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 100000
+                                    },
+                                    "role_name": {
+                                        "type": "string",
+                                        "enum": [
+                                            "user",
+                                            "admin"
+                                        ]
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "minLength": 8,
+                                        "nullable": true
+                                    },
+                                    "password_confirmation": {
+                                        "type": "string",
+                                        "minLength": 8,
+                                        "nullable": true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         },
         "/api/users/{id}/avatar": {
@@ -2551,9 +2785,6 @@
                     "200": {
                         "description": "Successful response"
                     },
-                    "204": {
-                        "description": "Deleted"
-                    },
                     "401": {
                         "description": "Unauthorized"
                     },
@@ -2562,6 +2793,9 @@
                     },
                     "422": {
                         "description": "Validation error"
+                    },
+                    "204": {
+                        "description": "Deleted"
                     }
                 },
                 "parameters": [
@@ -2628,9 +2862,6 @@
                     "200": {
                         "description": "Successful response"
                     },
-                    "201": {
-                        "description": "Created"
-                    },
                     "401": {
                         "description": "Unauthorized"
                     },
@@ -2639,6 +2870,9 @@
                     },
                     "422": {
                         "description": "Validation error"
+                    },
+                    "201": {
+                        "description": "Created"
                     }
                 },
                 "parameters": [
@@ -2865,9 +3099,6 @@
                     "200": {
                         "description": "Successful response"
                     },
-                    "204": {
-                        "description": "Deleted"
-                    },
                     "401": {
                         "description": "Unauthorized"
                     },
@@ -2876,6 +3107,9 @@
                     },
                     "422": {
                         "description": "Validation error"
+                    },
+                    "204": {
+                        "description": "Deleted"
                     }
                 },
                 "parameters": [
@@ -2888,96 +3122,6 @@
                         }
                     }
                 ]
-            }
-        },
-        "/api/users/profile": {
-            "put": {
-                "tags": [
-                    "Users"
-                ],
-                "summary": "PUT /api/users/profile",
-                "responses": {
-                    "200": {
-                        "description": "Successful response"
-                    },
-                    "401": {
-                        "description": "Unauthorized"
-                    },
-                    "403": {
-                        "description": "Forbidden"
-                    },
-                    "422": {
-                        "description": "Validation error"
-                    }
-                },
-                "requestBody": {
-                    "required": false,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/users/profile/avatar": {
-            "post": {
-                "tags": [
-                    "Users"
-                ],
-                "summary": "POST /api/users/profile/avatar",
-                "responses": {
-                    "200": {
-                        "description": "Successful response"
-                    },
-                    "201": {
-                        "description": "Created"
-                    },
-                    "401": {
-                        "description": "Unauthorized"
-                    },
-                    "403": {
-                        "description": "Forbidden"
-                    },
-                    "422": {
-                        "description": "Validation error"
-                    }
-                },
-                "requestBody": {
-                    "required": false,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object"
-                            }
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "tags": [
-                    "Users"
-                ],
-                "summary": "DELETE /api/users/profile/avatar",
-                "responses": {
-                    "200": {
-                        "description": "Successful response"
-                    },
-                    "204": {
-                        "description": "Deleted"
-                    },
-                    "401": {
-                        "description": "Unauthorized"
-                    },
-                    "403": {
-                        "description": "Forbidden"
-                    },
-                    "422": {
-                        "description": "Validation error"
-                    }
-                }
             }
         }
     }
