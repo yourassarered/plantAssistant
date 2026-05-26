@@ -1,6 +1,7 @@
 <script setup>
 import { Droplets, Leaf, RotateCw, Scissors } from "lucide-vue-next";
 
+import { formatIsoDate } from "@/shared/lib/date/calendarGrid";
 import { summarizePlantCare } from "@/shared/lib/date/taskMarkers";
 
 const props = defineProps({
@@ -22,7 +23,7 @@ const status = summarizePlantCare(props.plant);
         <span
             v-for="marker in status.markers"
             :key="marker.type"
-            v-tooltip="`${marker.label}: ${marker.dueAt}`"
+            v-tooltip="`${marker.label}: ${formatIsoDate(marker.dueAt)}`"
             class="plant-markers__dot"
             :class="`plant-markers__dot--${marker.state}`"
             :style="{ '--marker-color': marker.color }"

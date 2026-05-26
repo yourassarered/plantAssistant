@@ -25,7 +25,9 @@ onMounted(refresh);
         <header class="page-header">
             <div>
                 <h1 class="page-title">Мои растения</h1>
-                <p class="page-subtitle">{{ plantStore.attentionCount }} требуют ухода сейчас</p>
+                <p class="page-subtitle">
+                    {{ plantStore.attentionCount }} требуют ухода сейчас
+                </p>
             </div>
             <div class="my-actions">
                 <UiButton variant="ghost" @click="refresh">
@@ -54,7 +56,10 @@ onMounted(refresh);
 
             <select
                 :value="plantStore.sortBy"
-                @change="plantStore.setSort($event.target.value); refresh()"
+                @change="
+                    plantStore.setSort($event.target.value);
+                    refresh();
+                "
             >
                 <option value="created_at">Сначала новые</option>
                 <option value="name">По названию</option>
@@ -64,7 +69,9 @@ onMounted(refresh);
 
         <div v-if="plantStore.error" class="panel my-state">
             <p>{{ plantStore.error }}</p>
-            <UiButton variant="ghost" @click="refresh">Повторить запрос</UiButton>
+            <UiButton variant="ghost" @click="refresh"
+                >Повторить запрос</UiButton
+            >
         </div>
 
         <div v-else-if="plantStore.loading" class="panel my-state">
@@ -78,7 +85,10 @@ onMounted(refresh);
                     @update:model-value="plantStore.setFilter"
                 />
                 <PlantListWidget :plants="plantStore.filteredPlants" />
-                <div v-if="!plantStore.filteredPlants.length" class="panel my-state">
+                <div
+                    v-if="!plantStore.filteredPlants.length"
+                    class="panel my-state"
+                >
                     <p>Растений по текущему фильтру пока нет.</p>
                     <RouterLink to="/add-plant">
                         <UiButton>Добавить растение</UiButton>

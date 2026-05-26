@@ -1,5 +1,10 @@
 <script setup>
-import { AlertTriangle, CalendarClock, Leaf, ListFilter } from "lucide-vue-next";
+import {
+    AlertTriangle,
+    CalendarClock,
+    Leaf,
+    ListFilter,
+} from "lucide-vue-next";
 
 defineProps({
     modelValue: { type: String, required: true },
@@ -22,7 +27,9 @@ const filters = [
             :key="filter.value"
             type="button"
             class="plant-filter-bar__item"
-            :class="{ 'plant-filter-bar__item--active': modelValue === filter.value }"
+            :class="{
+                'plant-filter-bar__item--active': modelValue === filter.value,
+            }"
             @click="emit('update:modelValue', filter.value)"
         >
             <component :is="filter.icon" :size="15" />

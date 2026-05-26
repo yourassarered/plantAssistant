@@ -32,6 +32,11 @@ const classes = computed(() =>
     font-weight: 800;
 }
 
+.ui-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.58;
+}
+
 .ui-button--primary {
     color: #fff;
     background: var(--color-green);

@@ -20,7 +20,8 @@ onMounted(async () => {
             <div>
                 <h1 class="page-title">Календарь</h1>
                 <p class="page-subtitle">
-                    Месяц формируется динамически по care settings ваших растений.
+                    Месяц формируется динамически по care settings ваших
+                    растений.
                 </p>
             </div>
         </header>

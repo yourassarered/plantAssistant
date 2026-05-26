@@ -12,6 +12,7 @@ const props = defineProps({
     variant: { type: String, default: "default" },
     showActions: { type: Boolean, default: false },
     showCare: { type: Boolean, default: true },
+    showCareBadge: { type: Boolean, default: true },
     canLike: { type: Boolean, default: false },
     canSuggest: { type: Boolean, default: false },
 });
@@ -20,42 +21,88 @@ const emit = defineEmits(["toggle-like", "suggest", "open-owner"]);
 
 const care = computed(() => summarizePlantCare(props.plant));
 const isFeedVariant = computed(() => props.variant === "feed");
-const ownerName = computed(() => props.plant.ownerName || "Пользователь");
+const isProfileVariant = computed(() => props.variant === "profile");
+const isWideVariant = computed(
+    () => isFeedVariant.value || isProfileVariant.value,
+);
+const ownerName = computed(
+    () =>
+        props.plant.ownerName ||
+        "\u041f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044c",
+);
 const ownerMeta = computed(() => {
     if (props.plant.ownerRank === null || props.plant.ownerRank === undefined) {
         return ownerName.value;
     }
-    return `${ownerName.value} · rank ${props.plant.ownerRank}`;
+    return `${ownerName.value} \u00b7 \u0440\u0430\u043d\u0433 ${props.plant.ownerRank}`;
 });
+const heightText = computed(
+    () =>
+        props.plant.height ||
+        "\u043d\u0435 \u0443\u043a\u0430\u0437\u0430\u043d\u0430",
+);
+const likeButtonLabel = computed(() =>
+    props.plant.userLiked
+        ? "\u0423\u0431\u0440\u0430\u0442\u044c \u043b\u0430\u0439\u043a"
+        : "\u041f\u043e\u0441\u0442\u0430\u0432\u0438\u0442\u044c \u043b\u0430\u0439\u043a",
+);
 
 const badgeText = computed(() => {
-    if (care.value.primaryState === "overdue") return "просрочено";
-    if (care.value.primaryState === "today") return "сегодня";
-    if (care.value.primaryState === "soon") return "скоро";
-    return props.plant.isPublic ? "публично" : "без расписания";
+    if (care.value.primaryState === "overdue")
+        return "\u043f\u0440\u043e\u0441\u0440\u043e\u0447\u0435\u043d\u043e";
+    if (care.value.primaryState === "today")
+        return "\u0441\u0435\u0433\u043e\u0434\u043d\u044f";
+    if (care.value.primaryState === "soon")
+        return "\u0441\u043a\u043e\u0440\u043e";
+    return props.plant.isPublic
+        ? "\u043f\u0443\u0431\u043b\u0438\u0447\u043d\u043e"
+        : "\u0431\u0435\u0437 \u0440\u0430\u0441\u043f\u0438\u0441\u0430\u043d\u0438\u044f";
 });
 </script>
 
 <template>
     <UiCard>
-        <article class="plant-card" :class="{ 'plant-card--feed': isFeedVariant }">
-            <RouterLink :to="`/plants/${plant.id}`" class="plant-card__image-wrap">
-                <img :src="plant.image" :alt="plant.name" class="plant-card__image" />
-                <UiBadge v-if="showCare" class="plant-card__badge" :tone="care.primaryState">
-                    {{ badgeText }}
-                </UiBadge>
-            </RouterLink>
+        <article
+            class="plant-card"
+            :class="{
+                'plant-card--wide': isWideVariant,
+                'plant-card--feed': isFeedVariant,
+                'plant-card--profile': isProfileVariant,
+            }"
+        >
+            <div class="plant-card__media">
+                <RouterLink
+                    :to="`/plants/${plant.id}`"
+                    class="plant-card__image-wrap"
+                >
+                    <img
+                        :src="plant.image"
+                        :alt="plant.name"
+                        class="plant-card__image"
+                    />
+                    <UiBadge
+                        v-if="showCare && showCareBadge"
+                        class="plant-card__badge"
+                        :tone="care.primaryState"
+                    >
+                        {{ badgeText }}
+                    </UiBadge>
+                </RouterLink>
+            </div>
 
             <div class="plant-card__body">
                 <div class="plant-card__head">
-                    <RouterLink :to="`/plants/${plant.id}`" class="plant-card__title-link">
+                    <RouterLink
+                        :to="`/plants/${plant.id}`"
+                        class="plant-card__title-link"
+                    >
                         <h3>{{ plant.name }}</h3>
                     </RouterLink>
                     <p><MapPin :size="14" /> {{ plant.room }}</p>
                 </div>
 
                 <button
-                    v-if="plant.ownerId"
+                    v-if="plant.ownerId && !isProfileVariant"
                     type="button"
                     class="owner-button"
                     @click="emit('open-owner', plant.ownerId)"
@@ -67,8 +114,12 @@ const badgeText = computed(() => {
                 <PlantStatusMarkers v-if="showCare" :plant="plant" />
 
                 <div class="plant-card__stats">
-                    <span>Высота {{ plant.height || "не указана" }}</span>
-                    <span>Лайки {{ plant.likesCount }}</span>
+                    <span>
+                        <span class="plant-card__stat-label"
+                            >&#1042;&#1099;&#1089;&#1086;&#1090;&#1072;</span
+                        >
+                        {{ heightText }}
+                    </span>
                 </div>
 
                 <div v-if="showActions" class="plant-actions">
@@ -79,8 +130,14 @@ const badgeText = computed(() => {
                         :class="{ 'action-button--liked': plant.userLiked }"
                         @click="emit('toggle-like')"
                     >
-                        <Heart :size="16" :fill="plant.userLiked ? 'currentColor' : 'none'" />
-                        {{ plant.userLiked ? "Убрать лайк" : "Поставить лайк" }}
+                        <Heart
+                            :size="16"
+                            :fill="plant.userLiked ? 'currentColor' : 'none'"
+                        />
+                        <span class="action-button__count">{{
+                            plant.likesCount
+                        }}</span>
+                        {{ likeButtonLabel }}
                     </button>
                     <button
                         v-if="canSuggest"
@@ -89,7 +146,8 @@ const badgeText = computed(() => {
                         @click="emit('suggest')"
                     >
                         <MessageCircle :size="16" />
-                        Дать совет
+                        &#1044;&#1072;&#1090;&#1100;
+                        &#1089;&#1086;&#1074;&#1077;&#1090;
                     </button>
                 </div>
             </div>
@@ -101,20 +159,33 @@ const badgeText = computed(() => {
 .plant-card {
     display: grid;
     grid-template-columns: 118px minmax(0, 1fr);
-    min-height: 150px;
+    align-items: start;
+    min-width: 0;
 }
 
-.plant-card--feed {
+.plant-card--wide {
     grid-template-columns: 1fr;
+    align-items: stretch;
+}
+
+.plant-card__media {
+    display: grid;
+    gap: 8px;
+    min-width: 0;
 }
 
 .plant-card__image-wrap {
     position: relative;
-    min-height: 150px;
+    display: block;
+    aspect-ratio: 1 / 1;
+    min-height: 0;
+    overflow: hidden;
+    background: var(--color-green-soft);
 }
 
-.plant-card--feed .plant-card__image-wrap {
-    min-height: 230px;
+.plant-card--wide .plant-card__image-wrap {
+    aspect-ratio: 1 / 1;
+    min-height: 0;
 }
 
 .plant-card__image {
@@ -132,7 +203,14 @@ const badgeText = computed(() => {
 .plant-card__body {
     display: grid;
     gap: 10px;
+    min-width: 0;
     padding: 12px;
+}
+
+.plant-card--wide .plant-card__body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
 }
 
 .plant-card__head h3 {
@@ -168,17 +246,42 @@ const badgeText = computed(() => {
 
 .plant-card__stats {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
     gap: 6px;
     color: var(--color-muted);
     font-size: 12px;
     font-weight: 800;
 }
 
+.plant-card--wide .plant-card__stats {
+    grid-template-columns: 1fr;
+    align-self: stretch;
+    justify-items: start;
+    text-align: left;
+}
+
+.plant-card__stats span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.plant-card__stat-label {
+    margin-right: 4px;
+}
+
 .plant-actions {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+}
+
+.plant-card--wide .plant-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-self: stretch;
+    margin-top: auto;
 }
 
 .action-button {
@@ -193,6 +296,30 @@ const badgeText = computed(() => {
     background: var(--color-green);
     cursor: pointer;
     font-weight: 800;
+    white-space: nowrap;
+}
+
+.plant-card--wide .action-button {
+    width: 100%;
+    min-height: 38px;
+    justify-content: center;
+}
+
+.action-button__count {
+    display: inline-grid;
+    min-width: 20px;
+    height: 20px;
+    place-items: center;
+    padding: 0 6px;
+    border-radius: 999px;
+    color: inherit;
+    background: rgba(255, 255, 255, 0.18);
+    font-size: 12px;
+    line-height: 1;
+}
+
+.action-button--ghost .action-button__count {
+    background: rgba(12, 94, 42, 0.1);
 }
 
 .action-button--ghost {
@@ -205,17 +332,53 @@ const badgeText = computed(() => {
     background: #d4f0df;
 }
 
+@media (min-width: 620px) {
+    .plant-card--wide {
+        grid-template-columns: minmax(220px, 48%) minmax(0, 1fr);
+    }
+}
+
 @media (min-width: 920px) {
     .plant-card {
         grid-template-columns: 150px minmax(0, 1fr);
     }
 
-    .plant-card--feed {
-        grid-template-columns: minmax(280px, 1fr) minmax(0, 1fr);
+    .plant-card--wide {
+        grid-template-columns: minmax(240px, 42%) minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 560px) {
+    .plant-card--wide .plant-actions {
+        grid-template-columns: repeat(2, 46px);
+        justify-content: start;
     }
 
-    .plant-card--feed .plant-card__image-wrap {
-        min-height: 260px;
+    .plant-card--wide .action-button {
+        display: grid;
+        grid-auto-flow: column;
+        place-content: center;
+        align-items: center;
+        width: 46px;
+        height: 46px;
+        min-height: 46px;
+        column-gap: 3px;
+        padding: 0;
+        font-size: 0;
+    }
+
+    .plant-card--wide .action-button svg {
+        flex: 0 0 auto;
+        margin: 0;
+    }
+
+    .plant-card--wide .action-button__count {
+        min-width: 0;
+        height: auto;
+        padding: 0;
+        background: transparent;
+        font-size: 11px;
+        font-weight: 900;
     }
 }
 </style>

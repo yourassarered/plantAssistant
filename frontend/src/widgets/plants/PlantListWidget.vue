@@ -6,6 +6,7 @@ defineProps({
     variant: { type: String, default: "default" },
     showActions: { type: Boolean, default: false },
     showCare: { type: Boolean, default: true },
+    showCareBadge: { type: Boolean, default: true },
     canLike: { type: Boolean, default: false },
     canSuggest: { type: Boolean, default: false },
 });
@@ -22,6 +23,7 @@ const emit = defineEmits(["toggle-like", "suggest", "open-owner"]);
             :variant="variant"
             :show-actions="showActions"
             :show-care="showCare"
+            :show-care-badge="showCareBadge"
             :can-like="canLike"
             :can-suggest="canSuggest"
             @toggle-like="emit('toggle-like', plant)"

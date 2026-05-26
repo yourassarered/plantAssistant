@@ -1,10 +1,17 @@
 ﻿<script setup>
 import { computed } from "vue";
-import { CalendarClock, Droplets, Leaf, RotateCw, Scissors } from "lucide-vue-next";
+import {
+    CalendarClock,
+    Droplets,
+    Leaf,
+    RotateCw,
+    Scissors,
+} from "lucide-vue-next";
 
 import { useCalendarStore } from "@/entities/calendar/model/calendar.store";
 import CalendarMonthGrid from "@/entities/calendar/ui/CalendarMonthGrid.vue";
 import { careTypes } from "@/shared/lib/careTypes";
+import { formatIsoDate } from "@/shared/lib/date/calendarGrid";
 import { groupTasksByDate, taskDateState } from "@/shared/lib/date/taskMarkers";
 import UiBadge from "@/shared/ui/UiBadge.vue";
 
@@ -14,7 +21,12 @@ const props = defineProps({
 
 const calendarStore = useCalendarStore();
 const tasksByDate = computed(() => groupTasksByDate(props.tasks));
-const selectedTasks = computed(() => tasksByDate.value[calendarStore.selectedDate] || []);
+const selectedTasks = computed(
+    () => tasksByDate.value[calendarStore.selectedDate] || [],
+);
+const selectedDateLabel = computed(() =>
+    formatIsoDate(calendarStore.selectedDate),
+);
 
 const icons = {
     water: Droplets,
@@ -36,24 +48,38 @@ const icons = {
         />
 
         <section class="day-panel">
-            <h3>{{ calendarStore.selectedDate }}</h3>
+            <h3>{{ selectedDateLabel }}</h3>
 
             <div v-if="selectedTasks.length" class="day-panel__list">
-                <article v-for="task in selectedTasks" :key="task.id" class="calendar-task">
-                    <img :src="task.plantImage" :alt="task.plantName" class="calendar-task__image" />
+                <article
+                    v-for="task in selectedTasks"
+                    :key="task.id"
+                    class="calendar-task"
+                >
+                    <img
+                        :src="task.plantImage"
+                        :alt="task.plantName"
+                        class="calendar-task__image"
+                    />
 
-                    <span class="calendar-task__icon" :style="{ '--task-color': careTypes[task.type].color }">
+                    <span
+                        class="calendar-task__icon"
+                        :style="{ '--task-color': careTypes[task.type].color }"
+                    >
                         <component :is="icons[task.type]" :size="14" />
                     </span>
 
                     <div class="calendar-task__content">
                         <strong>{{ task.plantName }}</strong>
-                        <span>{{ careTypes[task.type].label }} · {{ task.room }}</span>
+                        <span
+                            >{{ careTypes[task.type].label }} ·
+                            {{ task.room }}</span
+                        >
                     </div>
 
                     <UiBadge :tone="taskDateState(task)">
                         <CalendarClock :size="12" />
-                        {{ task.dueAt }}
+                        {{ formatIsoDate(task.dueAt) }}
                     </UiBadge>
                 </article>
             </div>

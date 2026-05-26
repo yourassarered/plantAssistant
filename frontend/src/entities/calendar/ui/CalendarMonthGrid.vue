@@ -20,17 +20,27 @@ const title = computed(() => getMonthTitle(props.activeDate));
 <template>
     <section class="calendar-grid">
         <header class="calendar-grid__header">
-            <button type="button" aria-label="Предыдущий месяц" @click="emit('prev')">
+            <button
+                type="button"
+                aria-label="Предыдущий месяц"
+                @click="emit('prev')"
+            >
                 ‹
             </button>
             <strong>{{ title }}</strong>
-            <button type="button" aria-label="Следующий месяц" @click="emit('next')">
+            <button
+                type="button"
+                aria-label="Следующий месяц"
+                @click="emit('next')"
+            >
                 ›
             </button>
         </header>
 
         <div class="calendar-grid__weekdays">
-            <span v-for="weekday in weekdays" :key="weekday">{{ weekday }}</span>
+            <span v-for="weekday in weekdays" :key="weekday">{{
+                weekday
+            }}</span>
         </div>
 
         <div class="calendar-grid__days">
@@ -119,11 +129,21 @@ const title = computed(() => getMonthTitle(props.activeDate));
 
 .calendar-day--today {
     border-color: var(--color-orange);
+    box-shadow:
+        0 0 0 2px rgba(243, 156, 18, 0.2),
+        inset 0 0 0 2px rgba(243, 156, 18, 0.24);
+    font-weight: 900;
 }
 
 .calendar-day--selected {
     color: #fff;
     background: var(--color-green);
+}
+
+.calendar-day--today.calendar-day--selected {
+    box-shadow:
+        0 0 0 2px rgba(243, 156, 18, 0.45),
+        inset 0 0 0 2px rgba(255, 255, 255, 0.65);
 }
 
 .calendar-day__markers {

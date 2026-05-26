@@ -7,16 +7,16 @@ export const useCompleteTask = () => {
 
     const toggle = async (task) => {
         try {
-            if (!task.completed) {
-                await taskStore.completeTask(task);
-                toast.success("Уход отмечен");
-                return;
+            if (task.completed) {
+                return false;
             }
 
-            taskStore.toggleTask(task.id);
-            toast.success("Задача снова активна");
+            await taskStore.completeTask(task);
+            toast.success("Уход отмечен");
+            return true;
         } catch (error) {
             toast.error(error.message);
+            return false;
         }
     };
 

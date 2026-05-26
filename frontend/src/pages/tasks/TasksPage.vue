@@ -14,7 +14,8 @@ const mode = ref("active");
 const expandedGroups = ref({});
 
 const tasks = computed(() => {
-    if (mode.value === "done") return taskStore.all.filter((task) => task.completed);
+    if (mode.value === "done")
+        return taskStore.all.filter((task) => task.completed);
     if (mode.value === "overdue") return taskStore.overdueTasks;
     return taskStore.pending;
 });
@@ -56,7 +57,8 @@ watch(
         const next = {};
         groups.forEach((group) => {
             next[String(group.plantId)] =
-                expandedGroups.value[String(group.plantId)] ?? mode.value === "active";
+                expandedGroups.value[String(group.plantId)] ??
+                mode.value === "active";
         });
         expandedGroups.value = next;
     },
@@ -74,14 +76,28 @@ onMounted(async () => {
         <header class="page-header">
             <div>
                 <h1 class="page-title">Задачи ухода</h1>
-                <p class="page-subtitle">Сгруппированы по растениям, с быстрым доступом к действиям.</p>
+                <p class="page-subtitle">
+                    Сгруппированы по растениям, с быстрым доступом к действиям.
+                </p>
             </div>
         </header>
 
         <div class="task-tabs">
-            <button :class="{ active: mode === 'active' }" @click="mode = 'active'">Активные</button>
-            <button :class="{ active: mode === 'overdue' }" @click="mode = 'overdue'">Просрочено</button>
-            <button :class="{ active: mode === 'done' }" @click="mode = 'done'">Готово</button>
+            <button
+                :class="{ active: mode === 'active' }"
+                @click="mode = 'active'"
+            >
+                Активные
+            </button>
+            <button
+                :class="{ active: mode === 'overdue' }"
+                @click="mode = 'overdue'"
+            >
+                Просрочено
+            </button>
+            <button :class="{ active: mode === 'done' }" @click="mode = 'done'">
+                Готово
+            </button>
         </div>
 
         <div class="task-groups">
@@ -100,22 +116,39 @@ onMounted(async () => {
                     <img :src="group.image" :alt="group.plantName" />
                     <div class="task-group__meta">
                         <strong>{{ group.plantName }}</strong>
-                        <span>{{ group.room }} · {{ group.items.length }} задач</span>
+                        <span
+                            >{{ group.room }} ·
+                            {{ group.items.length }} задач</span
+                        >
                     </div>
                     <div v-if="group.todayCount > 0" class="task-group__today">
-                        <UiBadge tone="today">Сегодня: {{ group.todayCount }}</UiBadge>
+                        <UiBadge tone="today"
+                            >Сегодня: {{ group.todayCount }}</UiBadge
+                        >
                     </div>
-                    <span class="task-group__chevron" :class="{ open: isExpanded(group.plantId) }">
+                    <span
+                        class="task-group__chevron"
+                        :class="{ open: isExpanded(group.plantId) }"
+                    >
                         <ChevronDown :size="18" />
                     </span>
                 </button>
 
-                <div v-show="isExpanded(group.plantId)" class="task-group__list">
-                    <TaskItem v-for="task in group.items" :key="task.id" :task="task" />
+                <div
+                    v-show="isExpanded(group.plantId)"
+                    class="task-group__list"
+                >
+                    <TaskItem
+                        v-for="task in group.items"
+                        :key="task.id"
+                        :task="task"
+                    />
                 </div>
             </article>
 
-            <UiBadge v-if="!groupedByPlant.length" tone="neutral">Нет задач в этом разделе</UiBadge>
+            <UiBadge v-if="!groupedByPlant.length" tone="neutral"
+                >Нет задач в этом разделе</UiBadge
+            >
         </div>
     </section>
 </template>
