@@ -15,10 +15,15 @@ class UserResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $canSeeEmail = $request->user()?->id === $this->id
+            || $request->user()?->isAdmin()
+            || $request->is('api/auth/login')
+            || $request->is('api/auth/register');
+
         return [
             'id' => $this->id,
             'name' => $this->name,
-            'email' => $this->when($request->user()?->id === $this->id || $request->user()?->isAdmin(), $this->email),
+            'email' => $this->when($canSeeEmail, $this->email),
             'rank' => $this->rank,
             'avatar_url' => $this->avatar_path
                 ? Storage::disk('public')->url($this->avatar_path)

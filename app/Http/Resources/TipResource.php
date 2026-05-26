@@ -15,7 +15,9 @@ class TipResource extends JsonResource
             'author' => new UserResource($this->whenLoaded('author')),
             'content' => $this->content,
             'status' => $this->status,
+            'status_changed_at' => $this->status_changed_at?->toISOString(),
             'created_at' => $this->created_at?->toISOString(),
+            'updated_at' => $this->updated_at?->toISOString(),
         ];
     }
 }

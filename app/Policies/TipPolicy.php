@@ -11,7 +11,7 @@ class TipPolicy
     {
         $plant = $tip->plant;
 
-        return $plant->is_public || $plant->user_id === $user->id || $user->isAdmin();
+        return $tip->author_id === $user->id || $plant->user_id === $user->id || $user->isAdmin();
     }
 
     public function create(User $user, int $plantOwnerId, bool $isPublicPlant): bool

@@ -14,6 +14,9 @@ class PlantResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $canManage = (bool) $request->user()?->can('update', $this->resource);
+        $canDelete = (bool) $request->user()?->can('delete', $this->resource);
+
         return [
             'id' => $this->id,
             'name' => $this->name,
@@ -33,6 +36,9 @@ class PlantResource extends JsonResource
                 $request->user() && $this->relationLoaded('likes'),
                 $this->likes->contains('user_id', $request->user()?->id)
             ),
+            'can_manage' => $canManage,
+            'can_delete' => $canDelete,
+            'can_complete_care' => $canManage,
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];

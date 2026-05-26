@@ -157,6 +157,12 @@ class FeedQueryService
             return;
         }
 
+        if (in_array($filters->sortBy, ['created_at', 'name', 'planted_at'], true)) {
+            $query->orderBy($filters->sortBy, $filters->sortOrder);
+
+            return;
+        }
+
         $query->orderBy('created_at', $filters->sortOrder);
     }
 }

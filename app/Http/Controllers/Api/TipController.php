@@ -19,21 +19,16 @@ class TipController extends Controller
         $canSeeAllTips = $user && ($plant->user_id === $user->id || $user->isAdmin());
         $perPage = min($request->integer('per_page', 15), 100);
 
-        if (! $plant->is_public && ! $canSeeAllTips) {
+        if (! $canSeeAllTips) {
+            if ($user) {
+                abort(403);
+            }
+
             return TipResource::collection(Tip::whereRaw('1 = 0')->paginate($perPage));
         }
 
         $tips = Tip::where('plant_id', $plantId)
             ->with('author')
-            ->when(! $canSeeAllTips, function ($query) use ($user) {
-                $query->where(function ($query) use ($user) {
-                    $query->where('status', 'accepted');
-
-                    if ($user) {
-                        $query->orWhere('author_id', $user->id);
-                    }
-                });
-            })
             ->orderBy('created_at', 'desc')
             ->paginate($perPage);
 
@@ -133,6 +128,9 @@ class TipController extends Controller
             }
 
             $tip->status = $newStatus;
+            if ($oldStatus !== $newStatus) {
+                $tip->status_changed_at = now();
+            }
             $tip->save();
 
             return $tip;

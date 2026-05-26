@@ -17,7 +17,9 @@ class PlantImageController extends Controller
     public function index(Request $request, int $plantId)
     {
         $plant = Plant::findOrFail($plantId);
-        $this->authorize('view', $plant);
+        if (! $plant->is_public) {
+            $this->authorize('view', $plant);
+        }
 
         $images = $plant->images()->paginate(min($request->integer('per_page', 15), 100));
 
@@ -46,7 +48,9 @@ class PlantImageController extends Controller
     public function show(Request $request, int $id)
     {
         $image = PlantImage::with('plant')->findOrFail($id);
-        $this->authorize('view', $image);
+        if (! $image->plant?->is_public) {
+            $this->authorize('view', $image);
+        }
 
         return new PlantImageResource($image);
     }

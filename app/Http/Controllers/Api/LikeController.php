@@ -25,6 +25,7 @@ class LikeController extends Controller
             return response()->json([
                 'message' => 'Like removed',
                 'liked' => false,
+                'likes_count' => $plant->likes()->count(),
             ]);
         }
 
@@ -36,6 +37,7 @@ class LikeController extends Controller
         return response()->json([
             'message' => 'Like added',
             'liked' => true,
+            'likes_count' => $plant->likes()->count(),
         ]);
     }
 
@@ -61,6 +63,33 @@ class LikeController extends Controller
             ->paginate(min($request->integer('per_page', 15), 100));
 
         return LikeResource::collection($likes);
+    }
+
+    public function states(Request $request)
+    {
+        $validated = $request->validate([
+            'plant_ids' => ['required', 'array', 'max:100'],
+            'plant_ids.*' => ['integer', 'distinct', 'exists:plants,id'],
+        ]);
+
+        $plantIds = collect($validated['plant_ids'])
+            ->map(fn ($id) => (int) $id)
+            ->values();
+
+        $likedIds = Like::where('user_id', $request->user()->id)
+            ->whereIn('plant_id', $plantIds)
+            ->pluck('plant_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $likedLookup = array_fill_keys($likedIds, true);
+        $states = $plantIds->mapWithKeys(fn ($id) => [
+            (string) $id => isset($likedLookup[$id]),
+        ]);
+
+        return response()->json([
+            'liked' => $states,
+        ]);
     }
 
     public function isLiked(Request $request, $plantId)

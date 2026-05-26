@@ -70,10 +70,15 @@ class PlantController extends Controller
 
     public function show(Request $request, $id)
     {
-        $plant = Plant::with(['user.role', 'room', 'latestImage', 'careSettings', 'careLogs', 'tips', 'likes'])
+        $plant = Plant::with(['user.role', 'room', 'latestImage', 'careSettings', 'likes'])
+            ->withCount('likes')
             ->findOrFail($id);
 
         $this->authorize('view', $plant);
+
+        if ($request->user()?->can('update', $plant)) {
+            $plant->load(['careLogs', 'tips.author']);
+        }
 
         return new PlantResource($plant);
     }
@@ -143,7 +148,6 @@ class PlantController extends Controller
                 'latestImage',
                 'careSettings',
                 'likes',
-                'tips' => fn ($query) => $query->where('status', 'accepted')->with('author'),
             ])
             ->withCount('likes')
             ->findOrFail($id);

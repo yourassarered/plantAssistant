@@ -15,6 +15,11 @@ class Tip extends Model
         'author_id',
         'content',
         'status',
+        'status_changed_at',
+    ];
+
+    protected $casts = [
+        'status_changed_at' => 'datetime',
     ];
 
     public function plant(): BelongsTo

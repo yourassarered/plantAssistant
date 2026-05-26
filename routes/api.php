@@ -43,6 +43,7 @@ Route::post('/auth/login', [AuthController::class, 'login']);
 
 Route::get('/plants/public', [PlantController::class, 'public']);
 Route::get('/plants/public/{id}', [PlantController::class, 'publicShow']);
+Route::get('/plants/public/{plantId}/images', [PlantImageController::class, 'index']);
 Route::get('/plants/{plantId}/tips', [TipController::class, 'index']);
 Route::get('/plants/{plantId}/likes/count', [LikeController::class, 'count']);
 Route::get('/feed', [FeedController::class, 'index']);
@@ -78,6 +79,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Admin only routes
     Route::middleware(['admin', 'throttle:admin-actions'])->group(function () {
         Route::delete('/users/{id}', [UserController::class, 'destroy']);
+        Route::put('/users/{id}', [UserController::class, 'adminUpdate']);
         Route::put('/users/{id}/role', [UserController::class, 'updateRole']);
         Route::delete('/users/{id}/avatar', [AvatarController::class, 'destroyForUser']);
 
@@ -169,6 +171,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/plants/{plantId}/likes', [LikeController::class, 'index']);
     Route::get('/plants/{plantId}/likes/is-liked', [LikeController::class, 'isLiked']);
     Route::get('/likes/my', [LikeController::class, 'myLikes']);
+    Route::get('/likes/states', [LikeController::class, 'states']);
 
     // ========================================================================
     // FOLLOWS (Подписки)

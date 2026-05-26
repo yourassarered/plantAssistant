@@ -24,7 +24,7 @@ class FeedController extends Controller
 
         $payload = $this->cache->remember(
             ['feed'],
-            'feed:v2:index:'.($userId ?? 'guest').':'.md5(json_encode($request->query())),
+            'feed:v4:index:'.($userId ?? 'guest').':'.md5(json_encode($request->query())),
             120,
             fn () => $this->packPayload($this->service->publicFeed($userId, $filters))
         );
@@ -41,7 +41,7 @@ class FeedController extends Controller
 
         $payload = $this->cache->remember(
             ['feed'],
-            "feed:v2:personal:{$userId}:".md5(json_encode($request->query())),
+            "feed:v4:personal:{$userId}:".md5(json_encode($request->query())),
             120,
             fn () => $this->packPayload($this->service->personalFeed($userId, $filters))
         );
@@ -56,7 +56,7 @@ class FeedController extends Controller
 
         $payload = $this->cache->remember(
             ['feed'],
-            'feed:v2:trending:'.($userId ?? 'guest').':'.md5(json_encode($request->query())),
+            'feed:v4:trending:'.($userId ?? 'guest').':'.md5(json_encode($request->query())),
             120,
             fn () => $this->packPayload($this->service->trendingFeed($userId, $filters))
         );
@@ -71,7 +71,7 @@ class FeedController extends Controller
 
         $payload = $this->cache->remember(
             ['feed'],
-            'feed:v2:user:'.($currentUserId ?? 'guest').":{$userId}:".md5(json_encode($request->query())),
+            'feed:v4:user:'.($currentUserId ?? 'guest').":{$userId}:".md5(json_encode($request->query())),
             120,
             fn () => $this->packPayload($this->service->userPlantsFeed($currentUserId, (int) $userId, $filters))
         );
@@ -86,7 +86,7 @@ class FeedController extends Controller
 
         $payload = $this->cache->remember(
             ['feed'],
-            'feed:v2:with_tips:'.($userId ?? 'guest').':'.md5(json_encode($request->query())),
+            'feed:v4:with_tips:'.($userId ?? 'guest').':'.md5(json_encode($request->query())),
             120,
             fn () => $this->packPayload($this->service->withTipsFeed($userId, $filters))
         );
@@ -103,7 +103,7 @@ class FeedController extends Controller
 
         $payload = $this->cache->remember(
             ['feed'],
-            "feed:v2:recommendations:{$userId}:".md5(json_encode($request->query())),
+            "feed:v4:recommendations:{$userId}:".md5(json_encode($request->query())),
             120,
             fn () => $this->packPayload($this->service->recommendationsFeed($userId, $filters))
         );
@@ -120,7 +120,7 @@ class FeedController extends Controller
 
         $payload = $this->cache->remember(
             ['feed'],
-            "feed:v2:liked:{$userId}:".md5(json_encode($request->query())),
+            "feed:v4:liked:{$userId}:".md5(json_encode($request->query())),
             120,
             fn () => $this->packPayload($this->service->likedPlantsFeed($userId, $filters))
         );
@@ -131,8 +131,16 @@ class FeedController extends Controller
     private function packPayload(array $payload): array
     {
         $paginator = $payload['paginator'];
+        $likedPlantIds = collect($payload['liked_plant_ids'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->flip();
         $resolved = PlantResource::collection($paginator->getCollection())->resolve();
         $data = is_array($resolved) && array_key_exists('data', $resolved) ? $resolved['data'] : $resolved;
+        $data = collect($data)->map(function (array $plant) use ($likedPlantIds) {
+            $plant['user_liked'] = $likedPlantIds->has((int) $plant['id']);
+
+            return $plant;
+        })->all();
 
         $response = [
             'data' => $data,

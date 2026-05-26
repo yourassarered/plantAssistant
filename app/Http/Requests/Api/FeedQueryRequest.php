@@ -16,7 +16,10 @@ class FeedQueryRequest extends FormRequest
     {
         return [
             'search' => ['nullable', 'string', 'max:255'],
-            'sort_by' => ['nullable', Rule::in(['created_at', 'likes'])],
+            'sort_by' => [
+                'nullable',
+                Rule::in(['created_at', 'likes', 'name', 'planted_at']),
+            ],
             'sort_order' => ['nullable', Rule::in(['asc', 'desc'])],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
             'days' => ['nullable', 'integer', 'min:1', 'max:90'],

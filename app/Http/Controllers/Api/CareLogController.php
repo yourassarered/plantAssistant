@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\CareLogResource;
+use App\Http\Resources\CareSettingResource;
 use App\Models\CareLog;
 use App\Models\CareSetting;
 use App\Models\Plant;
@@ -41,7 +42,7 @@ class CareLogController extends Controller
             ? Carbon::parse($validated['performed_at'])
             : now();
 
-        $log = DB::transaction(function () use ($plantId, $validated, $performedAt) {
+        [$log, $setting] = DB::transaction(function () use ($plantId, $validated, $performedAt) {
             $log = CareLog::create([
                 'plant_id' => $plantId,
                 'type' => $validated['type'],
@@ -57,10 +58,16 @@ class CareLogController extends Controller
                 $setting->update(['last_done_at' => $performedAt]);
             }
 
-            return $log;
+            return [$log, $setting?->fresh('plant')];
         });
 
-        return new CareLogResource($log);
+        $response = (new CareLogResource($log))->resolve($request);
+
+        if ($setting) {
+            $response['care_setting'] = (new CareSettingResource($setting))->resolve($request);
+        }
+
+        return response()->json(['data' => $response], 201);
     }
 
     public function show(Request $request, $id)
