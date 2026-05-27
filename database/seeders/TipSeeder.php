@@ -21,14 +21,14 @@ class TipSeeder extends Seeder
         }
 
         $tipContents = [
-            'Try adding perlite for better drainage.',
-            'Move it closer to indirect bright light.',
-            'Reduce watering frequency during colder days.',
-            'Wipe leaves weekly to remove dust.',
-            'Use room-temperature settled water.',
-            'Check roots for signs of overwatering.',
-            'Rotate the plant weekly for even growth.',
-            'Use diluted fertilizer once every 2-4 weeks.',
+            'Добавьте перлит в грунт, чтобы улучшить дренаж.',
+            'Поставьте растение ближе к яркому рассеянному свету.',
+            'В холодное время года поливайте растение реже.',
+            'Протирайте листья раз в неделю, чтобы убрать пыль.',
+            'Используйте отстоянную воду комнатной температуры.',
+            'Проверьте корни на признаки переувлажнения.',
+            'Поворачивайте горшок раз в неделю для равномерного роста.',
+            'Вносите разбавленное удобрение раз в 2-4 недели.',
         ];
         $statuses = ['pending', 'accepted', 'rejected'];
 

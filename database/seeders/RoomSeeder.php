@@ -14,7 +14,7 @@ class RoomSeeder extends Seeder
         $userRoleId = Role::where('name', 'user')->firstOrFail()->id;
         $users = User::where('role_id', $userRoleId)->get();
 
-        $roomTemplates = ['Living Room', 'Bedroom', 'Kitchen', 'Balcony', 'Office', 'Bathroom', 'Hallway'];
+        $roomTemplates = ['Гостиная', 'Спальня', 'Кухня', 'Балкон', 'Кабинет', 'Ванная', 'Прихожая'];
 
         foreach ($users as $user) {
             $targetCount = random_int(2, 4);

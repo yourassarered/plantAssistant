@@ -14,10 +14,10 @@ class UserSeeder extends Seeder
         $adminRole = Role::where('name', 'admin')->firstOrFail();
         $userRole = Role::where('name', 'user')->firstOrFail();
 
-        User::firstOrCreate(
+        User::updateOrCreate(
             ['email' => 'admin@example.com'],
             [
-                'name' => 'Admin',
+                'name' => 'Администратор',
                 'password' => Hash::make('password123'),
                 'role_id' => $adminRole->id,
                 'rank' => 100,
@@ -25,15 +25,15 @@ class UserSeeder extends Seeder
         );
 
         $presetUsers = [
-            ['name' => 'Ivan Petrov', 'email' => 'ivan@example.com', 'rank' => 15],
-            ['name' => 'Maria Sidorova', 'email' => 'maria@example.com', 'rank' => 23],
-            ['name' => 'Alex Smirnov', 'email' => 'alex@example.com', 'rank' => 8],
-            ['name' => 'Elena Vasilieva', 'email' => 'elena@example.com', 'rank' => 12],
-            ['name' => 'Dmitry Kozlov', 'email' => 'dmitry@example.com', 'rank' => 5],
+            ['name' => 'Иван Петров', 'email' => 'ivan@example.com', 'rank' => 15],
+            ['name' => 'Мария Сидорова', 'email' => 'maria@example.com', 'rank' => 23],
+            ['name' => 'Алексей Смирнов', 'email' => 'alex@example.com', 'rank' => 8],
+            ['name' => 'Елена Васильева', 'email' => 'elena@example.com', 'rank' => 12],
+            ['name' => 'Дмитрий Козлов', 'email' => 'dmitry@example.com', 'rank' => 5],
         ];
 
         foreach ($presetUsers as $userData) {
-            User::firstOrCreate(
+            User::updateOrCreate(
                 ['email' => $userData['email']],
                 [
                     'name' => $userData['name'],
