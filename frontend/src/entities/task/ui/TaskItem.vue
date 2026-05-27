@@ -17,6 +17,9 @@ import UiBadge from "@/shared/ui/UiBadge.vue";
 const props = defineProps({
     task: { type: Object, required: true },
     readonly: { type: Boolean, default: false },
+    showPlantName: { type: Boolean, default: true },
+    showRoom: { type: Boolean, default: true },
+    hideMobileDueBadge: { type: Boolean, default: false },
 });
 
 const icons = {
@@ -37,6 +40,7 @@ const dueLabel = computed(() => formatTaskDueDate(props.task.dueAt));
             'task-item--done': task.completed,
             'task-item--completing': task.isCompleting,
             'task-item--today': state === 'today' && !task.completed,
+            'task-item--hide-mobile-badge': hideMobileDueBadge,
         }"
     >
         <span
@@ -49,9 +53,11 @@ const dueLabel = computed(() => formatTaskDueDate(props.task.dueAt));
         <div class="task-item__content">
             <strong>{{ careTypes[task.type].label }}</strong>
             <span>
-                {{ task.plantName }} · {{ task.room }}
+                <template v-if="showPlantName">{{ task.plantName }} · </template>
+                <template v-if="showRoom">{{ task.room }}</template>
                 <template v-if="task.everyDays">
-                    · каждые {{ task.everyDays }} дн.
+                    <template v-if="showPlantName || showRoom"> · </template>
+                    каждые {{ task.everyDays }} дн.
                 </template>
             </span>
         </div>
@@ -166,24 +172,34 @@ const dueLabel = computed(() => formatTaskDueDate(props.task.dueAt));
     font-size: 13px;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 720px) {
     .task-item {
+        grid-template-columns: 38px minmax(0, 1fr) auto auto;
+        gap: 8px;
+    }
+
+    .task-item--hide-mobile-badge {
         grid-template-columns: 38px minmax(0, 1fr) auto;
     }
 
-    .task-item :deep(.ui-badge) {
+    .task-item--hide-mobile-badge :deep(.ui-badge) {
         display: none;
     }
-}
 
-@media (max-width: 720px) {
-    .task-item {
-        grid-template-columns: 38px minmax(0, 1fr);
+    .task-item:not(.task-item--hide-mobile-badge) :deep(.ui-badge) {
+        justify-self: end;
+        padding: 0 6px;
+        font-size: 11px;
+        white-space: nowrap;
     }
 
-    .task-item :deep(.ui-badge),
+    .task-item:not(.task-item--hide-mobile-badge) :deep(.ui-badge svg) {
+        width: 12px;
+        height: 12px;
+    }
+
     .task-item :deep(.task-toggle) {
-        justify-self: start;
+        justify-self: end;
     }
 }
 </style>

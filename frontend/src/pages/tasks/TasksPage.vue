@@ -134,16 +134,20 @@ onMounted(async () => {
                     </span>
                 </button>
 
-                <div
+                <TransitionGroup
                     v-show="isExpanded(group.plantId)"
-                    class="task-group__list"
+                    name="task-replace"
+                    tag="div"
+                    class="task-group__list task-stack"
                 >
                     <TaskItem
                         v-for="task in group.items"
                         :key="task.id"
                         :task="task"
+                        :show-plant-name="false"
+                        :show-room="false"
                     />
-                </div>
+                </TransitionGroup>
             </article>
 
             <UiBadge v-if="!groupedByPlant.length" tone="neutral"
@@ -242,5 +246,59 @@ onMounted(async () => {
     display: grid;
     gap: 8px;
     padding: 10px;
+}
+
+.task-stack {
+    position: relative;
+    overflow: hidden;
+}
+
+.task-replace-enter-active,
+.task-replace-leave-active,
+.task-replace-move {
+    transition:
+        opacity 0.42s cubic-bezier(0.2, 0.72, 0.18, 1),
+        transform 0.42s cubic-bezier(0.2, 0.72, 0.18, 1),
+        box-shadow 0.42s ease;
+}
+
+.task-replace-enter-active {
+    animation: task-replace-highlight 0.7s ease;
+}
+
+.task-replace-leave-active {
+    position: absolute;
+    right: 0;
+    left: 0;
+    z-index: 1;
+}
+
+.task-replace-enter-from,
+.task-replace-leave-to {
+    opacity: 0;
+}
+
+.task-replace-enter-from {
+    transform: translateX(-36px) scale(0.985);
+}
+
+.task-replace-leave-to {
+    transform: translateX(48px) scale(0.985);
+}
+
+@keyframes task-replace-highlight {
+    0% {
+        box-shadow: 0 0 0 0 rgba(22, 132, 58, 0);
+    }
+
+    34% {
+        box-shadow:
+            0 0 0 2px rgba(22, 132, 58, 0.22),
+            0 12px 28px rgba(22, 132, 58, 0.16);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(22, 132, 58, 0);
+    }
 }
 </style>
