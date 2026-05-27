@@ -1,6 +1,7 @@
 <script setup>
 import { Heart, MapPin, MessageCircle, UserRound } from "lucide-vue-next";
 import { computed } from "vue";
+import { useRouter } from "vue-router";
 
 import { summarizePlantCare } from "@/shared/lib/date/taskMarkers";
 import UiBadge from "@/shared/ui/UiBadge.vue";
@@ -13,12 +14,14 @@ const props = defineProps({
     showActions: { type: Boolean, default: false },
     showCare: { type: Boolean, default: true },
     showCareBadge: { type: Boolean, default: true },
+    showOwner: { type: Boolean, default: true },
     canLike: { type: Boolean, default: false },
     canSuggest: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["toggle-like", "suggest", "open-owner"]);
 
+const router = useRouter();
 const care = computed(() => summarizePlantCare(props.plant));
 const isFeedVariant = computed(() => props.variant === "feed");
 const isProfileVariant = computed(() => props.variant === "profile");
@@ -30,11 +33,11 @@ const ownerName = computed(
         props.plant.ownerName ||
         "\u041f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044c",
 );
-const ownerMeta = computed(() => {
+const ownerRankText = computed(() => {
     if (props.plant.ownerRank === null || props.plant.ownerRank === undefined) {
-        return ownerName.value;
+        return "";
     }
-    return `${ownerName.value} \u00b7 \u0440\u0430\u043d\u0433 ${props.plant.ownerRank}`;
+    return `\u0420\u0430\u043d\u0433 ${props.plant.ownerRank}`;
 });
 const heightText = computed(
     () =>
@@ -58,6 +61,17 @@ const badgeText = computed(() => {
         ? "\u043f\u0443\u0431\u043b\u0438\u0447\u043d\u043e"
         : "\u0431\u0435\u0437 \u0440\u0430\u0441\u043f\u0438\u0441\u0430\u043d\u0438\u044f";
 });
+
+const openPlant = () => {
+    router.push(`/plants/${props.plant.id}`);
+};
+
+const openPlantFromKeyboard = (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+
+    event.preventDefault();
+    openPlant();
+};
 </script>
 
 <template>
@@ -69,12 +83,13 @@ const badgeText = computed(() => {
                 'plant-card--feed': isFeedVariant,
                 'plant-card--profile': isProfileVariant,
             }"
+            role="link"
+            tabindex="0"
+            @click="openPlant"
+            @keydown="openPlantFromKeyboard"
         >
             <div class="plant-card__media">
-                <RouterLink
-                    :to="`/plants/${plant.id}`"
-                    class="plant-card__image-wrap"
-                >
+                <div class="plant-card__image-wrap">
                     <img
                         :src="plant.image"
                         :alt="plant.name"
@@ -87,40 +102,41 @@ const badgeText = computed(() => {
                     >
                         {{ badgeText }}
                     </UiBadge>
-                </RouterLink>
+                </div>
             </div>
 
             <div class="plant-card__body">
                 <div class="plant-card__head">
-                    <RouterLink
-                        :to="`/plants/${plant.id}`"
-                        class="plant-card__title-link"
-                    >
-                        <h3>{{ plant.name }}</h3>
-                    </RouterLink>
-                    <p><MapPin :size="14" /> {{ plant.room }}</p>
+                    <h3>{{ plant.name }}</h3>
+                    <div class="plant-card__meta-row">
+                        <span class="plant-card__room">
+                            <MapPin :size="14" /> {{ plant.room }}
+                        </span>
+                        <span class="plant-card__height">
+                            <span class="plant-card__stat-label"
+                                >&#1042;&#1099;&#1089;&#1086;&#1090;&#1072;</span
+                            >
+                            {{ heightText }}
+                        </span>
+                    </div>
                 </div>
 
                 <button
-                    v-if="plant.ownerId && !isProfileVariant"
+                    v-if="showOwner && plant.ownerId && !isProfileVariant"
                     type="button"
                     class="owner-button"
-                    @click="emit('open-owner', plant.ownerId)"
+                    @click.stop="emit('open-owner', plant.ownerId)"
                 >
                     <UserRound :size="14" />
-                    {{ ownerMeta }}
+                    <span class="owner-button__text">
+                        <span class="owner-button__name">{{ ownerName }}</span>
+                        <span v-if="ownerRankText" class="owner-button__rank">
+                            {{ ownerRankText }}
+                        </span>
+                    </span>
                 </button>
 
                 <PlantStatusMarkers v-if="showCare" :plant="plant" />
-
-                <div class="plant-card__stats">
-                    <span>
-                        <span class="plant-card__stat-label"
-                            >&#1042;&#1099;&#1089;&#1086;&#1090;&#1072;</span
-                        >
-                        {{ heightText }}
-                    </span>
-                </div>
 
                 <div v-if="showActions" class="plant-actions">
                     <button
@@ -128,7 +144,7 @@ const badgeText = computed(() => {
                         type="button"
                         class="action-button"
                         :class="{ 'action-button--liked': plant.userLiked }"
-                        @click="emit('toggle-like')"
+                        @click.stop="emit('toggle-like')"
                     >
                         <Heart
                             :size="16"
@@ -143,7 +159,7 @@ const badgeText = computed(() => {
                         v-if="canSuggest"
                         type="button"
                         class="action-button action-button--ghost"
-                        @click="emit('suggest')"
+                        @click.stop="emit('suggest')"
                     >
                         <MessageCircle :size="16" />
                         &#1044;&#1072;&#1090;&#1100;
@@ -159,8 +175,14 @@ const badgeText = computed(() => {
 .plant-card {
     display: grid;
     grid-template-columns: 118px minmax(0, 1fr);
-    align-items: start;
+    align-items: stretch;
     min-width: 0;
+    cursor: pointer;
+}
+
+.plant-card:focus-visible {
+    outline: 2px solid var(--color-green);
+    outline-offset: 3px;
 }
 
 .plant-card--wide {
@@ -172,19 +194,25 @@ const badgeText = computed(() => {
     display: grid;
     gap: 8px;
     min-width: 0;
+    height: 100%;
 }
 
 .plant-card__image-wrap {
     position: relative;
     display: block;
-    aspect-ratio: 1 / 1;
+    height: 100%;
     min-height: 0;
     overflow: hidden;
     background: var(--color-green-soft);
 }
 
+.plant-card:not(.plant-card--wide) .plant-card__image-wrap {
+    aspect-ratio: auto;
+}
+
 .plant-card--wide .plant-card__image-wrap {
     aspect-ratio: 1 / 1;
+    height: auto;
     min-height: 0;
 }
 
@@ -219,52 +247,63 @@ const badgeText = computed(() => {
     line-height: 1.08;
 }
 
-.plant-card__title-link {
-    color: inherit;
-}
-
-.plant-card__head p {
+.plant-card__meta-row {
     display: flex;
     align-items: center;
-    gap: 4px;
+    flex-wrap: wrap;
+    gap: 4px 12px;
     margin: 5px 0 0;
     color: var(--color-muted);
     font-size: 13px;
 }
 
-.owner-button {
+.plant-card__room,
+.plant-card__height {
     display: inline-flex;
     align-items: center;
+    min-width: 0;
+}
+
+.plant-card__room {
+    gap: 4px;
+}
+
+.owner-button {
+    display: inline-grid;
+    grid-template-columns: 14px minmax(0, auto);
+    align-items: start;
     gap: 6px;
     width: fit-content;
+    max-width: 100%;
     border: 0;
     color: var(--color-green-dark);
     background: transparent;
     cursor: pointer;
     font-weight: 800;
-}
-
-.plant-card__stats {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 6px;
-    color: var(--color-muted);
-    font-size: 12px;
-    font-weight: 800;
-}
-
-.plant-card--wide .plant-card__stats {
-    grid-template-columns: 1fr;
-    align-self: stretch;
-    justify-items: start;
     text-align: left;
 }
 
-.plant-card__stats span {
+.owner-button__text {
+    display: grid;
+    gap: 2px;
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+}
+
+.owner-button__name,
+.owner-button__rank {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.owner-button__rank {
+    color: var(--color-muted);
+    font-size: 12px;
+    line-height: 1.15;
+}
+
+.plant-card__height {
+    font-size: 12px;
+    font-weight: 800;
 }
 
 .plant-card__stat-label {
@@ -379,6 +418,21 @@ const badgeText = computed(() => {
         background: transparent;
         font-size: 11px;
         font-weight: 900;
+    }
+}
+
+@media (max-width: 760px) {
+    .plant-card:not(.plant-card--wide) {
+        grid-template-columns: 1fr;
+    }
+
+    .plant-card:not(.plant-card--wide) .plant-card__media {
+        height: auto;
+    }
+
+    .plant-card:not(.plant-card--wide) .plant-card__image-wrap {
+        aspect-ratio: 4 / 3;
+        height: auto;
     }
 }
 </style>

@@ -84,7 +84,10 @@ onMounted(refresh);
                     :model-value="plantStore.activeFilter"
                     @update:model-value="plantStore.setFilter"
                 />
-                <PlantListWidget :plants="plantStore.filteredPlants" />
+                <PlantListWidget
+                    :plants="plantStore.filteredPlants"
+                    :show-owner="false"
+                />
                 <div
                     v-if="!plantStore.filteredPlants.length"
                     class="panel my-state"
@@ -149,6 +152,12 @@ onMounted(refresh);
 .my-state {
     color: var(--color-muted);
     font-weight: 800;
+}
+
+@media (max-width: 1180px) {
+    .desktop-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 @media (max-width: 760px) {
