@@ -84,6 +84,19 @@ const numberValue = (value, fallback = 0) => {
     return Number.isFinite(number) ? number : fallback;
 };
 
+const formNumberValue = (value) => {
+    if (typeof value === "string") {
+        const normalized = value.trim().replace(",", ".");
+        if (!normalized) return null;
+
+        const number = Number(normalized);
+        return Number.isFinite(number) ? number : null;
+    }
+
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+};
+
 export const unwrapApiCollection = (payload) => unwrapApiValue(payload) || [];
 
 export const mapApiPlantImage = (image) => ({
@@ -96,7 +109,8 @@ export const mapApiPlantImage = (image) => ({
 });
 
 export const mapApiPlant = (plant) => {
-    const owner = unwrapApiValue(plant.user) || null;
+    const owner =
+        unwrapApiValue(plant.owner) || unwrapApiValue(plant.user) || null;
     const roomRaw = unwrapApiValue(plant.room) || null;
     const latestImage = unwrapApiValue(plant.latest_image) || null;
     const careSettingsRaw = unwrapApiValue(plant.care_settings);
@@ -153,9 +167,13 @@ export const mapApiPlant = (plant) => {
         canDelete: Boolean(plant.can_delete),
         canCompleteCare: Boolean(plant.can_complete_care),
         userId: plant.user_id,
-        ownerId: objectField(owner, "id") || null,
-        ownerName: stringValue(objectField(owner, "name"), ""),
-        ownerRank: objectField(owner, "rank") ?? null,
+        ownerId:
+            objectField(owner, "id") ?? plant.owner_id ?? plant.user_id ?? null,
+        ownerName: stringValue(
+            objectField(owner, "name") ?? plant.owner_name,
+            "",
+        ),
+        ownerRank: objectField(owner, "rank") ?? plant.owner_rank ?? null,
         ownerAvatarUrl: objectField(owner, "avatar_url")
             ? resolveAssetUrl(objectField(owner, "avatar_url"))
             : "",
@@ -176,7 +194,7 @@ export const mapApiPlant = (plant) => {
 export const mapPlantFormToApi = (values, roomId = null) => ({
     name: values.name,
     planted_at: values.plantedAt || todayIsoDate(),
-    height: Number(values.height) || null,
+    height: formNumberValue(values.height),
     room_id: roomId,
     is_public: Boolean(values.isPublic),
 });
