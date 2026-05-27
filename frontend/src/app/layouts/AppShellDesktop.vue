@@ -2,7 +2,6 @@
 import {
     Leaf,
     ListTodo,
-    Search,
     Shield,
     Sprout,
     UserRound,
@@ -10,6 +9,7 @@ import {
 import { computed } from "vue";
 
 import { useAuthStore } from "@/entities/auth/model/auth.store";
+import tabIcon from "@/shared/assets/tab-icon.svg";
 
 const authStore = useAuthStore();
 
@@ -28,17 +28,14 @@ const navItems = computed(() => [
     <div class="desktop-shell">
         <aside class="desktop-sidebar">
             <RouterLink class="desktop-brand" to="/feed">
-                <span class="desktop-brand__mark">PA</span>
+                <span class="desktop-brand__mark">
+                    <img :src="tabIcon" alt="" class="desktop-brand__icon" />
+                </span>
                 <span>
                     <strong>Plant Assistant</strong>
                     <small>уход без пропусков</small>
                 </span>
             </RouterLink>
-
-            <label class="desktop-search">
-                <Search :size="18" />
-                <input placeholder="Поиск растения" />
-            </label>
 
             <nav class="desktop-nav">
                 <RouterLink
@@ -94,30 +91,18 @@ const navItems = computed(() => [
     background: #0f702e;
 }
 
+.desktop-brand__icon {
+    width: 22px;
+    height: 22px;
+    object-fit: contain;
+}
+
 .desktop-brand strong {
     display: block;
 }
 
 .desktop-brand small {
     color: var(--color-muted);
-}
-
-.desktop-search {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 40px;
-    padding: 0 10px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    background: var(--color-surface);
-}
-
-.desktop-search input {
-    width: 100%;
-    border: 0;
-    outline: 0;
-    background: transparent;
 }
 
 .desktop-nav {

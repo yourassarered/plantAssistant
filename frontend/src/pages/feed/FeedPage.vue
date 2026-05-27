@@ -127,9 +127,6 @@ watch(
         <header class="page-header">
             <div>
                 <h1 class="page-title">Лента</h1>
-                <p class="page-subtitle">
-                    Публичная лента растений с фото, лайками и советами.
-                </p>
             </div>
             <UiButton variant="ghost" @click="refresh()">
                 <RefreshCw :size="17" />
@@ -150,28 +147,31 @@ watch(
                 </button>
             </div>
 
-            <label class="feed-search">
-                <Search :size="17" />
-                <input
-                    :value="plantStore.search"
-                    placeholder="Поиск по названию"
-                    @input="plantStore.setSearch($event.target.value)"
-                    @change="refresh()"
-                />
-            </label>
+            <div class="feed-toolbar__controls">
+                <label class="feed-search">
+                    <Search :size="17" />
+                    <input
+                        :value="plantStore.search"
+                        placeholder="Поиск по названию"
+                        @input="plantStore.setSearch($event.target.value)"
+                        @change="refresh()"
+                    />
+                </label>
 
-            <select
-                :value="plantStore.sortBy"
-                @change="
-                    plantStore.setSort($event.target.value);
-                    refresh();
-                "
-            >
-                <option value="created_at">Сначала новые</option>
-                <option value="likes">По лайкам</option>
-                <option value="name">По названию</option>
-                <option value="planted_at">По посадке</option>
-            </select>
+                <select
+                    class="feed-sort"
+                    :value="plantStore.sortBy"
+                    @change="
+                        plantStore.setSort($event.target.value);
+                        refresh();
+                    "
+                >
+                    <option value="created_at">Сначала новые</option>
+                    <option value="likes">По лайкам</option>
+                    <option value="name">По названию</option>
+                    <option value="planted_at">По посадке</option>
+                </select>
+            </div>
         </div>
 
         <div v-if="plantStore.error" class="panel feed-state">
@@ -244,53 +244,74 @@ watch(
 
 .feed-toolbar {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(220px, 0.7fr) 170px;
-    gap: 10px;
+    gap: 14px;
+    padding: 16px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(245, 249, 243, 0.98));
+}
+
+.feed-toolbar__controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 220px;
+    gap: 12px;
     align-items: center;
 }
 
 .feed-tabs button {
-    min-height: 34px;
-    padding: 0 10px;
+    min-height: 40px;
+    padding: 0 14px;
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    background: var(--color-surface);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.86);
     color: var(--color-muted);
     cursor: pointer;
     font-weight: 800;
+    min-width: 0;
+    transition:
+        border-color 0.18s ease,
+        background 0.18s ease,
+        color 0.18s ease,
+        box-shadow 0.18s ease;
 }
 
 .feed-tabs button.active {
     color: #fff;
     border-color: var(--color-green);
     background: var(--color-green);
+    box-shadow: 0 10px 20px rgba(22, 132, 58, 0.2);
 }
 
 .feed-search {
     display: flex;
     align-items: center;
     gap: 8px;
-    min-height: 38px;
-    padding: 0 10px;
+    min-height: 44px;
+    padding: 0 14px;
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    background: var(--color-surface);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.92);
+}
+
+.feed-search svg {
+    color: var(--color-muted);
 }
 
 .feed-search input,
-.feed-toolbar select {
+.feed-sort {
     width: 100%;
     border: 0;
     outline: 0;
     background: transparent;
 }
 
-.feed-toolbar select {
-    min-height: 38px;
-    padding: 0 10px;
+.feed-sort {
+    min-height: 44px;
+    padding: 0 14px;
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    background: var(--color-surface);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.92);
+    color: var(--color-ink);
+    font-weight: 800;
 }
 
 .feed-state {
@@ -356,7 +377,34 @@ watch(
 
 @media (max-width: 760px) {
     .feed-toolbar {
+        gap: 10px;
+        padding: 14px;
+    }
+
+    .feed-tabs {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .feed-tabs button:nth-child(4) {
+        grid-column: 1 / -1;
+    }
+
+    .feed-toolbar__controls {
         grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .feed-tabs button {
+        padding: 0 10px;
+        border-radius: var(--radius-sm);
+        font-size: 13px;
+    }
+
+    .feed-search,
+    .feed-sort {
+        min-height: 40px;
+        border-radius: var(--radius-sm);
     }
 }
 </style>
