@@ -50,6 +50,7 @@ Route::get('/feed', [FeedController::class, 'index']);
 Route::get('/feed/trending', [FeedController::class, 'trending']);
 Route::get('/feed/user/{userId}', [FeedController::class, 'userPlants']);
 Route::get('/feed/with-tips', [FeedController::class, 'withTips']);
+Route::get('/users/{id}', [UserController::class, 'show']);
 
 // ============================================================================
 // PROTECTED ROUTES (Require Authentication)
@@ -70,7 +71,6 @@ Route::middleware('auth:sanctum')->group(function () {
     // ========================================================================
 
     Route::get('/users', [UserController::class, 'index']);
-    Route::get('/users/{id}', [UserController::class, 'show']);
     Route::put('/users/profile', [UserController::class, 'update']);
     Route::get('/users/{id}/avatar', [AvatarController::class, 'show']);
     Route::post('/users/profile/avatar', [AvatarController::class, 'update']);

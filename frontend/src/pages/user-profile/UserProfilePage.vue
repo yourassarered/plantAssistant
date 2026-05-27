@@ -157,11 +157,7 @@ const load = async ({ refresh = false } = {}) => {
             followingPayload,
         ] = await Promise.all([
             loadUserFeedPlants({ refresh }),
-            authStore.isAuthenticated
-                ? apiClient
-                      .get(`/users/${profileUserId.value}`)
-                      .catch(() => null)
-                : Promise.resolve(null),
+            apiClient.get(`/users/${profileUserId.value}`).catch(() => null),
             authStore.isAuthenticated
                 ? apiClient
                       .get(`/users/${profileUserId.value}/relationship`)

@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
 
 class PlantResource extends JsonResource
 {
@@ -25,6 +26,17 @@ class PlantResource extends JsonResource
             'is_public' => $this->is_public,
             'user_id' => $this->user_id,
             'user' => new UserResource($this->whenLoaded('user')),
+            'owner' => $this->when(
+                $this->relationLoaded('user') && $this->user,
+                fn () => [
+                    'id' => $this->user->id,
+                    'name' => $this->user->name,
+                    'rank' => $this->user->rank,
+                    'avatar_url' => $this->user->avatar_path
+                        ? Storage::disk('public')->url($this->user->avatar_path)
+                        : asset('images/placeholders/avatar-placeholder.png'),
+                ]
+            ),
             'room' => new RoomResource($this->whenLoaded('room')),
             'room_id' => $this->room_id,
             'latest_image' => new PlantImageResource($this->whenLoaded('latestImage')),

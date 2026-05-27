@@ -46,10 +46,12 @@ class UserController extends Controller
         return UserResource::collection($users);
     }
 
-    public function show($id)
+    public function show(Request $request, $id)
     {
         $user = User::with('role')->findOrFail($id);
-        $this->authorize('view', $user);
+        if ($request->user()) {
+            $this->authorize('view', $user);
+        }
 
         return new UserResource($user);
     }
