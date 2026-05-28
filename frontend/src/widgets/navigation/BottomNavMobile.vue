@@ -51,6 +51,7 @@ const items = computed(() => [
     border-radius: 18px;
     background: #0f702e;
     box-shadow: 0 18px 40px rgba(7, 58, 24, 0.28);
+    animation: bottom-nav-rise 0.34s ease;
 }
 
 .bottom-nav__item {
@@ -62,6 +63,10 @@ const items = computed(() => [
     color: rgba(255, 255, 255, 0.78);
     font-size: 10px;
     font-weight: 800;
+    transition:
+        transform 0.18s ease,
+        background-color 0.18s ease,
+        color 0.18s ease;
 }
 
 .bottom-nav__item span {
@@ -74,5 +79,29 @@ const items = computed(() => [
 .bottom-nav__item.router-link-active {
     color: #0c5e2a;
     background: #fff;
+    transform: translateY(-2px);
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .bottom-nav__item:hover {
+        color: #fff;
+        transform: translateY(-1px);
+    }
+
+    .bottom-nav__item.router-link-active:hover {
+        color: #0c5e2a;
+    }
+}
+
+@keyframes bottom-nav-rise {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 </style>

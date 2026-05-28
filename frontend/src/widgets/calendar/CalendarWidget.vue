@@ -50,7 +50,12 @@ const icons = {
         <section class="day-panel">
             <h3>{{ selectedDateLabel }}</h3>
 
-            <div v-if="selectedTasks.length" class="day-panel__list">
+            <TransitionGroup
+                v-if="selectedTasks.length"
+                name="calendar-task"
+                tag="div"
+                class="day-panel__list"
+            >
                 <article
                     v-for="task in selectedTasks"
                     :key="task.id"
@@ -82,7 +87,7 @@ const icons = {
                         {{ formatIsoDate(task.dueAt) }}
                     </UiBadge>
                 </article>
-            </div>
+            </TransitionGroup>
 
             <p v-else>На выбранный день задач нет.</p>
         </section>
@@ -110,6 +115,7 @@ const icons = {
 }
 
 .day-panel__list {
+    position: relative;
     display: grid;
     gap: 8px;
 }
@@ -123,6 +129,10 @@ const icons = {
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
     background: #f7faf5;
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease,
+        border-color 0.2s ease;
 }
 
 .calendar-task__image {
@@ -158,6 +168,33 @@ const icons = {
 .calendar-task__content span {
     color: var(--color-muted);
     font-size: 12px;
+}
+
+.calendar-task-enter-active,
+.calendar-task-leave-active,
+.calendar-task-move {
+    transition:
+        opacity 0.18s ease,
+        transform 0.18s ease;
+}
+
+.calendar-task-enter-from,
+.calendar-task-leave-to {
+    opacity: 0;
+    transform: translateY(4px);
+}
+
+.calendar-task-leave-active {
+    position: absolute;
+    right: 0;
+    left: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .calendar-task:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 10px 20px rgba(24, 45, 28, 0.08);
+    }
 }
 
 @media (max-width: 680px) {

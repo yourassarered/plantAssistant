@@ -78,6 +78,7 @@ const navItems = computed(() => [
     align-items: center;
     gap: 10px;
     color: inherit;
+    transition: transform 0.18s ease;
 }
 
 .desktop-brand__mark {
@@ -119,11 +120,32 @@ const navItems = computed(() => [
     border-radius: 10px;
     color: #2d3a2f;
     font-weight: 800;
+    transition:
+        transform 0.18s ease,
+        background-color 0.18s ease,
+        color 0.18s ease,
+        box-shadow 0.18s ease;
 }
 
 .desktop-nav__link.router-link-active {
     color: #fff;
     background: #0f702e;
+    box-shadow: 0 12px 24px rgba(15, 112, 46, 0.18);
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .desktop-brand:hover {
+        transform: translateY(-1px);
+    }
+
+    .desktop-nav__link:hover {
+        transform: translateX(4px);
+        background: rgba(15, 112, 46, 0.08);
+    }
+
+    .desktop-nav__link.router-link-active:hover {
+        background: #0c5e2a;
+    }
 }
 
 .desktop-content {
