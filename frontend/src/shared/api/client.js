@@ -2,11 +2,134 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 const TOKEN_KEY = "plant-assistant-token";
 
 const readableErrorMessages = {
-    "The provided credentials are incorrect.": "Неверный email или пароль.",
+    "The provided credentials are incorrect.":
+        "Неверный email или пароль.",
+    "This action is unauthorized.": "Недостаточно прав для этого действия.",
+    Unauthorized: "Недостаточно прав для этого действия.",
+    Forbidden: "Доступ запрещён.",
+    "Failed to fetch": "Не удалось связаться с сервером.",
 };
 
-const toReadableErrorMessage = (message) =>
-    readableErrorMessages[message] || message;
+const readableFieldNames = {
+    name: "имя",
+    email: "email",
+    password: "пароль",
+    password_confirmation: "подтверждение пароля",
+    image: "изображение",
+    avatar: "аватар",
+    room: "комната",
+    room_id: "комната",
+    planted_at: "дата посадки",
+    height: "высота",
+    interval_days: "интервал",
+    content: "текст",
+    reason: "причина",
+    details: "подробности",
+    status: "статус",
+    role_name: "роль",
+    rank: "ранг",
+    plant_ids: "растения",
+};
+
+const normalizeFieldName = (field) =>
+    String(field || "")
+        .replace(/\.$/, "")
+        .replace(/\s+/g, "_")
+        .toLowerCase();
+
+const toReadableFieldName = (field) =>
+    readableFieldNames[normalizeFieldName(field)] || field;
+
+const readableErrorPatterns = [
+    [
+        /^The (.+?) field is required\.$/i,
+        ([, field]) => `Поле «${toReadableFieldName(field)}» обязательно.`,
+    ],
+    [
+        /^The (.+?) field must be a valid email address\.$/i,
+        () => "Укажите корректный email.",
+    ],
+    [
+        /^The (.+?) field confirmation does not match\.$/i,
+        ([, field]) =>
+            `Подтверждение поля «${toReadableFieldName(field)}» не совпадает.`,
+    ],
+    [
+        /^The (.+?) has already been taken\.$/i,
+        ([, field]) =>
+            `Значение поля «${toReadableFieldName(field)}» уже занято.`,
+    ],
+    [
+        /^The selected (.+?) is invalid\.$/i,
+        ([, field]) =>
+            `Значение поля «${toReadableFieldName(field)}» указано неверно.`,
+    ],
+    [
+        /^The (.+?) field must be at least (\d+) characters\.$/i,
+        ([, field, count]) =>
+            `Поле «${toReadableFieldName(field)}» должно содержать минимум ${count} символов.`,
+    ],
+    [
+        /^The (.+?) field must be at least (\d+)\.$/i,
+        ([, field, count]) =>
+            `Поле «${toReadableFieldName(field)}» должно быть не меньше ${count}.`,
+    ],
+    [
+        /^The (.+?) field may not be greater than (\d+) characters\.$/i,
+        ([, field, count]) =>
+            `Поле «${toReadableFieldName(field)}» должно содержать не больше ${count} символов.`,
+    ],
+    [
+        /^The (.+?) field may not be greater than (\d+) kilobytes\.$/i,
+        ([, field, count]) =>
+            `Размер поля «${toReadableFieldName(field)}» не должен превышать ${count} КБ.`,
+    ],
+    [
+        /^The (.+?) field must be a string\.$/i,
+        ([, field]) =>
+            `Поле «${toReadableFieldName(field)}» должно быть строкой.`,
+    ],
+    [
+        /^The (.+?) field must be an integer\.$/i,
+        ([, field]) =>
+            `Поле «${toReadableFieldName(field)}» должно быть целым числом.`,
+    ],
+    [
+        /^The (.+?) field must be true or false\.$/i,
+        ([, field]) =>
+            `Поле «${toReadableFieldName(field)}» должно быть логическим значением.`,
+    ],
+    [
+        /^The (.+?) field must be a date\.$/i,
+        ([, field]) => `Поле «${toReadableFieldName(field)}» должно быть датой.`,
+    ],
+    [
+        /^The (.+?) field must be an image\.$/i,
+        ([, field]) =>
+            `Поле «${toReadableFieldName(field)}» должно быть изображением.`,
+    ],
+    [
+        /^The (.+?) field must be a file of type: (.+)\.$/i,
+        ([, field, types]) =>
+            `Поле «${toReadableFieldName(field)}» должно быть файлом формата: ${types}.`,
+    ],
+    [
+        /^API request failed: (\d+)$/i,
+        ([, status]) => `Ошибка запроса к API: ${status}.`,
+    ],
+];
+
+const toReadableErrorMessage = (message) => {
+    if (!message) return "Произошла ошибка.";
+    if (readableErrorMessages[message]) return readableErrorMessages[message];
+
+    for (const [pattern, formatter] of readableErrorPatterns) {
+        const match = message.match(pattern);
+        if (match) return formatter(match);
+    }
+
+    return message;
+};
 
 export const apiClient = {
     get token() {

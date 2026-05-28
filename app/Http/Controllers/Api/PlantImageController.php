@@ -85,6 +85,6 @@ class PlantImageController extends Controller
             $image->delete();
         });
 
-        return response()->json(['message' => 'Plant image deleted successfully']);
+        return response()->json(['message' => 'Фотография растения удалена']);
     }
 }

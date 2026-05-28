@@ -86,7 +86,7 @@ class CareSettingController extends Controller
         $setting->delete();
 
         return response()->json([
-            'message' => 'Care setting deleted successfully',
+            'message' => 'Настройка ухода удалена',
         ]);
     }
 }

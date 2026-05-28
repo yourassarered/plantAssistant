@@ -135,14 +135,15 @@ export const useSocialStore = defineStore("social", {
 
                 await this.loadLikeStatus(plantId);
             } catch (error) {
-                this.error = error?.message || "Failed to load social data";
+                this.error =
+                    error?.message || "Не удалось загрузить социальные данные.";
             } finally {
                 this.loading = false;
             }
         },
         async toggleLike(plantId) {
             if (!apiClient.token) {
-                throw new Error("Sign in to like plants.");
+                throw new Error("Нужно войти, чтобы ставить лайки.");
             }
 
             const payload = await apiClient.post(`/plants/${plantId}/like`);
@@ -158,7 +159,7 @@ export const useSocialStore = defineStore("social", {
         },
         async createTip(plantId, content) {
             if (!apiClient.token) {
-                throw new Error("Sign in to send tips.");
+                throw new Error("Нужно войти, чтобы отправлять советы.");
             }
 
             const payload = await apiClient.post(`/plants/${plantId}/tips`, {
@@ -171,7 +172,7 @@ export const useSocialStore = defineStore("social", {
         },
         async updateTipStatus(plantId, tipId, status) {
             if (!apiClient.token) {
-                throw new Error("Sign in to manage tips.");
+                throw new Error("Нужно войти, чтобы управлять советами.");
             }
 
             const payload = await apiClient.put(`/tips/${tipId}/status`, {
@@ -186,7 +187,7 @@ export const useSocialStore = defineStore("social", {
         },
         async reportPlant(plantId, reason, details = "") {
             if (!apiClient.token) {
-                throw new Error("Sign in to send reports.");
+                throw new Error("Нужно войти, чтобы отправлять жалобы.");
             }
 
             return apiClient.post(`/plants/${plantId}/reports`, {
@@ -196,7 +197,7 @@ export const useSocialStore = defineStore("social", {
         },
         async reportTip(tipId, reason, details = "") {
             if (!apiClient.token) {
-                throw new Error("Sign in to send reports.");
+                throw new Error("Нужно войти, чтобы отправлять жалобы.");
             }
 
             return apiClient.post(`/tips/${tipId}/reports`, {

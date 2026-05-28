@@ -153,7 +153,7 @@ class TipController extends Controller
         });
 
         return response()->json([
-            'message' => 'Tip deleted successfully',
+            'message' => 'Совет удалён',
         ]);
     }
 

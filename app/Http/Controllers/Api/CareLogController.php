@@ -86,7 +86,7 @@ class CareLogController extends Controller
         $log->delete();
 
         return response()->json([
-            'message' => 'Care log deleted successfully',
+            'message' => 'Запись об уходе удалена',
         ]);
     }
 }

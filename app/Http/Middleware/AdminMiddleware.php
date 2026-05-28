@@ -16,7 +16,7 @@ class AdminMiddleware
     public function handle($request, Closure $next)
     {
         if (! $request->user()?->isAdmin()) {
-            abort(403, 'Unauthorized');
+            abort(403, 'Доступ запрещён.');
         }
 
         return $next($request);

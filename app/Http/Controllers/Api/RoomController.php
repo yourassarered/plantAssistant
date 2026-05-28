@@ -68,7 +68,7 @@ class RoomController extends Controller
         $room->delete();
 
         return response()->json([
-            'message' => 'Room deleted successfully',
+            'message' => 'Комната удалена',
         ]);
     }
 }

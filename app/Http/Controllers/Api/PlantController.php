@@ -114,7 +114,7 @@ class PlantController extends Controller
         $plant->delete();
 
         return response()->json([
-            'message' => 'Plant deleted successfully',
+            'message' => 'Растение удалено',
         ]);
     }
 

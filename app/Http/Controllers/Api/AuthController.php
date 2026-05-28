@@ -36,7 +36,7 @@ class AuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'message' => 'User registered successfully',
+            'message' => 'Пользователь зарегистрирован',
             'user' => new UserResource($user),
             'access_token' => $token,
             'token_type' => 'Bearer',
@@ -57,14 +57,14 @@ class AuthController extends Controller
 
         if (! $user || ! Hash::check($request->password, $user->password)) {
             throw ValidationException::withMessages([
-                'email' => ['The provided credentials are incorrect.'],
+                'email' => ['Неверный email или пароль.'],
             ]);
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'message' => 'Login successful',
+            'message' => 'Вход выполнен',
             'user' => new UserResource($user),
             'access_token' => $token,
             'token_type' => 'Bearer',
@@ -79,7 +79,7 @@ class AuthController extends Controller
         $request->user()->currentAccessToken()->delete();
 
         return response()->json([
-            'message' => 'Logged out successfully',
+            'message' => 'Выход выполнен',
         ]);
     }
 
