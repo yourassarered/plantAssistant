@@ -1,6 +1,7 @@
 ﻿<script setup>
 import { computed, onMounted, ref, watch } from "vue";
 import { ChevronDown } from "lucide-vue-next";
+import { useRoute } from "vue-router";
 
 import { usePlantStore } from "@/entities/plant/model/plant.store";
 import { useTaskStore } from "@/entities/task/model/task.store";
@@ -10,6 +11,7 @@ import UiBadge from "@/shared/ui/UiBadge.vue";
 
 const plantStore = usePlantStore();
 const taskStore = useTaskStore();
+const route = useRoute();
 const mode = ref("active");
 const expandedGroups = ref({});
 
@@ -65,10 +67,20 @@ watch(
     { immediate: true },
 );
 
-onMounted(async () => {
+const refresh = async () => {
     const ownPlants = await plantStore.loadOwnPlantsForCare();
     taskStore.syncFromPlants(ownPlants);
-});
+};
+
+onMounted(refresh);
+watch(
+    () => route.fullPath,
+    () => {
+        if (route.name === "tasks") {
+            refresh();
+        }
+    },
+);
 </script>
 
 <template>

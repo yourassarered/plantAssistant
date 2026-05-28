@@ -175,7 +175,7 @@ const openPlantFromKeyboard = (event) => {
 .plant-card {
     display: grid;
     grid-template-columns: 118px minmax(0, 1fr);
-    align-items: stretch;
+    align-items: start;
     min-width: 0;
     cursor: pointer;
 }
@@ -194,20 +194,21 @@ const openPlantFromKeyboard = (event) => {
     display: grid;
     gap: 8px;
     min-width: 0;
-    height: 100%;
+    height: auto;
 }
 
 .plant-card__image-wrap {
     position: relative;
     display: block;
-    height: 100%;
+    width: 100%;
     min-height: 0;
     overflow: hidden;
     background: var(--color-green-soft);
 }
 
 .plant-card:not(.plant-card--wide) .plant-card__image-wrap {
-    aspect-ratio: auto;
+    aspect-ratio: 1 / 1;
+    height: auto;
 }
 
 .plant-card--wide .plant-card__image-wrap {
@@ -217,6 +218,7 @@ const openPlantFromKeyboard = (event) => {
 }
 
 .plant-card__image {
+    display: block;
     width: 100%;
     height: 100%;
     object-fit: cover;
@@ -431,7 +433,7 @@ const openPlantFromKeyboard = (event) => {
     }
 
     .plant-card:not(.plant-card--wide) .plant-card__image-wrap {
-        aspect-ratio: 4 / 3;
+        aspect-ratio: 1 / 1;
         height: auto;
     }
 }

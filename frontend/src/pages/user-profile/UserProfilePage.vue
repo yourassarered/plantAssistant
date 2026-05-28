@@ -330,11 +330,19 @@ onBeforeUnmount(() => {
 
 watch(
     () => route.fullPath,
-    () => load({ refresh: true }),
+    () => {
+        if (route.name === "user-profile") {
+            load({ refresh: true });
+        }
+    },
 );
 watch(
     () => authStore.token,
-    () => load({ refresh: true }),
+    () => {
+        if (route.name === "user-profile") {
+            load({ refresh: true });
+        }
+    },
 );
 watch(publicCareTasks, (tasks) => {
     if (tasks.length) {

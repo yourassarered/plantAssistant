@@ -372,7 +372,7 @@ watch([() => route.params.id, () => route.name], loadPage);
           {{ pageTitle }}
         </h1>
         <p class="page-subtitle">
-          {{ editingPlant?.name || "РќРѕРІРѕРµ СЂР°СЃС‚РµРЅРёРµ" }}
+          {{ editingPlant?.name || "Новое растение" }}
         </p>
       </div>
       <RouterLink class="edit-back-link" :to="backTarget">

@@ -1,6 +1,7 @@
 <script setup>
-import { onMounted } from "vue";
+import { onMounted, watch } from "vue";
 import { Plus, RefreshCw, Search } from "lucide-vue-next";
+import { useRoute } from "vue-router";
 
 import { usePlantStore } from "@/entities/plant/model/plant.store";
 import { useTaskStore } from "@/entities/task/model/task.store";
@@ -11,6 +12,7 @@ import PlantListWidget from "@/widgets/plants/PlantListWidget.vue";
 
 const plantStore = usePlantStore();
 const taskStore = useTaskStore();
+const route = useRoute();
 
 const refresh = async () => {
     await plantStore.loadPlants("private");
@@ -18,6 +20,14 @@ const refresh = async () => {
 };
 
 onMounted(refresh);
+watch(
+    () => route.fullPath,
+    () => {
+        if (route.name === "my-plants") {
+            refresh();
+        }
+    },
+);
 </script>
 
 <template>

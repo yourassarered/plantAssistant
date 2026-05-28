@@ -1,8 +1,9 @@
 <script setup>
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useField, useForm } from "vee-validate";
 import { useRoute, useRouter } from "vue-router";
 import {
+  CalendarClock,
   ChevronLeft,
   ChevronRight,
   Check,
@@ -39,6 +40,7 @@ import {
   todayIsoDate,
   toIsoDate,
 } from "@/shared/lib/date/calendarGrid";
+import { taskDateState } from "@/shared/lib/date/taskMarkers";
 import UiBadge from "@/shared/ui/UiBadge.vue";
 import UiButton from "@/shared/ui/UiButton.vue";
 import UiField from "@/shared/ui/UiField.vue";
@@ -67,6 +69,7 @@ const isTipsDialogOpen = ref(false);
 const isEditDialogOpen = ref(false);
 const isReportDialogOpen = ref(false);
 const isPlantMenuOpen = ref(false);
+let loadRequestId = 0;
 
 const activeCalendarDate = ref(new Date());
 const selectedCalendarDate = ref(toIsoDate(new Date()));
@@ -442,7 +445,10 @@ const selectedDayItems = computed(() => {
     .filter((task) => String(task.dueAt) === selected)
     .map((task) => ({
       id: `task-${task.id}`,
+      type: task.type,
       title: careTypes[task.type]?.label || task.type,
+      subtitle: "Запланировано",
+      state: taskDateState(task),
       date: formatIsoDate(task.dueAt),
     }));
 
@@ -452,7 +458,10 @@ const selectedDayItems = computed(() => {
       const uiType = apiCareTypeToUi[log.type];
       return {
         id: `log-${log.id}`,
+        type: uiType,
         title: careTypes[uiType]?.label || log.type,
+        subtitle: "Выполнено",
+        state: "soon",
         date: formatIsoDateTime(log.performed_at || log.performedAt),
       };
     });
@@ -475,7 +484,17 @@ const tipStatusLabels = {
 
 const formatTipStatus = (status) => tipStatusLabels[status] || status;
 
+const resetTransientUi = () => {
+  isGalleryFullscreen.value = false;
+  isTipsDialogOpen.value = false;
+  isEditDialogOpen.value = false;
+  isReportDialogOpen.value = false;
+  isPlantMenuOpen.value = false;
+};
+
 const loadPage = async () => {
+  const requestId = ++loadRequestId;
+  const routePlantId = route.params.id;
   pageLoading.value = true;
   pageError.value = "";
   plantImages.value = [];
@@ -483,35 +502,46 @@ const loadPage = async () => {
   galleryHasNavigated.value = false;
 
   try {
-    await plantStore.loadPlant(route.params.id);
+    const loadedPlant = await plantStore.loadPlant(routePlantId);
+    if (requestId !== loadRequestId) return;
 
-    if (!plant.value) {
+    if (!loadedPlant) {
       pageError.value = "Растение не найдено или недоступно.";
       return;
     }
 
-    taskStore.syncFromPlants(plantStore.all);
+    taskStore.syncFromPlants([loadedPlant]);
 
-    socialStore.applyPlantSnapshot(plant.value);
+    socialStore.applyPlantSnapshot(loadedPlant);
 
     try {
-      plantImages.value = await plantStore.loadPlantImages(plantApiId.value);
+      const images = await plantStore.loadPlantImages(
+        loadedPlant.apiId || routePlantId,
+      );
+      if (requestId !== loadRequestId) return;
+      plantImages.value = images;
     } catch {
+      if (requestId !== loadRequestId) return;
       plantImages.value = [];
     }
 
-    if (canLikePlant.value) {
-      await socialStore.loadLikeStatus(plantApiId.value);
+    if (loadedPlant.isPublic && !isOwnPlant.value && authStore.isAuthenticated) {
+      await socialStore.loadLikeStatus(loadedPlant.apiId || routePlantId);
+      if (requestId !== loadRequestId) return;
     }
 
-    if (authStore.isAuthenticated && canCompleteCareForPlant.value) {
-      await taskStore.loadCareLogs(plantApiId.value);
+    if (authStore.isAuthenticated && loadedPlant.canCompleteCare) {
+      await taskStore.loadCareLogs(loadedPlant.apiId || routePlantId);
+      if (requestId !== loadRequestId) return;
     }
   } catch (error) {
+    if (requestId !== loadRequestId) return;
     pageError.value =
       error?.message || "Не удалось загрузить страницу растения.";
   } finally {
-    pageLoading.value = false;
+    if (requestId === loadRequestId) {
+      pageLoading.value = false;
+    }
   }
 };
 
@@ -771,7 +801,15 @@ const selectDate = (iso) => {
 };
 
 onMounted(loadPage);
-watch(() => route.params.id, loadPage);
+onBeforeUnmount(() => {
+  loadRequestId += 1;
+  resetTransientUi();
+});
+watch(() => route.params.id, () => {
+  if (route.name === "plant-details") {
+    loadPage();
+  }
+});
 </script>
 
 <template>
@@ -912,8 +950,8 @@ watch(() => route.params.id, loadPage);
                 v-if="canReportPlant"
                 type="button"
                 class="plant-menu__button report-trigger-button"
-                aria-label="РџРѕР¶Р°Р»РѕРІР°С‚СЊСЃСЏ РЅР° СЂР°СЃС‚РµРЅРёРµ"
-                title="РџРѕР¶Р°Р»РѕРІР°С‚СЊСЃСЏ"
+                aria-label="Пожаловаться на растение"
+                title="Пожаловаться"
                 @click="openReportDialog"
               >
                 <Flag :size="18" />
@@ -992,18 +1030,37 @@ watch(() => route.params.id, loadPage);
           @select="selectDate"
         />
 
-        <div class="care-calendar__list">
+        <TransitionGroup
+          v-if="selectedDayItems.length"
+          name="calendar-detail"
+          tag="div"
+          class="care-calendar__list"
+        >
           <article
             v-for="item in selectedDayItems"
             :key="item.id"
             class="history-row"
           >
-            <strong>{{ item.title }}</strong>
-            <p>{{ item.date }}</p>
+            <span
+              class="history-row__icon"
+              :style="{ backgroundColor: careTypes[item.type]?.color || '#7ea885' }"
+            >
+              <component :is="icons[item.type]" :size="14" />
+            </span>
+
+            <div class="history-row__content">
+              <strong>{{ item.title }}</strong>
+              <p>{{ item.subtitle }}</p>
+            </div>
+
+            <UiBadge :tone="item.state">
+              <CalendarClock :size="12" />
+              {{ item.date }}
+            </UiBadge>
           </article>
-          <p v-if="!selectedDayItems.length" class="muted">
-            На выбранную дату событий нет.
-          </p>
+        </TransitionGroup>
+        <div v-else class="care-calendar__list">
+          <p class="muted">На выбранную дату событий нет.</p>
         </div>
       </section>
     </div>
@@ -1509,11 +1566,11 @@ watch(() => route.params.id, loadPage);
   >
     <form class="report-dialog__card" @submit.prevent="reportPlant">
       <header class="report-dialog__head">
-        <h2 class="panel__title">РџРѕР¶Р°Р»РѕРІР°С‚СЊСЃСЏ РЅР° СЂР°СЃС‚РµРЅРёРµ</h2>
+        <h2 class="panel__title">Пожаловаться на растение</h2>
         <button
           type="button"
           class="report-dialog__close"
-          aria-label="Р—Р°РєСЂС‹С‚СЊ"
+          aria-label="Закрыть"
           @click="closeReportDialog"
         >
           <X :size="20" />
@@ -1522,26 +1579,26 @@ watch(() => route.params.id, loadPage);
 
       <div class="report-dialog__form">
         <select v-model="reportReason">
-          <option value="inappropriate_image">РќРµРїРѕРґС…РѕРґСЏС‰РµРµ РёР·РѕР±СЂР°Р¶РµРЅРёРµ</option>
-          <option value="spam">РЎРїР°Рј</option>
-          <option value="abuse">РћСЃРєРѕСЂР±Р»РµРЅРёСЏ</option>
-          <option value="misinformation">РќРµРґРѕСЃС‚РѕРІРµСЂРЅР°СЏ РёРЅС„РѕСЂРјР°С†РёСЏ</option>
-          <option value="other">Р”СЂСѓРіРѕРµ</option>
+          <option value="inappropriate_image">Неподходящее изображение</option>
+          <option value="spam">Спам</option>
+          <option value="abuse">Оскорбления</option>
+          <option value="misinformation">Недостоверная информация</option>
+          <option value="other">Другое</option>
         </select>
         <textarea
           v-model="reportDetails"
           rows="4"
-          placeholder="РџРѕРґСЂРѕР±РЅРѕСЃС‚Рё Р¶Р°Р»РѕР±С‹"
+          placeholder="Подробности жалобы"
         />
       </div>
 
       <footer class="report-dialog__footer">
         <UiButton type="button" variant="ghost" @click="closeReportDialog">
-          РћС‚РјРµРЅР°
+          Отмена
         </UiButton>
         <UiButton type="submit">
           <Flag :size="16" />
-          РћС‚РїСЂР°РІРёС‚СЊ Р¶Р°Р»РѕР±Сѓ
+          Отправить жалобу
         </UiButton>
       </footer>
     </form>
@@ -2668,20 +2725,76 @@ watch(() => route.params.id, loadPage);
 
 .history-row {
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 4px 10px;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
   padding: 10px;
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: var(--color-surface-soft);
+  background: #f7faf5;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.history-row__icon {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 8px;
+  color: #fff;
+}
+
+.history-row__content {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.history-row__content strong,
+.history-row__content p {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .history-row p {
-  grid-column: 1 / -1;
   margin: 0;
+}
+
+.calendar-detail-enter-active,
+.calendar-detail-leave-active,
+.calendar-detail-move {
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+}
+
+.calendar-detail-enter-from,
+.calendar-detail-leave-to {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+.calendar-detail-leave-active {
+  position: absolute;
+  right: 0;
+  left: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .history-row:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 20px rgba(24, 45, 28, 0.08);
+  }
 }
 
 @media (min-width: 900px) {
   .care-calendar__list {
+    position: relative;
     max-height: 216px;
     overflow: auto;
     padding-right: 4px;
@@ -2870,6 +2983,15 @@ watch(() => route.params.id, loadPage);
 
   .report-dialog__footer {
     display: grid;
+  }
+
+  .history-row {
+    grid-template-columns: 30px minmax(0, 1fr);
+  }
+
+  .history-row :deep(.ui-badge) {
+    grid-column: 1 / -1;
+    justify-self: start;
   }
 }
 

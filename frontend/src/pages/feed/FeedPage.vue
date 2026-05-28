@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from "vue";
 import { RefreshCw, Search, X } from "lucide-vue-next";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { toast } from "vue-sonner";
 
 import { useAuthStore } from "@/entities/auth/model/auth.store";
@@ -11,6 +11,7 @@ import UiButton from "@/shared/ui/UiButton.vue";
 import PlantListWidget from "@/widgets/plants/PlantListWidget.vue";
 
 const router = useRouter();
+const route = useRoute();
 const authStore = useAuthStore();
 const plantStore = usePlantStore();
 const socialStore = useSocialStore();
@@ -119,6 +120,18 @@ watch(
                 ? resolveFeedMode(plantStore.feedMode)
                 : "public",
         ),
+);
+watch(
+    () => route.fullPath,
+    () => {
+        if (route.name === "feed") {
+            refresh(
+                authStore.isAuthenticated
+                    ? resolveFeedMode(plantStore.feedMode)
+                    : "public",
+            );
+        }
+    },
 );
 </script>
 
