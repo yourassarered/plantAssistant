@@ -92,7 +92,7 @@ class TipController extends Controller
 
         if (! in_array($status, $validStatuses, true)) {
             return response()->json([
-                'message' => 'Invalid status',
+                'message' => 'Некорректный статус',
             ], 422);
         }
 

@@ -1,6 +1,14 @@
 <script setup>
-import { computed, onMounted, ref } from "vue";
-import { Pencil, Save, ShieldCheck, Trash2, X } from "lucide-vue-next";
+import { computed, onMounted, ref, watch } from "vue";
+import { RouterLink } from "vue-router";
+import {
+    ExternalLink,
+    Pencil,
+    Save,
+    ShieldCheck,
+    Trash2,
+    X,
+} from "lucide-vue-next";
 import { toast } from "vue-sonner";
 
 import { useAdminStore } from "@/entities/admin/model/admin.store";
@@ -11,6 +19,7 @@ import UiField from "@/shared/ui/UiField.vue";
 
 const authStore = useAuthStore();
 const adminStore = useAdminStore();
+
 const activeTab = ref("reports");
 const reportComments = ref({});
 const userSearch = ref("");
@@ -29,9 +38,34 @@ const userForm = ref({
     password_confirmation: "",
 });
 
+const reportStatusLabels = {
+    pending: "На рассмотрении",
+    accepted: "Принята",
+    rejected: "Отклонена",
+};
+
+const reportTypeLabels = {
+    plant: "Растение",
+    tip: "Совет",
+};
+
+const roleLabels = {
+    user: "Пользователь",
+    admin: "Администратор",
+};
+
+const reportReasonLabels = {
+    spam: "Спам",
+    abuse: "Оскорбления",
+    other: "Другое",
+};
+
 const filteredUsers = computed(() => {
     const query = userSearch.value.trim().toLowerCase();
-    if (!query) return adminStore.users;
+
+    if (!query) {
+        return adminStore.users;
+    }
 
     return adminStore.users.filter((user) =>
         [user.name, user.email, user.role?.name]
@@ -42,19 +76,124 @@ const filteredUsers = computed(() => {
     );
 });
 
-const trafficTotal = computed(() =>
-    Number(adminStore.traffic?.total_requests || 0),
-);
-const trafficPeak = computed(() =>
-    Number(adminStore.traffic?.peak_requests_per_minute || 0),
-);
-const trafficAverage = computed(() =>
-    Number(adminStore.traffic?.average_requests_per_minute || 0),
-);
-const trafficErrorRate = computed(() =>
-    Number(adminStore.traffic?.error_rate_percent || 0),
-);
+const trafficCards = computed(() => [
+    {
+        value: Number(adminStore.traffic?.total_requests || 0),
+        unit: "запросов",
+        title: "Всего API-запросов",
+        description: `За ${adminStore.traffic?.window_minutes || 0} минут`,
+    },
+    {
+        value: Number(adminStore.traffic?.average_requests_per_minute || 0),
+        unit: "в минуту",
+        title: "Средняя нагрузка",
+        description: "Сглаженное значение по выбранному окну",
+    },
+    {
+        value: Number(adminStore.traffic?.peak_requests_per_minute || 0),
+        unit: "в минуту",
+        title: "Пиковая нагрузка",
+        description: "Максимум за один минутный слот",
+    },
+    {
+        value: Number(adminStore.traffic?.status_totals?.["2xx"] || 0),
+        unit: "ответов",
+        title: "Успешные ответы",
+        description: "Запросы, завершившиеся без ошибок",
+    },
+    {
+        value: Number(adminStore.traffic?.status_totals?.["4xx"] || 0),
+        unit: "ответов",
+        title: "Клиентские ошибки",
+        description: "Например 401, 403, 404 или 422",
+    },
+    {
+        value: `${Number(adminStore.traffic?.error_rate_percent || 0)} %`,
+        unit: "ошибок",
+        title: "Доля ошибок",
+        description: "Суммарно 4xx и 5xx от всех запросов",
+    },
+]);
+
 const isSelf = (user) => Number(user.id) === Number(authStore.user?.id);
+
+const formatReportStatus = (status) =>
+    reportStatusLabels[status] || status || "Неизвестно";
+
+const formatTargetType = (type) =>
+    reportTypeLabels[type] || type || "Объект";
+
+const formatRole = (roleName) => roleLabels[roleName] || roleName || "Без роли";
+
+const formatReason = (reason) =>
+    reportReasonLabels[reason] || reason || "Без причины";
+
+const reportPlantId = (report) =>
+    report.target?.plant?.id ||
+    (report.target_type === "plant" ? report.target_id : null);
+
+const reportHasPlantLink = (report) => Boolean(reportPlantId(report));
+
+const reportPlantRoute = (report) => ({
+    name: "plant-details",
+    params: { id: reportPlantId(report) },
+});
+
+const reportPlantHref = (report) => `/plants/${reportPlantId(report)}`;
+
+const reportTargetTitle = (report) => {
+    if (report.target_type === "plant") {
+        return report.target?.plant?.name || `Растение #${report.target_id}`;
+    }
+
+    if (report.target_type === "tip") {
+        return `Совет #${report.target?.tip?.id || report.target_id}`;
+    }
+
+    return `Объект #${report.target_id}`;
+};
+
+const reportTargetMeta = (report) => {
+    if (report.target_type === "plant") {
+        const ownerName = report.target?.plant?.owner_name;
+        return ownerName
+            ? `Владелец: ${ownerName}`
+            : "Владелец не определён";
+    }
+
+    if (report.target_type === "tip") {
+        const authorName = report.target?.tip?.author_name || "Неизвестный автор";
+        const plantName = report.target?.plant?.name || "растение без названия";
+        return `${authorName} · растение «${plantName}»`;
+    }
+
+    return "Контекст объекта недоступен";
+};
+
+const reportTargetStatus = (report) => {
+    if (report.target_type !== "tip") return "";
+
+    return formatReportStatus(report.target?.tip?.status);
+};
+
+const reportReviewMeta = (report) => {
+    if (!report.reviewed_at) return "";
+
+    const reviewerName = report.reviewer?.name || "Администратор";
+    return `${reviewerName} · ${formatIsoDateTime(report.reviewed_at)}`;
+};
+
+const moderationSummary = (report) =>
+    report.moderation_effect?.summary || "Автоматические последствия не указаны.";
+
+const reportCommentValue = (report) => reportComments.value[report.id] || "";
+
+const setReportComment = (reportId, value) => {
+    reportComments.value = {
+        ...reportComments.value,
+        [reportId]: value,
+    };
+};
 
 const refreshReports = () =>
     adminStore.loadReports({
@@ -72,14 +211,16 @@ const refreshUsers = () =>
 const refreshTraffic = () => adminStore.loadTraffic(trafficMinutes.value);
 
 const review = async (report, status) => {
-    const comment = (reportComments.value[report.id] || "").trim();
+    const comment = reportCommentValue(report).trim();
+
     if (status === "rejected" && !comment) {
-        toast.error("Для отклонения добавьте комментарий модератора.");
+        toast.error("Для отклонения жалобы добавьте комментарий модератора.");
         return;
     }
 
     try {
-        await adminStore.reviewReport(report.id, status, comment);
+        const updated = await adminStore.reviewReport(report.id, status, comment);
+        setReportComment(updated.id, updated.admin_comment || comment);
         toast.success(
             status === "accepted" ? "Жалоба принята" : "Жалоба отклонена",
         );
@@ -91,10 +232,11 @@ const review = async (report, status) => {
 const updateRole = async (user, roleName) => {
     if (
         !window.confirm(
-            `Изменить роль пользователя ${user.name} на ${roleName}?`,
+            `Изменить роль пользователя ${user.name} на ${formatRole(roleName)}?`,
         )
-    )
+    ) {
         return;
+    }
 
     try {
         await adminStore.updateUserRole(user.id, roleName);
@@ -173,11 +315,83 @@ const deleteUser = async (user) => {
 
     try {
         await adminStore.deleteUser(user.id);
-        toast.success("Пользователь удален");
+        toast.success("Пользователь удалён");
     } catch (error) {
         toast.error(error.message);
     }
 };
+
+const formatAuditTitle = (action) => {
+    switch (action.action) {
+        case "report.review":
+            return action.payload?.status === "accepted"
+                ? "Жалоба принята"
+                : "Жалоба отклонена";
+        case "user.delete":
+            return "Удалён пользователь";
+        case "user.update":
+            return "Обновлён профиль пользователя";
+        case "user.role_update":
+            return "Изменена роль пользователя";
+        case "user.avatar_delete":
+            return "Удалён аватар пользователя";
+        default:
+            return action.action || "Действие администратора";
+    }
+};
+
+const formatAuditSummary = (action) => {
+    switch (action.action) {
+        case "report.review": {
+            const targetType = formatTargetType(
+                action.payload?.report_target_type,
+            ).toLowerCase();
+            const targetId = action.payload?.report_target_id
+                ? ` #${action.payload.report_target_id}`
+                : "";
+            return `Жалоба на ${targetType}${targetId}.`;
+        }
+        case "user.delete":
+            return action.payload?.name
+                ? `${action.payload.name}${action.payload.email ? ` · ${action.payload.email}` : ""}`
+                : `Пользователь #${action.target_id}`;
+        case "user.update": {
+            const chunks = [
+                action.payload?.name || `Пользователь #${action.target_id}`,
+                action.payload?.email || "",
+                Number.isFinite(Number(action.payload?.rank))
+                    ? `ранг ${action.payload.rank}`
+                    : "",
+                action.payload?.role_name
+                    ? formatRole(action.payload.role_name).toLowerCase()
+                    : "",
+            ].filter(Boolean);
+
+            return chunks.join(" · ");
+        }
+        case "user.role_update":
+            return `${action.payload?.name || `Пользователь #${action.target_id}`} · новая роль: ${formatRole(action.payload?.role_name).toLowerCase()}`;
+        case "user.avatar_delete":
+            return `Пользователь #${action.target_id}`;
+        default:
+            return "Подробности действия недоступны.";
+    }
+};
+
+watch(
+    () => adminStore.reports,
+    (reports) => {
+        const nextComments = {};
+
+        for (const report of reports) {
+            nextComments[report.id] =
+                reportComments.value[report.id] ?? report.admin_comment ?? "";
+        }
+
+        reportComments.value = nextComments;
+    },
+    { immediate: true },
+);
 
 onMounted(() => {
     if (authStore.isAdmin) {
@@ -235,40 +449,40 @@ onMounted(() => {
 
             <div v-if="adminStore.error" class="panel admin-state">
                 <p>{{ adminStore.error }}</p>
-                <UiButton variant="ghost" @click="adminStore.loadAll"
-                    >Повторить загрузку</UiButton
-                >
+                <UiButton variant="ghost" @click="adminStore.loadAll">
+                    Повторить загрузку
+                </UiButton>
             </div>
             <div v-else-if="adminStore.loading" class="panel admin-state">
-                Загрузка админских данных...
+                Загрузка данных админки...
             </div>
 
             <section v-else-if="activeTab === 'reports'" class="admin-list">
-                <div class="panel admin-filters">
-                    <UiField label="Статус">
+                <div class="panel admin-filters admin-filters--reports">
+                    <UiField label="Статус жалобы">
                         <select
                             v-model="reportStatusFilter"
                             @change="refreshReports"
                         >
                             <option value="">Все</option>
-                            <option value="pending">pending</option>
-                            <option value="accepted">accepted</option>
-                            <option value="rejected">rejected</option>
+                            <option value="pending">На рассмотрении</option>
+                            <option value="accepted">Принятые</option>
+                            <option value="rejected">Отклонённые</option>
                         </select>
                     </UiField>
-                    <UiField label="Тип цели">
+                    <UiField label="Тип объекта">
                         <select
                             v-model="reportTargetFilter"
                             @change="refreshReports"
                         >
                             <option value="">Все</option>
-                            <option value="plant">plant</option>
-                            <option value="tip">tip</option>
+                            <option value="plant">Растение</option>
+                            <option value="tip">Совет</option>
                         </select>
                     </UiField>
-                    <UiButton variant="ghost" @click="refreshReports"
-                        >Применить фильтры</UiButton
-                    >
+                    <UiButton variant="ghost" @click="refreshReports">
+                        Применить
+                    </UiButton>
                 </div>
 
                 <article
@@ -276,40 +490,134 @@ onMounted(() => {
                     :key="report.id"
                     class="panel report-item"
                 >
-                    <div>
-                        <strong
-                            >#{{ report.id }} · {{ report.target_type }}
-                            {{ report.target_id }}</strong
-                        >
-                        <span>{{ report.status }} · {{ report.reason }}</span>
+                    <header class="report-item__header">
+                        <div class="report-badges">
+                            <span
+                                class="report-badge"
+                                :data-tone="report.status"
+                            >
+                                {{ formatReportStatus(report.status) }}
+                            </span>
+                            <span class="report-badge report-badge--soft">
+                                {{ formatTargetType(report.target_type) }}
+                            </span>
+                            <span class="report-id">Жалоба #{{ report.id }}</span>
+                        </div>
+                        <span class="report-date">
+                            {{ formatIsoDateTime(report.created_at) }}
+                        </span>
+                    </header>
+
+                    <div class="report-item__summary">
+                        <strong>{{ reportTargetTitle(report) }}</strong>
+                        <span>
+                            {{ report.reporter?.name || "Неизвестный пользователь" }}
+                            · {{ formatReason(report.reason) }}
+                        </span>
                     </div>
-                    <p>{{ report.details || "Без деталей" }}</p>
+
+                    <section class="report-context">
+                        <div class="report-context__body">
+                            <div class="report-context__label">
+                                Контекст объекта
+                            </div>
+                            <p>{{ reportTargetMeta(report) }}</p>
+                            <p
+                                v-if="reportTargetStatus(report)"
+                                class="report-context__status"
+                            >
+                                Статус совета: {{ reportTargetStatus(report) }}
+                            </p>
+                        </div>
+
+                        <blockquote
+                            v-if="report.target?.tip?.content"
+                            class="report-quote"
+                        >
+                            {{ report.target.tip.content }}
+                        </blockquote>
+
+                        <div
+                            v-if="reportHasPlantLink(report)"
+                            class="report-links"
+                        >
+                            <RouterLink
+                                class="report-link"
+                                :to="reportPlantRoute(report)"
+                            >
+                                Открыть растение
+                            </RouterLink>
+                            <a
+                                class="report-link report-link--icon"
+                                :href="reportPlantHref(report)"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label="Открыть растение в новой вкладке"
+                            >
+                                <ExternalLink :size="16" />
+                            </a>
+                        </div>
+                    </section>
+
+                    <section class="report-note">
+                        <div class="report-note__label">
+                            Комментарий пользователя
+                        </div>
+                        <p>
+                            {{
+                                report.details ||
+                                "Пользователь не добавил подробности к жалобе."
+                            }}
+                        </p>
+                    </section>
+
+                    <section class="report-note report-note--effect">
+                        <div class="report-note__label">Последствия решения</div>
+                        <p>{{ moderationSummary(report) }}</p>
+                    </section>
+
+                    <div
+                        v-if="report.reviewed_at || report.admin_comment"
+                        class="report-review"
+                    >
+                        <strong>Решение модератора</strong>
+                        <span v-if="reportReviewMeta(report)">
+                            {{ reportReviewMeta(report) }}
+                        </span>
+                        <p v-if="report.admin_comment">
+                            {{ report.admin_comment }}
+                        </p>
+                    </div>
+
                     <textarea
-                        v-model="reportComments[report.id]"
-                        rows="2"
+                        :value="reportCommentValue(report)"
+                        rows="3"
                         placeholder="Комментарий модератора"
+                        @input="
+                            setReportComment(report.id, $event.target.value)
+                        "
                     />
+
                     <div class="admin-actions">
                         <UiButton
                             variant="ghost"
                             @click="review(report, 'rejected')"
-                            >Отклонить</UiButton
                         >
-                        <UiButton @click="review(report, 'accepted')"
-                            >Принять</UiButton
-                        >
+                            Отклонить
+                        </UiButton>
+                        <UiButton @click="review(report, 'accepted')">
+                            Принять
+                        </UiButton>
                     </div>
                 </article>
-                <div
-                    v-if="!adminStore.reports.length"
-                    class="panel admin-state"
-                >
-                    Жалоб нет.
+
+                <div v-if="!adminStore.reports.length" class="panel admin-state">
+                    Жалоб по текущему фильтру нет.
                 </div>
             </section>
 
             <section v-else-if="activeTab === 'users'" class="admin-list">
-                <div class="panel admin-filters">
+                <div class="panel admin-filters admin-filters--users">
                     <UiField label="Поиск пользователя">
                         <input
                             v-model="userSearch"
@@ -320,8 +628,8 @@ onMounted(() => {
                     <UiField label="Роль">
                         <select v-model="userRoleFilter" @change="refreshUsers">
                             <option value="">Все</option>
-                            <option value="user">user</option>
-                            <option value="admin">admin</option>
+                            <option value="user">Пользователь</option>
+                            <option value="admin">Администратор</option>
                         </select>
                     </UiField>
                     <label class="rank-toggle">
@@ -332,9 +640,9 @@ onMounted(() => {
                         />
                         Сначала высокий ранг
                     </label>
-                    <UiButton variant="ghost" @click="refreshUsers"
-                        >Найти</UiButton
-                    >
+                    <UiButton variant="ghost" @click="refreshUsers">
+                        Найти
+                    </UiButton>
                 </div>
 
                 <article
@@ -348,17 +656,19 @@ onMounted(() => {
                         </div>
                         <div class="user-main">
                             <strong>{{ user.name }}</strong>
-                            <span>{{ user.email || "email скрыт" }}</span>
+                            <span>{{ user.email || "Email скрыт" }}</span>
                         </div>
                         <div class="user-meta">
-                            <span class="role-pill">{{ user.role?.name }}</span>
+                            <span class="role-pill">
+                                {{ formatRole(user.role?.name) }}
+                            </span>
                             <span>Ранг {{ user.rank }}</span>
                         </div>
                         <div class="user-actions">
                             <button
                                 class="icon-button"
                                 type="button"
-                                aria-label="Редактировать"
+                                aria-label="Редактировать пользователя"
                                 @click="startEditUser(user)"
                             >
                                 <Pencil :size="18" />
@@ -368,13 +678,13 @@ onMounted(() => {
                                 :disabled="isSelf(user)"
                                 @change="updateRole(user, $event.target.value)"
                             >
-                                <option value="user">user</option>
-                                <option value="admin">admin</option>
+                                <option value="user">Пользователь</option>
+                                <option value="admin">Администратор</option>
                             </select>
                             <button
                                 class="icon-danger"
                                 type="button"
-                                aria-label="Удалить"
+                                aria-label="Удалить пользователя"
                                 :disabled="isSelf(user)"
                                 @click="deleteUser(user)"
                             >
@@ -406,8 +716,8 @@ onMounted(() => {
                                 v-model="userForm.role_name"
                                 :disabled="isSelf(user)"
                             >
-                                <option value="user">user</option>
-                                <option value="admin">admin</option>
+                                <option value="user">Пользователь</option>
+                                <option value="admin">Администратор</option>
                             </select>
                         </UiField>
                         <UiField label="Новый пароль">
@@ -441,12 +751,13 @@ onMounted(() => {
                         </div>
                     </form>
                 </article>
+
                 <div v-if="!filteredUsers.length" class="panel admin-state">
-                    Пользователи не найдены по текущему фильтру.
+                    Пользователи по текущему фильтру не найдены.
                 </div>
             </section>
 
-            <section v-else class="admin-metrics">
+            <section v-else class="admin-traffic">
                 <div class="panel admin-filters admin-filters--wide">
                     <UiField label="Окно метрик, минут">
                         <select
@@ -459,64 +770,45 @@ onMounted(() => {
                             <option :value="720">720</option>
                         </select>
                     </UiField>
-                    <UiButton variant="ghost" @click="refreshTraffic"
-                        >Обновить метрики</UiButton
-                    >
+                    <UiButton variant="ghost" @click="refreshTraffic">
+                        Обновить метрики
+                    </UiButton>
                 </div>
 
-                <article class="panel metric-card">
-                    <strong>{{ trafficTotal }}</strong>
-                    <span>Всего API-запросов</span>
-                    <small
-                        >За
-                        {{ adminStore.traffic?.window_minutes || 0 }}
-                        минут</small
+                <div class="admin-metrics">
+                    <article
+                        v-for="metric in trafficCards"
+                        :key="metric.title"
+                        class="panel metric-card"
                     >
-                </article>
-                <article class="panel metric-card">
-                    <strong>{{ trafficAverage }}</strong>
-                    <span>Среднее в минуту</span>
-                    <small>Нагрузка, сглаженная по выбранному окну</small>
-                </article>
-                <article class="panel metric-card">
-                    <strong>{{ trafficPeak }}</strong>
-                    <span>Пик запросов в минуту</span>
-                    <small>Максимум за один минутный слот</small>
-                </article>
-                <article class="panel metric-card">
-                    <strong>{{
-                        adminStore.traffic?.status_totals?.["2xx"] || 0
-                    }}</strong>
-                    <span>Успешные ответы (2xx)</span>
-                    <small>Запросы, завершившиеся успешно</small>
-                </article>
-                <article class="panel metric-card">
-                    <strong>{{
-                        adminStore.traffic?.status_totals?.["4xx"] || 0
-                    }}</strong>
-                    <span>Ошибки клиента (4xx)</span>
-                    <small>Например 401, 403, 404, 422</small>
-                </article>
-                <article class="panel metric-card">
-                    <strong>{{ trafficErrorRate }}%</strong>
-                    <span>Доля ошибок</span>
-                    <small>4xx и 5xx от всех запросов</small>
-                </article>
+                        <div class="metric-card__headline">
+                            <strong>{{ metric.value }}</strong>
+                            <span>{{ metric.unit }}</span>
+                        </div>
+                        <p class="metric-card__title">{{ metric.title }}</p>
+                        <small>{{ metric.description }}</small>
+                    </article>
+                </div>
 
                 <section class="panel audit-panel">
                     <h2 class="panel__title">Последние действия модераторов</h2>
+
                     <article
                         v-for="action in adminStore.traffic
                             ?.recent_moderator_actions || []"
                         :key="action.id"
                         class="audit-row"
                     >
-                        <strong>{{ action.action }}</strong>
-                        <span
-                            >{{ action.actor_name || "system" }} ·
-                            {{ formatIsoDateTime(action.created_at) }}</span
-                        >
+                        <div class="audit-row__body">
+                            <strong>{{ formatAuditTitle(action) }}</strong>
+                            <span>{{ formatAuditSummary(action) }}</span>
+                        </div>
+                        <div class="audit-row__meta">
+                            {{ action.actor_name || "Система" }} ·
+                            {{ formatIsoDateTime(action.created_at) }}
+                        </div>
                     </article>
+
                     <p
                         v-if="
                             !(
@@ -526,7 +818,7 @@ onMounted(() => {
                         "
                         class="admin-state"
                     >
-                        Действий модераторов в этом окне пока нет.
+                        В выбранном окне пока нет действий модераторов.
                     </p>
                 </section>
             </section>
@@ -571,41 +863,69 @@ onMounted(() => {
 }
 
 .admin-list,
+.admin-traffic,
+.admin-metrics,
+.audit-panel,
 .report-item,
 .user-item,
-.admin-metrics,
-.audit-panel {
+.user-main,
+.user-meta,
+.metric-card,
+.audit-row__body {
     display: grid;
-    gap: 10px;
+    gap: 12px;
 }
 
 .admin-filters {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
     align-items: end;
     gap: 12px;
 }
 
+.admin-filters--reports {
+    grid-template-columns: repeat(2, minmax(0, 220px)) auto;
+}
+
+.admin-filters--users {
+    grid-template-columns: minmax(0, 1.6fr) minmax(180px, 220px) auto auto;
+}
+
 .admin-filters--wide {
-    grid-column: 1 / -1;
-    grid-template-columns: minmax(180px, 260px) auto;
+    grid-template-columns: minmax(180px, 240px) auto;
     justify-content: start;
 }
 
+.admin-filters input,
 .admin-filters select,
 .user-item select,
 .user-edit input,
-.user-edit select {
+.user-edit select,
+.report-item textarea {
     width: 100%;
     min-height: 42px;
-    padding: 0 10px;
+    padding: 10px 12px;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
     background: var(--color-surface);
 }
 
+.admin-state,
+.report-item__summary span,
+.report-date,
+.report-context__body p,
+.report-note p,
+.report-review span,
+.report-review p,
+.user-main span,
+.user-meta span,
+.metric-card small,
+.audit-row span,
+.audit-row__meta {
+    color: var(--color-muted);
+}
+
 .rank-toggle {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 8px;
     min-height: 42px;
@@ -613,35 +933,131 @@ onMounted(() => {
     font-weight: 800;
 }
 
-.report-item span,
-.user-item span,
-.audit-row span,
-.admin-state,
-.metric-card span {
-    color: var(--color-muted);
+.report-item {
+    gap: 14px;
 }
 
-.report-item textarea {
-    width: 100%;
-    resize: vertical;
-    padding: 10px;
+.report-item__header,
+.report-item__summary,
+.report-links,
+.user-edit__actions,
+.admin-actions,
+.audit-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.report-item__summary {
+    align-items: start;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.report-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.report-badge,
+.report-id,
+.report-link,
+.role-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 28px;
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.report-badge {
+    color: #fff;
+    background: var(--color-green);
+}
+
+.report-badge[data-tone="pending"] {
+    color: #815b00;
+    background: #fff0b8;
+}
+
+.report-badge[data-tone="accepted"] {
+    background: var(--color-green);
+}
+
+.report-badge[data-tone="rejected"] {
+    background: var(--color-red);
+}
+
+.report-badge--soft,
+.report-id {
+    color: var(--color-green-dark);
+    background: var(--color-green-soft);
+}
+
+.report-context,
+.report-note,
+.report-review {
+    display: grid;
+    gap: 10px;
+    padding: 14px;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.55);
 }
 
-.admin-actions {
-    display: flex;
-    gap: 8px;
-    justify-content: flex-end;
+.report-note--effect {
+    background: #f6fbf2;
+}
+
+.report-context__label,
+.report-note__label {
+    color: var(--color-green-dark);
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.report-context__status {
+    color: var(--color-green-dark) !important;
+    font-weight: 700;
+}
+
+.report-quote {
+    margin: 0;
+    padding-left: 12px;
+    border-left: 3px solid var(--color-border);
+    color: var(--color-text);
+    line-height: 1.5;
+}
+
+.report-links {
+    justify-content: start;
+}
+
+.report-link {
+    border: 1px solid var(--color-border);
+    color: var(--color-green-dark);
+    background: var(--color-green-soft);
+    text-decoration: none;
+}
+
+.report-link--icon {
+    width: 28px;
+    padding: 0;
 }
 
 .user-item {
-    gap: 12px;
+    gap: 14px;
 }
 
 .user-item__summary {
     display: grid;
-    grid-template-columns: 44px minmax(0, 1fr) minmax(130px, auto) minmax(
+    grid-template-columns: 44px minmax(0, 1fr) minmax(150px, auto) minmax(
             260px,
             auto
         );
@@ -661,11 +1077,11 @@ onMounted(() => {
     text-transform: uppercase;
 }
 
-.user-main,
-.user-meta {
-    display: grid;
-    gap: 3px;
-    min-width: 0;
+.role-pill {
+    width: fit-content;
+    color: var(--color-green-dark);
+    background: var(--color-green-soft);
+    text-transform: uppercase;
 }
 
 .user-main strong,
@@ -675,26 +1091,9 @@ onMounted(() => {
     white-space: nowrap;
 }
 
-.user-meta {
-    justify-items: start;
-}
-
-.role-pill {
-    display: inline-grid;
-    min-height: 24px;
-    padding: 0 9px;
-    place-items: center;
-    border-radius: 999px;
-    color: var(--color-green-dark) !important;
-    background: #e8f4df;
-    font-size: 12px;
-    font-weight: 900;
-    text-transform: uppercase;
-}
-
 .user-actions {
     display: grid;
-    grid-template-columns: 38px minmax(110px, 140px) 38px;
+    grid-template-columns: 38px minmax(120px, 150px) 38px;
     align-items: center;
     justify-content: end;
     gap: 8px;
@@ -704,15 +1103,13 @@ onMounted(() => {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 12px;
-    padding-top: 12px;
+    padding-top: 14px;
     border-top: 1px solid var(--color-border);
 }
 
 .user-edit__actions {
-    display: flex;
     grid-column: 1 / -1;
     justify-content: flex-end;
-    gap: 8px;
 }
 
 .icon-button,
@@ -723,14 +1120,17 @@ onMounted(() => {
     place-items: center;
     border: 0;
     border-radius: var(--radius-sm);
-    color: var(--color-red);
-    background: #ffe0dc;
     cursor: pointer;
 }
 
 .icon-button {
     color: var(--color-green-dark);
-    background: #e8f4df;
+    background: var(--color-green-soft);
+}
+
+.icon-danger {
+    color: var(--color-red);
+    background: #ffe0dc;
 }
 
 .icon-danger:disabled,
@@ -744,44 +1144,89 @@ onMounted(() => {
     grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.audit-panel {
-    grid-column: 1 / -1;
-}
-
-.metric-card strong {
-    font-size: 32px;
-}
-
 .metric-card {
     align-content: start;
+    gap: 8px;
+}
+
+.metric-card__headline {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.metric-card__headline strong {
+    font-size: 32px;
+    line-height: 1;
+}
+
+.metric-card__headline span {
+    color: var(--color-green-dark);
+    font-weight: 800;
+}
+
+.metric-card__title {
+    margin: 0;
+    font-weight: 800;
+}
+
+.audit-panel {
     gap: 4px;
 }
 
-.metric-card small {
-    color: var(--color-muted);
-    line-height: 1.35;
+.audit-row {
+    padding: 12px 0;
+    border-bottom: 1px solid var(--color-border);
 }
 
-.audit-row {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--color-border);
+.audit-row:last-child {
+    border-bottom: 0;
+}
+
+.audit-row__meta {
+    white-space: nowrap;
+}
+
+@media (max-width: 980px) {
+    .admin-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .user-item__summary {
+        grid-template-columns: 44px minmax(0, 1fr);
+    }
+
+    .user-meta,
+    .user-actions {
+        grid-column: 2;
+    }
+
+    .user-actions {
+        justify-content: start;
+    }
 }
 
 @media (max-width: 760px) {
     .admin-metrics,
-    .user-item__summary,
-    .user-actions,
+    .admin-filters--reports,
+    .admin-filters--users,
+    .admin-filters--wide,
     .user-edit,
-    .admin-filters,
-    .admin-filters--wide {
+    .user-actions {
         grid-template-columns: 1fr;
     }
 
-    .user-actions {
-        justify-content: stretch;
+    .report-item__header,
+    .admin-actions,
+    .user-edit__actions,
+    .audit-row {
+        align-items: start;
+        flex-direction: column;
+    }
+
+    .audit-row__meta {
+        white-space: normal;
     }
 }
 </style>

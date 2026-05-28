@@ -92,7 +92,7 @@ class UserController extends Controller
 
         if ($user->id === $request->user()->id) {
             return response()->json([
-                'message' => 'You cannot delete your own account',
+                'message' => 'Нельзя удалить собственный аккаунт',
             ], 403);
         }
 
@@ -103,7 +103,10 @@ class UserController extends Controller
             action: 'user.delete',
             targetType: User::class,
             targetId: (int) $id,
-            payload: null,
+            payload: [
+                'name' => $user->name,
+                'email' => $user->email,
+            ],
             request: $request
         );
 
@@ -121,7 +124,7 @@ class UserController extends Controller
 
         if ($user->id === $request->user()->id && $validated['role_name'] !== $user->role?->name) {
             return response()->json([
-                'message' => 'You cannot change your own role',
+                'message' => 'Нельзя изменить собственную роль',
             ], 403);
         }
 
@@ -168,7 +171,7 @@ class UserController extends Controller
 
         if ($user->id === $request->user()->id) {
             return response()->json([
-                'message' => 'You cannot change your own role',
+                'message' => 'Нельзя изменить собственную роль',
             ], 403);
         }
 
@@ -185,7 +188,10 @@ class UserController extends Controller
             action: 'user.role_update',
             targetType: User::class,
             targetId: $user->id,
-            payload: ['role_name' => $request->string('role_name')->value()],
+            payload: [
+                'name' => $user->name,
+                'role_name' => $request->string('role_name')->value(),
+            ],
             request: $request
         );
 

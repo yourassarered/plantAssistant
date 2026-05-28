@@ -71,6 +71,7 @@ class AdminMetricsController extends Controller
                 'action' => $row->action,
                 'target_type' => $row->target_type,
                 'target_id' => $row->target_id,
+                'payload' => $row->payload,
                 'created_at' => $row->created_at?->toISOString(),
             ]);
 

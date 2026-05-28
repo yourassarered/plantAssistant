@@ -42,7 +42,7 @@ class ReportController extends Controller
         );
 
         if (! $report->wasRecentlyCreated) {
-            return response()->json(['message' => 'You have already reported this item'], 422);
+            return response()->json(['message' => 'Вы уже отправляли жалобу на этот объект'], 422);
         }
 
         return (new ReportResource($report->load('reporter')))->response()->setStatusCode(201);
