@@ -24,7 +24,7 @@ export const useAdminStore = defineStore("admin", {
                 const [usersPayload, reportsPayload, trafficPayload] =
                     await Promise.all([
                         apiClient.get("/users?per_page=100"),
-                        apiClient.get("/admin/reports?per_page=100"),
+                        apiClient.get("/admin/reports?per_page=100&status=pending"),
                         apiClient.get("/admin/metrics/traffic?minutes=60"),
                     ]);
 
@@ -56,6 +56,16 @@ export const useAdminStore = defineStore("admin", {
             } finally {
                 this.loading = false;
             }
+        },
+        async loadReport(reportId) {
+            const payload = await apiClient.get(`/admin/reports/${reportId}`);
+            const report = payload.data || payload;
+            if (this.reports.some((item) => item.id === report.id)) {
+                this.reports = this.reports.map((item) =>
+                    item.id === report.id ? report : item,
+                );
+            }
+            return report;
         },
         async loadUsers(filters = {}) {
             this.loading = true;
@@ -106,9 +116,9 @@ export const useAdminStore = defineStore("admin", {
                 },
             );
             const updated = payload.data || payload;
-            this.reports = this.reports.map((report) =>
-                report.id === updated.id ? updated : report,
-            );
+            this.reports = this.reports
+                .map((report) => (report.id === updated.id ? updated : report))
+                .filter((report) => report.id !== updated.id);
             return updated;
         },
         async updateUserRole(userId, roleName) {

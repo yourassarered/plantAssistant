@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from "vue";
 import {
+    ExternalLink,
     Pencil,
     Save,
     ShieldCheck,
@@ -11,6 +12,7 @@ import { toast } from "vue-sonner";
 
 import { useAdminStore } from "@/entities/admin/model/admin.store";
 import { useAuthStore } from "@/entities/auth/model/auth.store";
+import { apiClient } from "@/shared/api/client";
 import { formatIsoDateTime } from "@/shared/lib/date/calendarGrid";
 import UiButton from "@/shared/ui/UiButton.vue";
 import UiField from "@/shared/ui/UiField.vue";
@@ -21,10 +23,15 @@ const adminStore = useAdminStore();
 const activeTab = ref("reports");
 const reportComments = ref({});
 const resolutionDialogOpen = ref(false);
+const rejectionDialogOpen = ref(false);
 const selectedReport = ref(null);
 const selectedResolutionAction = ref("");
+const auditDialogOpen = ref(false);
+const selectedAuditAction = ref(null);
+const selectedAuditReport = ref(null);
+const auditDetailsLoading = ref(false);
 const userSearch = ref("");
-const reportStatusFilter = ref("");
+const reportStatusFilter = ref("pending");
 const reportTargetFilter = ref("");
 const userRoleFilter = ref("");
 const sortUsersByRank = ref(false);
@@ -85,11 +92,24 @@ const filteredUsers = computed(() => {
     );
 });
 
+const displayedReports = computed(() =>
+    adminStore.reports.filter((report) => {
+        const matchesStatus = reportStatusFilter.value
+            ? report.status === reportStatusFilter.value
+            : true;
+        const matchesTarget = reportTargetFilter.value
+            ? report.target_type === reportTargetFilter.value
+            : true;
+
+        return matchesStatus && matchesTarget;
+    }),
+);
+
 const trafficCards = computed(() => [
     {
         value: Number(adminStore.traffic?.total_requests || 0),
         unit: "запросов",
-        title: "Всего API-запросов",
+        title: "Всего запросов",
         description: `За ${adminStore.traffic?.window_minutes || 0} минут`,
     },
     {
@@ -137,6 +157,12 @@ const formatRole = (roleName) => roleLabels[roleName] || roleName || "Без р�
 const formatReason = (reason) =>
     reportReasonLabels[reason] || reason || "Без причины";
 
+const reportPlantId = (report) =>
+    report.target?.plant?.id ||
+    (report.target_type === "plant" ? report.target_id : null);
+
+const reportHasPlantLink = (report) => Boolean(reportPlantId(report));
+
 const reportTargetTitle = (report) => {
     if (report.target_type === "plant") {
         return report.target?.plant?.name || `Растение #${report.target_id}`;
@@ -152,15 +178,17 @@ const reportTargetTitle = (report) => {
 const reportTargetMeta = (report) => {
     if (report.target_type === "plant") {
         const ownerName = report.target?.plant?.owner_name;
+        const ownerRank = report.target?.plant?.owner_rank;
         return ownerName
-            ? `Владелец: ${ownerName}`
+            ? `Владелец: ${ownerName}${ownerRank !== undefined && ownerRank !== null ? ` · ранг ${ownerRank}` : ""}`
             : "Владелец не определён";
     }
 
     if (report.target_type === "tip") {
         const authorName = report.target?.tip?.author_name || "Неизвестный автор";
+        const authorRank = report.target?.tip?.author_rank;
         const plantName = report.target?.plant?.name || "растение без названия";
-        return `${authorName} · растение «${plantName}»`;
+        return `${authorName}${authorRank !== undefined && authorRank !== null ? ` · ранг ${authorRank}` : ""} · растение «${plantName}»`;
     }
 
     return "Контекст объекта недоступен";
@@ -182,7 +210,7 @@ const reportReviewMeta = (report) => {
 const resolutionOptions = (report) => {
     if (report?.target_type === "tip") {
         return [
-            { value: "tip_delete_rank", hint: "Совет будет удален через soft delete." },
+            { value: "tip_delete_rank", hint: "Совет будет удален." },
             { value: "block_user", hint: "Автор совета потеряет доступ к аккаунту." },
             { value: "tip_warn_rank", hint: "Автор получит предупреждение." },
         ];
@@ -236,9 +264,30 @@ const refreshUsers = () =>
 
 const refreshTraffic = () => adminStore.loadTraffic(trafficMinutes.value);
 
-const review = async (report, status) => {
-    const comment = reportCommentValue(report).trim();
+const refreshActiveTab = () => {
+    if (!authStore.isAdmin) return;
 
+    if (activeTab.value === "reports") {
+        refreshReports();
+        return;
+    }
+
+    if (activeTab.value === "users") {
+        refreshUsers();
+        return;
+    }
+
+    refreshTraffic();
+};
+
+const reportPlantHref = (report) => `/plants/${reportPlantId(report)}`;
+
+const openRejectionDialog = (report) => {
+    selectedReport.value = report;
+    rejectionDialogOpen.value = true;
+};
+
+const review = async (report, status) => {
     if (status === "accepted") {
         selectedReport.value = report;
         selectedResolutionAction.value = resolutionOptions(report)[0]?.value || "";
@@ -246,14 +295,15 @@ const review = async (report, status) => {
         return;
     }
 
-    if (status === "rejected" && !comment) {
-        toast.error("Для отклонения жалобы добавьте комментарий модератора.");
+    if (status === "rejected") {
+        openRejectionDialog(report);
         return;
     }
 
     try {
-        const updated = await adminStore.reviewReport(report.id, status, comment);
-        setReportComment(updated.id, updated.admin_comment || comment);
+        const finalComment = reportCommentValue(report).trim();
+        const updated = await adminStore.reviewReport(report.id, status, finalComment);
+        setReportComment(updated.id, updated.admin_comment || finalComment);
         toast.success(
             status === "accepted" ? "Жалоба принята" : "Жалоба отклонена",
         );
@@ -266,6 +316,59 @@ const closeResolutionDialog = () => {
     resolutionDialogOpen.value = false;
     selectedReport.value = null;
     selectedResolutionAction.value = "";
+};
+
+const closeRejectionDialog = () => {
+    rejectionDialogOpen.value = false;
+    selectedReport.value = null;
+};
+
+const submitRejection = async () => {
+    if (!selectedReport.value) return;
+
+    const comment = reportCommentValue(selectedReport.value).trim();
+    if (!comment) {
+        toast.error("Добавьте комментарий модератора.");
+        return;
+    }
+
+    try {
+        const updated = await adminStore.reviewReport(
+            selectedReport.value.id,
+            "rejected",
+            comment,
+        );
+        setReportComment(updated.id, updated.admin_comment || comment);
+        toast.success("Жалоба отклонена");
+        closeRejectionDialog();
+    } catch (error) {
+        toast.error(error.message);
+    }
+};
+
+const openAuditDetails = async (action) => {
+    selectedAuditAction.value = action;
+    selectedAuditReport.value = null;
+    auditDialogOpen.value = true;
+
+    if (action.action !== "report.review" || !action.target_id) return;
+
+    try {
+        auditDetailsLoading.value = true;
+        const payload = await apiClient.get(`/admin/reports/${action.target_id}`);
+        selectedAuditReport.value = payload.data || payload;
+    } catch (error) {
+        toast.error(error.message);
+    } finally {
+        auditDetailsLoading.value = false;
+    }
+};
+
+const closeAuditDetails = () => {
+    selectedAuditAction.value = null;
+    selectedAuditReport.value = null;
+    auditDetailsLoading.value = false;
+    auditDialogOpen.value = false;
 };
 
 const submitResolution = async () => {
@@ -466,6 +569,8 @@ watch(
     { immediate: true },
 );
 
+watch(activeTab, refreshActiveTab);
+
 onMounted(() => {
     if (authStore.isAdmin) {
         adminStore.loadAll();
@@ -485,7 +590,7 @@ onMounted(() => {
             <UiButton
                 v-if="authStore.isAdmin"
                 variant="ghost"
-                @click="adminStore.loadAll"
+                @click="refreshActiveTab"
             >
                 <ShieldCheck :size="17" />
                 Обновить
@@ -522,12 +627,12 @@ onMounted(() => {
 
             <div v-if="adminStore.error" class="panel admin-state">
                 <p>{{ adminStore.error }}</p>
-                <UiButton variant="ghost" @click="adminStore.loadAll">
+                <UiButton variant="ghost" @click="refreshActiveTab">
                     Повторить загрузку
                 </UiButton>
             </div>
             <div v-else-if="adminStore.loading" class="panel admin-state">
-                Загрузка данных админки...
+                Загрузка данных...
             </div>
 
             <section v-else-if="activeTab === 'reports'" class="admin-list">
@@ -555,11 +660,12 @@ onMounted(() => {
                     </UiField>
                 </div>
 
-                <article
-                    v-for="report in adminStore.reports"
-                    :key="report.id"
-                    class="panel report-item"
-                >
+                <div class="reports-grid">
+                    <article
+                        v-for="report in displayedReports"
+                        :key="report.id"
+                        class="panel report-item"
+                    >
                     <header class="report-item__header">
                         <div class="report-badges">
                             <span
@@ -592,6 +698,16 @@ onMounted(() => {
                                 Контекст объекта
                             </div>
                             <p>{{ reportTargetMeta(report) }}</p>
+                            <a
+                                v-if="reportHasPlantLink(report)"
+                                class="report-link report-context__plant-link"
+                                :href="reportPlantHref(report)"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label="Открыть профиль растения"
+                            >
+                                <ExternalLink :size="15" />
+                            </a>
                             <p
                                 v-if="reportTargetStatus(report)"
                                 class="report-context__status"
@@ -634,16 +750,6 @@ onMounted(() => {
                         </p>
                     </div>
 
-                    <textarea
-                        v-if="report.status === 'pending'"
-                        :value="reportCommentValue(report)"
-                        rows="3"
-                        placeholder="Комментарий модератора"
-                        @input="
-                            setReportComment(report.id, $event.target.value)
-                        "
-                    />
-
                     <div v-if="report.status === 'pending'" class="admin-actions">
                         <UiButton
                             variant="ghost"
@@ -655,9 +761,10 @@ onMounted(() => {
                             Принять
                         </UiButton>
                     </div>
-                </article>
+                    </article>
+                </div>
 
-                <div v-if="!adminStore.reports.length" class="panel admin-state">
+                <div v-if="!displayedReports.length" class="panel admin-state">
                     Жалоб по текущему фильтру нет.
                 </div>
             </section>
@@ -695,7 +802,12 @@ onMounted(() => {
                 >
                     <div class="user-item__summary">
                         <div class="user-avatar">
-                            {{ (user.name || user.email || "?").slice(0, 1) }}
+                            <img
+                                v-if="user.avatar_url"
+                                :src="user.avatar_url"
+                                alt=""
+                            />
+                            <span v-else>{{ (user.name || user.email || "?").slice(0, 1) }}</span>
                         </div>
                         <div class="user-main">
                             <strong>{{ user.name }}</strong>
@@ -861,6 +973,14 @@ onMounted(() => {
                         <div class="audit-row__meta">
                             {{ action.actor_name || "Система" }} ·
                             {{ formatIsoDateTime(action.created_at) }}
+                            <button
+                                v-if="action.action === 'report.review'"
+                                class="audit-details-button"
+                                type="button"
+                                @click="openAuditDetails(action)"
+                            >
+                                Детали
+                            </button>
                         </div>
                     </article>
 
@@ -920,6 +1040,15 @@ onMounted(() => {
                         </span>
                     </label>
 
+                    <UiField label="Комментарий модератора">
+                        <textarea
+                            :value="reportCommentValue(selectedReport)"
+                            rows="3"
+                            placeholder="Коротко опишите решение"
+                            @input="setReportComment(selectedReport.id, $event.target.value)"
+                        />
+                    </UiField>
+
                     <p
                         v-if="selectedResolutionIsFinalWarning"
                         class="resolution-warning"
@@ -934,6 +1063,113 @@ onMounted(() => {
                         <UiButton @click="submitResolution">
                             Применить решение
                         </UiButton>
+                    </div>
+                </section>
+            </div>
+        </Teleport>
+
+        <Teleport to="body">
+            <div
+                v-if="rejectionDialogOpen && selectedReport"
+                class="resolution-modal"
+                @click.self="closeRejectionDialog"
+            >
+                <section class="panel resolution-dialog rejection-dialog">
+                    <div class="resolution-dialog__head">
+                        <div>
+                            <h2 class="panel__title">Отклонить жалобу</h2>
+                            <p>
+                                {{ reportTargetTitle(selectedReport) }} ·
+                                {{ formatTargetType(selectedReport.target_type) }}
+                            </p>
+                        </div>
+                        <button
+                            class="resolution-dialog__close"
+                            type="button"
+                            aria-label="Закрыть"
+                            @click="closeRejectionDialog"
+                        >
+                            <X :size="18" />
+                        </button>
+                    </div>
+
+                    <UiField label="Комментарий модератора">
+                        <textarea
+                            :value="reportCommentValue(selectedReport)"
+                            rows="4"
+                            placeholder="Коротко объясните причину отказа"
+                            @input="setReportComment(selectedReport.id, $event.target.value)"
+                        />
+                    </UiField>
+
+                    <div class="resolution-dialog__actions rejection-dialog__actions">
+                        <UiButton @click="submitRejection">
+                            Отклонить
+                        </UiButton>
+                        <UiButton variant="ghost" @click="closeRejectionDialog">
+                            Отмена
+                        </UiButton>
+                    </div>
+                </section>
+            </div>
+        </Teleport>
+
+        <Teleport to="body">
+            <div
+                v-if="auditDialogOpen && selectedAuditAction"
+                class="resolution-modal"
+                @click.self="closeAuditDetails"
+            >
+                <section class="panel resolution-dialog">
+                    <div class="resolution-dialog__head">
+                        <div>
+                            <h2 class="panel__title">Детали жалобы</h2>
+                            <p>{{ formatAuditTitle(selectedAuditAction) }}</p>
+                        </div>
+                        <button
+                            class="resolution-dialog__close"
+                            type="button"
+                            aria-label="Закрыть"
+                            @click="closeAuditDetails"
+                        >
+                            <X :size="18" />
+                        </button>
+                    </div>
+
+                    <div class="audit-details">
+                        <span v-if="auditDetailsLoading">Загрузка деталей...</span>
+                        <template v-else>
+                            <span>Жалоба #{{ selectedAuditAction.target_id }}</span>
+                            <span>
+                                Объект:
+                                {{ formatTargetType(selectedAuditReport?.target_type || selectedAuditAction.payload?.report_target_type) }}
+                                #{{ selectedAuditReport?.target_id || selectedAuditAction.payload?.report_target_id }}
+                            </span>
+                            <span v-if="selectedAuditReport">
+                                {{ reportTargetTitle(selectedAuditReport) }}
+                            </span>
+                            <span v-if="selectedAuditReport">
+                                Заявитель: {{ selectedAuditReport.reporter?.name || "Неизвестный пользователь" }}
+                            </span>
+                            <span v-if="selectedAuditReport">
+                                Причина: {{ formatReason(selectedAuditReport.reason) }}
+                            </span>
+                            <span>
+                                Решение: {{ (selectedAuditReport?.status || selectedAuditAction.payload?.status) === 'accepted' ? 'принята' : 'отклонена' }}
+                            </span>
+                            <span v-if="selectedAuditReport?.resolution_action || selectedAuditAction.payload?.resolution_action">
+                                Действие: {{ resolutionActionLabels[selectedAuditReport?.resolution_action || selectedAuditAction.payload.resolution_action] || selectedAuditReport?.resolution_action || selectedAuditAction.payload.resolution_action }}
+                            </span>
+                            <p v-if="selectedAuditReport?.details">
+                                {{ selectedAuditReport.details }}
+                            </p>
+                            <p v-if="selectedAuditReport?.resolution_summary">
+                                {{ selectedAuditReport.resolution_summary }}
+                            </p>
+                            <p v-if="selectedAuditReport?.admin_comment || selectedAuditAction.payload?.admin_comment">
+                                {{ selectedAuditReport?.admin_comment || selectedAuditAction.payload.admin_comment }}
+                            </p>
+                        </template>
                     </div>
                 </section>
             </div>
@@ -1050,6 +1286,17 @@ onMounted(() => {
 
 .report-item {
     gap: 14px;
+    height: 100%;
+}
+
+.reports-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.reports-grid .report-item {
+    align-content: start;
 }
 
 .report-item__header,
@@ -1071,7 +1318,13 @@ onMounted(() => {
 }
 
 .admin-actions {
+    align-self: end;
     justify-content: flex-start;
+    margin-top: auto;
+}
+
+.admin-actions :deep(.ui-button) {
+    min-height: 40px;
 }
 
 .report-badges {
@@ -1189,11 +1442,22 @@ onMounted(() => {
     width: 44px;
     height: 44px;
     place-items: center;
+    overflow: hidden;
     border-radius: 50%;
     color: #fff;
     background: var(--color-green);
     font-weight: 900;
     text-transform: uppercase;
+}
+
+.user-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.report-context__plant-link {
+    width: fit-content;
 }
 
 .role-pill {
@@ -1211,11 +1475,16 @@ onMounted(() => {
 }
 
 .user-actions {
-    display: grid;
-    grid-template-columns: 38px minmax(120px, 150px) 38px auto;
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: end;
     gap: 8px;
+}
+
+.user-actions select {
+    width: auto;
+    min-width: 150px;
 }
 
 .user-blocked {
@@ -1236,8 +1505,21 @@ onMounted(() => {
 
 .resolution-dialog {
     display: grid;
-    gap: 14px;
-    width: min(560px, 100%);
+    gap: 18px;
+    width: min(760px, 100%);
+    font-size: 16px;
+    line-height: 1.55;
+    background: var(--color-surface);
+}
+
+.resolution-dialog textarea {
+    width: 100%;
+    resize: vertical;
+    padding: 10px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font-size: 16px;
+    line-height: 1.5;
     background: var(--color-surface);
 }
 
@@ -1249,9 +1531,15 @@ onMounted(() => {
     gap: 12px;
 }
 
+.rejection-dialog__actions {
+    justify-content: flex-start;
+    gap: 14px;
+}
+
 .resolution-dialog__head p {
     margin: 4px 0 0;
     color: var(--color-muted);
+    font-size: 15px;
     font-weight: 800;
 }
 
@@ -1270,11 +1558,19 @@ onMounted(() => {
 .resolution-option {
     display: flex;
     gap: 10px;
-    padding: 12px;
+    padding: 16px;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
     background: rgba(255, 255, 255, 0.64);
     cursor: pointer;
+}
+
+.resolution-option strong {
+    font-size: 16px;
+}
+
+.resolution-option small {
+    font-size: 14px;
 }
 
 .resolution-option span {
@@ -1384,6 +1680,27 @@ onMounted(() => {
     white-space: nowrap;
 }
 
+.audit-details-button {
+    margin-left: 8px;
+    border: 0;
+    color: var(--color-green-dark);
+    background: transparent;
+    cursor: pointer;
+    font-weight: 900;
+}
+
+.audit-details {
+    display: grid;
+    gap: 8px;
+}
+
+.audit-details span,
+.audit-details p {
+    margin: 0;
+    color: var(--color-muted);
+    font-weight: 800;
+}
+
 @media (max-width: 980px) {
     .admin-metrics {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1403,7 +1720,14 @@ onMounted(() => {
     }
 }
 
+@media (max-width: 1180px) {
+    .reports-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
 @media (max-width: 760px) {
+    .reports-grid,
     .admin-metrics,
     .admin-filters--reports,
     .admin-filters--users,
