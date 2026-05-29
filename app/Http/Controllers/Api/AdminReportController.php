@@ -184,7 +184,7 @@ class AdminReportController extends Controller
         if ($action === 'tip_delete_rank') {
             $tip->delete();
 
-            return 'Ранг автора снижен на 1, совет удален через soft delete.';
+            return 'Ранг автора снижен на 1, совет удален.';
         }
 
         $warning = $this->sanctions->warn($author, $comment ?: 'Предупреждение по принятой жалобе на совет.');

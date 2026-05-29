@@ -145,7 +145,14 @@ class FeedQueryService
     private function applyCommonFilters($query, QueryFiltersData $filters): void
     {
         if ($filters->search) {
-            $query->where('name', 'ilike', "%{$filters->search}%");
+            $search = $filters->search;
+
+            $query->where(function ($query) use ($search) {
+                $query->where('name', 'ilike', "%{$search}%")
+                    ->orWhereHas('user', function ($query) use ($search) {
+                        $query->where('name', 'ilike', "%{$search}%");
+                    });
+            });
         }
     }
 

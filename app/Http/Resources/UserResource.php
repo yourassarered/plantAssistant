@@ -19,7 +19,8 @@ class UserResource extends JsonResource
             || $request->user()?->isAdmin()
             || $request->is('api/auth/login')
             || $request->is('api/auth/register');
-        $canSeeModeration = (bool) $request->user()?->isAdmin();
+        $canSeeModeration = (bool) $request->user()?->isAdmin()
+            || $request->user()?->id === $this->id;
 
         return [
             'id' => $this->id,
