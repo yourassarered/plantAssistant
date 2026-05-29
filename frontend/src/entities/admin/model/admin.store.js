@@ -24,7 +24,9 @@ export const useAdminStore = defineStore("admin", {
                 const [usersPayload, reportsPayload, trafficPayload] =
                     await Promise.all([
                         apiClient.get("/users?per_page=100"),
-                        apiClient.get("/admin/reports?per_page=100&status=pending"),
+                        apiClient.get(
+                            "/admin/reports?per_page=100&status=pending",
+                        ),
                         apiClient.get("/admin/metrics/traffic?minutes=60"),
                     ]);
 
@@ -147,6 +149,17 @@ export const useAdminStore = defineStore("admin", {
             const payload = await apiClient.post(`/users/${userId}/block`, {
                 reason,
             });
+            const updated = payload.data || payload;
+            this.users = this.users.map((user) =>
+                user.id === updated.id ? updated : user,
+            );
+            return updated;
+        },
+        async unblockUser(userId) {
+            const payload = await apiClient.post(
+                `/users/${userId}/unblock`,
+                {},
+            );
             const updated = payload.data || payload;
             this.users = this.users.map((user) =>
                 user.id === updated.id ? updated : user,

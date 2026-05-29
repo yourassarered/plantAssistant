@@ -1,4 +1,5 @@
 import { defineStore } from "pinia";
+import { toast } from "vue-sonner";
 
 import { apiClient } from "@/shared/api/client";
 
@@ -69,7 +70,11 @@ export const useAuthStore = defineStore("auth", {
                 this.user = payload.data || payload;
                 this.initialized = true;
                 return this.user;
-            } catch {
+            } catch (error) {
+                if (error?.status === 403) {
+                    this.error = error.message;
+                    toast.error(error.message);
+                }
                 this.clearSession();
                 this.initialized = true;
                 return null;
@@ -95,6 +100,10 @@ export const useAuthStore = defineStore("auth", {
             try {
                 if (this.token) {
                     await apiClient.post("/auth/logout");
+                }
+            } catch (error) {
+                if (error?.status === 403) {
+                    toast.error(error.message);
                 }
             } finally {
                 this.clearSession();

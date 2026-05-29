@@ -1,13 +1,29 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 const TOKEN_KEY = "plant-assistant-token";
 
+const deriveApiOrigin = () => {
+    try {
+        return new URL(API_BASE_URL, window.location.origin).origin;
+    } catch {
+        return window.location.origin;
+    }
+};
+
+export const API_ORIGIN = import.meta.env.VITE_API_ORIGIN || deriveApiOrigin();
+
 const readableErrorMessages = {
-    "The provided credentials are incorrect.":
-        "Неверный email или пароль.",
+    "The provided credentials are incorrect.": "Неверный email или пароль.",
     "This action is unauthorized.": "Недостаточно прав для этого действия.",
     Unauthorized: "Недостаточно прав для этого действия.",
     Forbidden: "Доступ запрещён.",
     "Failed to fetch": "Не удалось связаться с сервером.",
+    "Unauthenticated.": "Требуется авторизация.",
+    "Вы уже отправляли жалобу на этот объект":
+        "Вы уже отправляли жалобу на этот объект.",
+    "Account is blocked. Login is unavailable.":
+        "Аккаунт заблокирован. Вход недоступен.",
+    "Аккаунт заблокирован. Вход и действия в системе недоступны.":
+        "Аккаунт заблокирован. Вход и действия в системе недоступны.",
 };
 
 const readableFieldNames = {
@@ -29,6 +45,8 @@ const readableFieldNames = {
     role_name: "роль",
     rank: "ранг",
     plant_ids: "растения",
+    resolution_action: "решение модератора",
+    admin_comment: "комментарий модератора",
 };
 
 const normalizeFieldName = (field) =>
@@ -101,7 +119,8 @@ const readableErrorPatterns = [
     ],
     [
         /^The (.+?) field must be a date\.$/i,
-        ([, field]) => `Поле «${toReadableFieldName(field)}» должно быть датой.`,
+        ([, field]) =>
+            `Поле «${toReadableFieldName(field)}» должно быть датой.`,
     ],
     [
         /^The (.+?) field must be an image\.$/i,

@@ -1,7 +1,7 @@
+import { API_ORIGIN } from "@/shared/api/client";
 import { apiCareTypeToUi, uiCareTypeToApi } from "@/shared/lib/careTypes";
 import { todayIsoDate, toIsoDate } from "@/shared/lib/date/calendarGrid";
 
-const apiOrigin = import.meta.env.VITE_API_ORIGIN || "";
 const placeholderImage =
     "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Crect width='400' height='400' fill='%23dfe8dc'/%3E%3Cpath d='M205 304c-43-44-48-104-15-153 18 21 26 48 24 82 26-48 61-72 105-72-7 75-45 124-114 143Z' fill='%2316843a'/%3E%3Cpath d='M179 306c-52-19-84-59-94-121 54 4 92 34 113 90 9-48 31-84 66-108 20 66-8 117-85 139Z' fill='%23b8d94c'/%3E%3C/svg%3E";
 
@@ -34,13 +34,15 @@ const resolveAssetUrl = (url) => {
     const normalizedUrl = stringValue(url, "");
 
     if (!normalizedUrl) return placeholderImage;
-    if (apiOrigin && normalizedUrl.startsWith("http://localhost/storage/")) {
-        return normalizedUrl.replace("http://localhost", apiOrigin);
-    }
     if (normalizedUrl.startsWith("http") || normalizedUrl.startsWith("data:")) {
         return normalizedUrl;
     }
-    return `${apiOrigin}${normalizedUrl}`;
+
+    try {
+        return new URL(normalizedUrl, API_ORIGIN).toString();
+    } catch {
+        return `${API_ORIGIN}${normalizedUrl}`;
+    }
 };
 
 const dateOnly = (value) => {
@@ -48,13 +50,13 @@ const dateOnly = (value) => {
 
     if (!normalizedValue) return null;
 
-    const stringValue = String(normalizedValue);
-    if (/^\d{4}-\d{2}-\d{2}$/.test(stringValue)) return stringValue;
+    const stringifiedValue = String(normalizedValue);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(stringifiedValue)) return stringifiedValue;
 
-    const parsedDate = new Date(stringValue);
+    const parsedDate = new Date(stringifiedValue);
     if (!Number.isNaN(parsedDate.getTime())) return toIsoDate(parsedDate);
 
-    return stringValue.slice(0, 10);
+    return stringifiedValue.slice(0, 10);
 };
 
 const stringValue = (value, fallback = "") => {
@@ -118,6 +120,7 @@ export const mapApiPlant = (plant) => {
     const careSettings = Array.isArray(careSettingsRaw)
         ? careSettingsRaw.map(unwrapApiValue)
         : [];
+    const reportSummary = unwrapApiValue(plant.report_summary) || {};
 
     const allCareSettings = careSettings.reduce((acc, setting) => {
         const type = apiCareTypeToUi[setting.type];
@@ -158,6 +161,7 @@ export const mapApiPlant = (plant) => {
         isPublicLocked: Boolean(plant.is_public_locked),
         publicHiddenAt: dateOnly(plant.public_hidden_at),
         publicHiddenReason: stringValue(plant.public_hidden_reason, ""),
+        hiddenDueToBlock: Boolean(plant.hidden_due_to_block),
         likesCount: numberValue(plant.likes_count, 0),
         userLiked: Boolean(
             plant.user_liked ??
@@ -177,6 +181,9 @@ export const mapApiPlant = (plant) => {
             "",
         ),
         ownerRank: objectField(owner, "rank") ?? plant.owner_rank ?? null,
+        ownerIsBlocked: Boolean(
+            objectField(owner, "is_blocked") ?? plant.owner_is_blocked ?? false,
+        ),
         ownerAvatarUrl: objectField(owner, "avatar_url")
             ? resolveAssetUrl(objectField(owner, "avatar_url"))
             : "",
@@ -189,6 +196,12 @@ export const mapApiPlant = (plant) => {
             performedAt: dateOnly(log.performed_at),
             comment: stringValue(log.comment, ""),
         })),
+        reportSummary: {
+            total: numberValue(reportSummary.total, 0),
+            pending: numberValue(reportSummary.pending, 0),
+            accepted: numberValue(reportSummary.accepted, 0),
+            rejected: numberValue(reportSummary.rejected, 0),
+        },
         care,
         raw: plant,
     };

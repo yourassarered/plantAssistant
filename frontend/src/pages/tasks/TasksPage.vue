@@ -6,6 +6,10 @@ import { useRoute } from "vue-router";
 import { usePlantStore } from "@/entities/plant/model/plant.store";
 import { useTaskStore } from "@/entities/task/model/task.store";
 import TaskItem from "@/entities/task/ui/TaskItem.vue";
+import {
+    plantReportIndicator,
+    sumPlantReportSummaries,
+} from "@/shared/lib/reports";
 import { taskDateState } from "@/shared/lib/date/taskMarkers";
 import UiBadge from "@/shared/ui/UiBadge.vue";
 
@@ -32,12 +36,22 @@ const groupedByPlant = computed(() => {
                 plantName: task.plantName,
                 room: task.room,
                 image: task.plantImage,
+                reportSummary: {
+                    total: 0,
+                    pending: 0,
+                    accepted: 0,
+                    rejected: 0,
+                },
                 todayCount: 0,
                 items: [],
             });
         }
         const group = groups.get(task.plantId);
         group.items.push(task);
+        group.reportSummary = sumPlantReportSummaries([
+            group.reportSummary,
+            task.reportSummary,
+        ]);
         if (taskDateState(task) === "today") {
             group.todayCount += 1;
         }
@@ -132,6 +146,18 @@ watch(
                             >{{ group.room }} ·
                             {{ group.items.length }} задач</span
                         >
+                        <span
+                            v-if="
+                                plantReportIndicator(group.reportSummary)
+                                    .visible
+                            "
+                            class="task-group__report-indicator"
+                            :data-tone="
+                                plantReportIndicator(group.reportSummary).tone
+                            "
+                        >
+                            {{ plantReportIndicator(group.reportSummary).text }}
+                        </span>
                     </div>
                     <div v-if="group.todayCount > 0" class="task-group__today">
                         <UiBadge tone="today"
@@ -237,6 +263,27 @@ watch(
 .task-group__meta span {
     color: var(--color-muted);
     font-size: 12px;
+}
+
+.task-group__report-indicator {
+    display: inline-flex;
+    width: fit-content;
+    align-items: center;
+    min-height: 22px;
+    padding: 0 7px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 900;
+}
+
+.task-group__report-indicator[data-tone="warning"] {
+    color: #815b00;
+    background: #fff0b8;
+}
+
+.task-group__report-indicator[data-tone="danger"] {
+    color: #8f1f10;
+    background: #ffd8d2;
 }
 
 .task-group__today {

@@ -3,6 +3,7 @@ import { Heart, MapPin, MessageCircle, UserRound } from "lucide-vue-next";
 import { computed } from "vue";
 import { useRouter } from "vue-router";
 
+import { plantReportIndicator } from "@/shared/lib/reports";
 import { summarizePlantCare } from "@/shared/lib/date/taskMarkers";
 import UiBadge from "@/shared/ui/UiBadge.vue";
 import UiCard from "@/shared/ui/UiCard.vue";
@@ -48,6 +49,9 @@ const likeButtonLabel = computed(() =>
     props.plant.userLiked
         ? "\u0423\u0431\u0440\u0430\u0442\u044c \u043b\u0430\u0439\u043a"
         : "\u041f\u043e\u0441\u0442\u0430\u0432\u0438\u0442\u044c \u043b\u0430\u0439\u043a",
+);
+const reportIndicator = computed(() =>
+    plantReportIndicator(props.plant.reportSummary),
 );
 
 const badgeText = computed(() => {
@@ -108,6 +112,13 @@ const openPlantFromKeyboard = (event) => {
             <div class="plant-card__body">
                 <div class="plant-card__head">
                     <h3>{{ plant.name }}</h3>
+                    <span
+                        v-if="reportIndicator.visible"
+                        class="plant-card__report-indicator"
+                        :data-tone="reportIndicator.tone"
+                    >
+                        {{ reportIndicator.text }}
+                    </span>
                     <div class="plant-card__meta-row">
                         <span class="plant-card__room">
                             <MapPin :size="14" /> {{ plant.room }}
@@ -257,6 +268,27 @@ const openPlantFromKeyboard = (event) => {
     margin: 5px 0 0;
     color: var(--color-muted);
     font-size: 13px;
+}
+
+.plant-card__report-indicator {
+    display: inline-flex;
+    width: fit-content;
+    align-items: center;
+    min-height: 24px;
+    padding: 0 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 900;
+}
+
+.plant-card__report-indicator[data-tone="warning"] {
+    color: #815b00;
+    background: #fff0b8;
+}
+
+.plant-card__report-indicator[data-tone="danger"] {
+    color: #8f1f10;
+    background: #ffd8d2;
 }
 
 .plant-card__room,

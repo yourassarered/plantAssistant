@@ -163,16 +163,12 @@ const load = async ({ refresh = false } = {}) => {
                       .get(`/users/${profileUserId.value}/relationship`)
                       .catch(() => null)
                 : Promise.resolve(null),
-            authStore.isAuthenticated
-                ? apiClient
-                      .get(`/users/${profileUserId.value}/followers/count`)
-                      .catch(() => null)
-                : Promise.resolve(null),
-            authStore.isAuthenticated
-                ? apiClient
-                      .get(`/users/${profileUserId.value}/following/count`)
-                      .catch(() => null)
-                : Promise.resolve(null),
+            apiClient
+                .get(`/users/${profileUserId.value}/followers/count`)
+                .catch(() => null),
+            apiClient
+                .get(`/users/${profileUserId.value}/following/count`)
+                .catch(() => null),
         ]);
 
         if (requestId !== loadRequestId) return;
