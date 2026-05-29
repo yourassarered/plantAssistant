@@ -2298,6 +2298,8 @@ watch(() => route.params.id, () => {
 }
 
 .tip-item--review {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  height: 100%;
   border: 1px solid #d8e7cf;
   background: #f6fbf2;
 }
@@ -2381,7 +2383,9 @@ watch(() => route.params.id, () => {
 .owner-tip-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-self: end;
   gap: 8px;
+  margin-top: auto;
 }
 
 .owner-tip-action {
@@ -3019,13 +3023,12 @@ watch(() => route.params.id, () => {
 
   .desktop-grid--owner .owner-tips-list {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    align-items: start;
+    align-items: stretch;
     gap: 12px;
   }
 
   .desktop-grid--owner .tip-item--review {
     height: 100%;
-    align-content: start;
   }
 
   .desktop-grid--owner .owner-tip-actions {

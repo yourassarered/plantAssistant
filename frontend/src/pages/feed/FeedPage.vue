@@ -165,7 +165,7 @@ watch(
                     <Search :size="17" />
                     <input
                         :value="plantStore.search"
-                        placeholder="Поиск по названию"
+                        placeholder="Поиск по растению или владельцу"
                         @input="plantStore.setSearch($event.target.value)"
                         @change="refresh()"
                     />

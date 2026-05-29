@@ -1139,36 +1139,51 @@ onMounted(() => {
                     <div class="audit-details">
                         <span v-if="auditDetailsLoading">Загрузка деталей...</span>
                         <template v-else>
-                            <span>Жалоба #{{ selectedAuditAction.target_id }}</span>
-                            <span>
-                                Объект:
-                                {{ formatTargetType(selectedAuditReport?.target_type || selectedAuditAction.payload?.report_target_type) }}
-                                #{{ selectedAuditReport?.target_id || selectedAuditAction.payload?.report_target_id }}
-                            </span>
-                            <span v-if="selectedAuditReport">
-                                {{ reportTargetTitle(selectedAuditReport) }}
-                            </span>
-                            <span v-if="selectedAuditReport">
-                                Заявитель: {{ selectedAuditReport.reporter?.name || "Неизвестный пользователь" }}
-                            </span>
-                            <span v-if="selectedAuditReport">
-                                Причина: {{ formatReason(selectedAuditReport.reason) }}
-                            </span>
-                            <span>
-                                Решение: {{ (selectedAuditReport?.status || selectedAuditAction.payload?.status) === 'accepted' ? 'принята' : 'отклонена' }}
-                            </span>
-                            <span v-if="selectedAuditReport?.resolution_action || selectedAuditAction.payload?.resolution_action">
-                                Действие: {{ resolutionActionLabels[selectedAuditReport?.resolution_action || selectedAuditAction.payload.resolution_action] || selectedAuditReport?.resolution_action || selectedAuditAction.payload.resolution_action }}
-                            </span>
-                            <p v-if="selectedAuditReport?.details">
-                                {{ selectedAuditReport.details }}
-                            </p>
-                            <p v-if="selectedAuditReport?.resolution_summary">
-                                {{ selectedAuditReport.resolution_summary }}
-                            </p>
-                            <p v-if="selectedAuditReport?.admin_comment || selectedAuditAction.payload?.admin_comment">
-                                {{ selectedAuditReport?.admin_comment || selectedAuditAction.payload.admin_comment }}
-                            </p>
+                            <dl class="audit-details__grid">
+                                <div>
+                                    <dt>Жалоба</dt>
+                                    <dd>#{{ selectedAuditAction.target_id }}</dd>
+                                </div>
+                                <div>
+                                    <dt>Объект</dt>
+                                    <dd>
+                                        {{ formatTargetType(selectedAuditReport?.target_type || selectedAuditAction.payload?.report_target_type) }}
+                                        #{{ selectedAuditReport?.target_id || selectedAuditAction.payload?.report_target_id }}
+                                    </dd>
+                                </div>
+                                <div v-if="selectedAuditReport">
+                                    <dt>Название</dt>
+                                    <dd>{{ reportTargetTitle(selectedAuditReport) }}</dd>
+                                </div>
+                                <div v-if="selectedAuditReport">
+                                    <dt>Заявитель</dt>
+                                    <dd>{{ selectedAuditReport.reporter?.name || "Неизвестный пользователь" }}</dd>
+                                </div>
+                                <div v-if="selectedAuditReport">
+                                    <dt>Причина</dt>
+                                    <dd>{{ formatReason(selectedAuditReport.reason) }}</dd>
+                                </div>
+                                <div>
+                                    <dt>Статус решения</dt>
+                                    <dd>{{ (selectedAuditReport?.status || selectedAuditAction.payload?.status) === 'accepted' ? 'принята' : 'отклонена' }}</dd>
+                                </div>
+                                <div v-if="selectedAuditReport?.resolution_action || selectedAuditAction.payload?.resolution_action">
+                                    <dt>Действие</dt>
+                                    <dd>{{ resolutionActionLabels[selectedAuditReport?.resolution_action || selectedAuditAction.payload.resolution_action] || selectedAuditReport?.resolution_action || selectedAuditAction.payload.resolution_action }}</dd>
+                                </div>
+                            </dl>
+                            <div v-if="selectedAuditReport?.details" class="audit-details__note">
+                                <strong>Комментарий пользователя</strong>
+                                <p>{{ selectedAuditReport.details }}</p>
+                            </div>
+                            <div v-if="selectedAuditReport?.resolution_summary" class="audit-details__note">
+                                <strong>Итоговое решение</strong>
+                                <p>{{ selectedAuditReport.resolution_summary }}</p>
+                            </div>
+                            <div v-if="selectedAuditReport?.admin_comment || selectedAuditAction.payload?.admin_comment" class="audit-details__note">
+                                <strong>Комментарий модератора</strong>
+                                <p>{{ selectedAuditReport?.admin_comment || selectedAuditAction.payload.admin_comment }}</p>
+                            </div>
                         </template>
                     </div>
                 </section>
@@ -1691,10 +1706,36 @@ onMounted(() => {
 
 .audit-details {
     display: grid;
-    gap: 8px;
+    gap: 14px;
 }
 
-.audit-details span,
+.audit-details__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin: 0;
+}
+
+.audit-details__grid div,
+.audit-details__note {
+    display: grid;
+    gap: 4px;
+    padding: 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.62);
+}
+
+.audit-details dt,
+.audit-details__note strong {
+    margin: 0;
+    color: var(--color-green-dark);
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.audit-details dd,
 .audit-details p {
     margin: 0;
     color: var(--color-muted);
@@ -1727,6 +1768,7 @@ onMounted(() => {
 }
 
 @media (max-width: 760px) {
+    .audit-details__grid,
     .reports-grid,
     .admin-metrics,
     .admin-filters--reports,
