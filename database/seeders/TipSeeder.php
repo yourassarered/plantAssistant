@@ -12,37 +12,54 @@ class TipSeeder extends Seeder
 {
     public function run(): void
     {
-        $publicPlants = Plant::where('is_public', true)->get();
+        $publicPlants = Plant::where('is_public', true)->orderBy('id')->get();
         $userRoleId = Role::where('name', 'user')->firstOrFail()->id;
-        $users = User::where('role_id', $userRoleId)->get();
+        $users = User::where('role_id', $userRoleId)->orderBy('id')->get();
 
         if ($publicPlants->isEmpty() || $users->count() < 2) {
             return;
         }
 
         $tipContents = [
-            'Добавьте перлит в грунт, чтобы улучшить дренаж.',
-            'Поставьте растение ближе к яркому рассеянному свету.',
-            'В холодное время года поливайте растение реже.',
-            'Протирайте листья раз в неделю, чтобы убрать пыль.',
+            'Добавьте немного перлита в грунт, так корни будут лучше дышать.',
+            'Поставьте растение ближе к яркому рассеянному свету, листья будут компактнее.',
+            'Зимой поливайте реже и обязательно проверяйте влажность грунта пальцем.',
+            'Протирайте листья раз в неделю, чтобы растение лучше фотосинтезировало.',
             'Используйте отстоянную воду комнатной температуры.',
-            'Проверьте корни на признаки переувлажнения.',
-            'Поворачивайте горшок раз в неделю для равномерного роста.',
-            'Вносите разбавленное удобрение раз в 2-4 недели.',
+            'Проверьте, не стал ли горшок тесным, корням может не хватать места.',
+            'Раз в неделю поворачивайте горшок, чтобы крона росла ровнее.',
+            'Подкармливайте слабым раствором удобрения один раз в 2-4 недели.',
+            'Если кончики листьев сохнут, попробуйте повысить влажность воздуха.',
+            'После полива сливайте лишнюю воду из поддона, чтобы не было застоя.',
         ];
         $statuses = ['pending', 'accepted', 'rejected'];
 
-        $tipCount = random_int(60, 120);
-        for ($i = 0; $i < $tipCount; $i++) {
-            $plant = $publicPlants->random();
-            $author = $users->where('id', '!=', $plant->user_id)->random();
+        foreach ($publicPlants as $plantIndex => $plant) {
+            $availableAuthors = $users->where('id', '!=', $plant->user_id)->values();
+            if ($availableAuthors->isEmpty()) {
+                continue;
+            }
 
-            Tip::create([
-                'plant_id' => $plant->id,
-                'author_id' => $author->id,
-                'content' => $tipContents[array_rand($tipContents)],
-                'status' => $statuses[array_rand($statuses)],
-            ]);
+            $targetCount = min(3, $availableAuthors->count());
+            for ($i = 0; $i < $targetCount; $i++) {
+                $author = $availableAuthors[($plantIndex + $i) % $availableAuthors->count()];
+                $content = $tipContents[($plant->id + $i) % count($tipContents)];
+                $status = $statuses[($plant->id + $i) % count($statuses)];
+
+                Tip::updateOrCreate(
+                    [
+                        'plant_id' => $plant->id,
+                        'author_id' => $author->id,
+                        'content' => $content,
+                    ],
+                    [
+                        'status' => $status,
+                        'status_changed_at' => $status === 'pending'
+                            ? null
+                            : now()->subDays(1 + (($plant->id + $i) % 20)),
+                    ]
+                );
+            }
         }
     }
 }

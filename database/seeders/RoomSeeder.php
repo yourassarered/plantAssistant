@@ -12,15 +12,18 @@ class RoomSeeder extends Seeder
     public function run(): void
     {
         $userRoleId = Role::where('name', 'user')->firstOrFail()->id;
-        $users = User::where('role_id', $userRoleId)->get();
+        $users = User::where('role_id', $userRoleId)->orderBy('id')->get();
 
         $roomTemplates = ['Гостиная', 'Спальня', 'Кухня', 'Балкон', 'Кабинет', 'Ванная', 'Прихожая'];
 
         foreach ($users as $user) {
-            $targetCount = random_int(2, 4);
-            $selected = array_slice(fake()->shuffle($roomTemplates), 0, $targetCount);
+            $targetCount = 2 + ($user->id % 3);
+            $selectedRooms = collect($roomTemplates)
+                ->shuffle()
+                ->take($targetCount)
+                ->values();
 
-            foreach ($selected as $roomName) {
+            foreach ($selectedRooms as $roomName) {
                 Room::firstOrCreate([
                     'user_id' => $user->id,
                     'name' => $roomName,

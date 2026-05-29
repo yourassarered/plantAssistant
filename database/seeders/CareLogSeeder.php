@@ -11,25 +11,28 @@ class CareLogSeeder extends Seeder
     public function run(): void
     {
         $comments = [
-            'Plant looks healthy',
-            'Soil was dry, watered deeply',
-            'Leaves are greener after care',
-            'Removed dry leaves',
-            'Rotated pot by 90 degrees',
-            'Applied fertilizer as instructed',
-            'Watered moderately',
-            'New growth noticed',
+            'Почва подсохла, сделал обильный полив.',
+            'Удалил сухие листья и осмотрел стебли.',
+            'Повернул горшок к свету другой стороной.',
+            'Внес половину дозировки удобрения.',
+            'Протер листья от пыли.',
+            'Заметил новый лист, растение чувствует себя хорошо.',
+            'Проверил корни и дренаж, без замечаний.',
             null,
         ];
 
-        $plants = Plant::with('careSettings')->get();
+        $plants = Plant::with('careSettings')->orderBy('id')->get();
         foreach ($plants as $plant) {
             foreach ($plant->careSettings as $setting) {
-                $logCount = random_int(2, 8);
-                $latest = null;
+                $existingCount = CareLog::where('plant_id', $plant->id)
+                    ->where('type', $setting->type)
+                    ->count();
 
-                for ($i = 0; $i < $logCount; $i++) {
-                    $performedAt = now()->subDays(random_int(1, 180));
+                $targetCount = 3 + (($plant->id + strlen($setting->type)) % 4);
+                $latest = $setting->last_done_at;
+
+                for ($i = $existingCount; $i < $targetCount; $i++) {
+                    $performedAt = now()->subDays(max(1, ($i + 1) * max($setting->interval_days ?? 7, 2) - (($plant->id + $i) % 4)));
                     if ($latest === null || $performedAt->greaterThan($latest)) {
                         $latest = $performedAt;
                     }
@@ -38,7 +41,7 @@ class CareLogSeeder extends Seeder
                         'plant_id' => $plant->id,
                         'type' => $setting->type,
                         'performed_at' => $performedAt,
-                        'comment' => $comments[array_rand($comments)],
+                        'comment' => $comments[($plant->id + $i) % count($comments)],
                     ]);
                 }
 

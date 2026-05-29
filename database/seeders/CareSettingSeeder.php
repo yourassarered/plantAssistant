@@ -10,7 +10,7 @@ class CareSettingSeeder extends Seeder
 {
     public function run(): void
     {
-        $plants = Plant::all();
+        $plants = Plant::orderBy('id')->get();
         $careTypes = [
             'watering' => [3, 5, 7, 10, 14],
             'fertilizing' => [14, 21, 30],
@@ -19,19 +19,22 @@ class CareSettingSeeder extends Seeder
         ];
 
         foreach ($plants as $plant) {
-            $selectedTypes = array_slice(array_keys($careTypes), 0, random_int(2, 4));
-            shuffle($selectedTypes);
+            $typeKeys = array_keys($careTypes);
+            shuffle($typeKeys);
+            $selectedTypes = array_slice($typeKeys, 0, 2 + ($plant->id % 3));
 
-            foreach ($selectedTypes as $type) {
+            foreach ($selectedTypes as $index => $type) {
                 $intervals = $careTypes[$type];
-                $interval = $intervals[array_rand($intervals)];
+                $interval = $intervals[($plant->id + $index) % count($intervals)];
 
-                CareSetting::firstOrCreate(
+                CareSetting::updateOrCreate(
                     ['plant_id' => $plant->id, 'type' => $type],
                     [
                         'interval_days' => $interval,
-                        'is_enabled' => random_int(1, 100) <= 90,
-                        'last_done_at' => random_int(1, 100) <= 70 ? now()->subDays(random_int(0, $interval)) : null,
+                        'is_enabled' => (($plant->id + $index) % 10) !== 0,
+                        'last_done_at' => (($plant->id + $index) % 4) === 0
+                            ? null
+                            : now()->subDays(min($interval, 1 + (($plant->id + $index) % max($interval, 1)))),
                     ]
                 );
             }

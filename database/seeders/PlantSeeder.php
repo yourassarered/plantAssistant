@@ -13,7 +13,7 @@ class PlantSeeder extends Seeder
     public function run(): void
     {
         $userRoleId = Role::where('name', 'user')->firstOrFail()->id;
-        $users = User::where('role_id', $userRoleId)->get();
+        $users = User::where('role_id', $userRoleId)->orderBy('id')->get();
 
         $plantNames = [
             'Фикус Бенджамина',
@@ -39,17 +39,21 @@ class PlantSeeder extends Seeder
         ];
 
         foreach ($users as $user) {
-            $rooms = Room::where('user_id', $user->id)->get();
-            $targetCount = random_int(4, 10);
+            $rooms = Room::where('user_id', $user->id)->orderBy('id')->get();
+            $existingCount = Plant::where('user_id', $user->id)->count();
+            $targetCount = 4 + ($user->id % 5);
 
-            for ($i = 0; $i < $targetCount; $i++) {
+            for ($i = $existingCount; $i < $targetCount; $i++) {
+                $plantName = $plantNames[($user->id + $i) % count($plantNames)];
+                $room = $rooms->isNotEmpty() ? $rooms[($user->id + $i) % $rooms->count()] : null;
+
                 Plant::create([
-                    'name' => $plantNames[array_rand($plantNames)],
-                    'planted_at' => now()->subDays(random_int(15, 720)),
-                    'height' => random_int(10, 220) + (random_int(0, 9) / 10),
-                    'is_public' => random_int(1, 100) <= 65,
+                    'name' => $plantName,
+                    'planted_at' => now()->subDays(45 + (($user->id + $i) * 17 % 720)),
+                    'height' => 12 + (($user->id * 9 + $i * 7) % 190) + ((($user->id + $i) % 10) / 10),
+                    'is_public' => (($user->id + $i) % 100) < 68,
                     'user_id' => $user->id,
-                    'room_id' => $rooms->isNotEmpty() ? $rooms->random()->id : null,
+                    'room_id' => $room?->id,
                 ]);
             }
         }
