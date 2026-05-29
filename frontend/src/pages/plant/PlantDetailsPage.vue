@@ -3,7 +3,6 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useField, useForm } from "vee-validate";
 import { useRoute, useRouter } from "vue-router";
 import {
-    CalendarClock,
     ChevronLeft,
     ChevronRight,
     Check,
@@ -497,7 +496,6 @@ const selectedDayItems = computed(() => {
             title: careTypes[task.type]?.label || task.type,
             subtitle: "Запланировано",
             state: taskDateState(task),
-            date: formatIsoDate(task.dueAt),
         }));
 
     const history = careLogs.value
@@ -510,7 +508,6 @@ const selectedDayItems = computed(() => {
                 title: careTypes[uiType]?.label || log.type,
                 subtitle: "Выполнено",
                 state: "soon",
-                date: formatIsoDateTime(log.performed_at || log.performedAt),
             };
         });
 
@@ -1085,6 +1082,26 @@ watch(
                     <div class="plant-title-row">
                         <h1>{{ plant.name }}</h1>
                         <div
+                            v-if="
+                                canViewPlantReports && plantReportBadge.visible
+                            "
+                            class="plant-title-report"
+                        >
+                            <span
+                                class="plant-report-summary"
+                                :data-tone="plantReportBadge.tone"
+                            >
+                                {{ plantReportBadge.text }}
+                            </span>
+                            <UiButton
+                                variant="ghost"
+                                class="plant-report-summary__button"
+                                @click="openPlantReportsDialog"
+                            >
+                                Посмотреть жалобы
+                            </UiButton>
+                        </div>
+                        <div
                             v-if="canManagePlant || canUsePlantFlag"
                             class="plant-title-actions"
                             :class="{
@@ -1167,16 +1184,6 @@ watch(
                     </div>
                     <p class="muted">{{ plant.note }}</p>
 
-                    <button
-                        v-if="canViewPlantReports && plantReportBadge.visible"
-                        type="button"
-                        class="plant-report-summary"
-                        :data-tone="plantReportBadge.tone"
-                        @click="openPlantReportsDialog"
-                    >
-                        {{ plantReportBadge.text }}
-                    </button>
-
                     <div class="plant-stats">
                         <div>
                             <strong>{{ plant.height || "нет данных" }}</strong>
@@ -1251,11 +1258,6 @@ watch(
                             <strong>{{ item.title }}</strong>
                             <p>{{ item.subtitle }}</p>
                         </div>
-
-                        <UiBadge :tone="item.state">
-                            <CalendarClock :size="12" />
-                            {{ item.date }}
-                        </UiBadge>
                     </article>
                 </TransitionGroup>
                 <div v-else class="care-calendar__list">
@@ -2304,11 +2306,19 @@ watch(
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
 }
 
 .plant-title-row h1 {
     min-width: 0;
+}
+
+.plant-title-report {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-left: auto;
 }
 
 .plant-title-actions {
@@ -3301,13 +3311,16 @@ watch(
     display: inline-flex;
     width: fit-content;
     align-items: center;
-    min-height: 30px;
-    padding: 0 10px;
+    min-height: 34px;
+    padding: 0 14px;
     border: 0;
     border-radius: 999px;
     font-size: 12px;
     font-weight: 900;
-    cursor: pointer;
+}
+
+.plant-report-summary__button {
+    min-height: 34px;
 }
 
 .plant-report-summary[data-tone="warning"] {
@@ -3322,13 +3335,13 @@ watch(
 
 .plant-reports-list {
     display: grid;
-    gap: 10px;
+    gap: 16px;
 }
 
 .plant-report-item {
     display: grid;
-    gap: 8px;
-    padding: 12px;
+    gap: 12px;
+    padding: 16px;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
     background: var(--color-surface-soft);
@@ -3490,6 +3503,11 @@ watch(
         gap: 12px;
     }
 
+    .plant-page--owner .plant-title-report {
+        margin-left: 0;
+        justify-content: flex-start;
+    }
+
     .plant-page--owner .plant-title-actions {
         width: 100%;
         justify-content: center;
@@ -3622,6 +3640,16 @@ watch(
         min-height: 44px;
         padding: 0 12px;
         flex: 1 1 auto;
+    }
+
+    .plant-title-report {
+        width: 100%;
+        margin-left: 0;
+        justify-content: space-between;
+    }
+
+    .plant-report-summary__button {
+        width: 100%;
     }
 
     .actions-row {

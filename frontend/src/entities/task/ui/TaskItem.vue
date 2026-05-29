@@ -9,7 +9,6 @@ import {
 import { computed } from "vue";
 
 import CompleteTaskToggle from "@/features/complete-task/ui/CompleteTaskToggle.vue";
-import { plantReportIndicator } from "@/shared/lib/reports";
 import { careTypes } from "@/shared/lib/careTypes";
 import { formatTaskDueDate } from "@/shared/lib/date/calendarGrid";
 import { taskDateState } from "@/shared/lib/date/taskMarkers";
@@ -32,9 +31,6 @@ const icons = {
 
 const state = computed(() => taskDateState(props.task));
 const dueLabel = computed(() => formatTaskDueDate(props.task.dueAt));
-const reportIndicator = computed(() =>
-    plantReportIndicator(props.task.reportSummary),
-);
 </script>
 
 <template>
@@ -65,13 +61,6 @@ const reportIndicator = computed(() =>
                     <template v-if="showPlantName || showRoom"> · </template>
                     каждые {{ task.everyDays }} дн.
                 </template>
-            </span>
-            <span
-                v-if="reportIndicator.visible"
-                class="task-item__report-indicator"
-                :data-tone="reportIndicator.tone"
-            >
-                {{ reportIndicator.text }}
             </span>
         </div>
 
@@ -183,27 +172,6 @@ const reportIndicator = computed(() =>
 .task-item__content span {
     color: var(--color-muted);
     font-size: 13px;
-}
-
-.task-item__report-indicator {
-    display: inline-flex;
-    width: fit-content;
-    align-items: center;
-    min-height: 22px;
-    padding: 0 7px;
-    border-radius: 999px;
-    font-size: 11px;
-    font-weight: 900;
-}
-
-.task-item__report-indicator[data-tone="warning"] {
-    color: #815b00;
-    background: #fff0b8;
-}
-
-.task-item__report-indicator[data-tone="danger"] {
-    color: #8f1f10;
-    background: #ffd8d2;
 }
 
 @media (max-width: 720px) {

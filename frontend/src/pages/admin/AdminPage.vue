@@ -77,9 +77,9 @@ const reportReasonLabels = {
 const resolutionActionLabels = {
     tip_delete_rank: "Понизить ранг и удалить совет",
     block_user: "Заблокировать пользователя",
-    tip_warn_rank: "Понизить ранг и выдать предупреждение",
+    tip_warn_rank: "Удалить совет, понизить ранг и выдать предупреждение",
     hide_plant: "Скрыть растение",
-    warn_user: "Вынести предупреждение",
+    warn_user: "Предупредить пользователя и скрыть растение",
 };
 
 const filteredUsers = computed(() => {
@@ -221,7 +221,10 @@ const resolutionOptions = (report) => {
                 value: "block_user",
                 hint: "Автор совета потеряет доступ к аккаунту.",
             },
-            { value: "tip_warn_rank", hint: "Автор получит предупреждение." },
+            {
+                value: "tip_warn_rank",
+                hint: "Совет удалится, ранг снизится, автор получит предупреждение.",
+            },
         ];
     }
 
@@ -231,7 +234,10 @@ const resolutionOptions = (report) => {
             hint: "Растение исчезнет из публичной ленты навсегда.",
         },
         { value: "block_user", hint: "Владелец потеряет доступ к аккаунту." },
-        { value: "warn_user", hint: "Владелец получит предупреждение." },
+        {
+            value: "warn_user",
+            hint: "Владелец получит предупреждение, а растение временно скроется из паблика.",
+        },
     ];
 };
 
