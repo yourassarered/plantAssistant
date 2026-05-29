@@ -14,6 +14,11 @@ import { useAdminStore } from "@/entities/admin/model/admin.store";
 import { useAuthStore } from "@/entities/auth/model/auth.store";
 import { apiClient } from "@/shared/api/client";
 import { formatIsoDateTime } from "@/shared/lib/date/calendarGrid";
+import {
+    getReportReasonLabel,
+    getReportStatusLabel,
+    getReportTypeLabel,
+} from "@/shared/lib/reports";
 import UiButton from "@/shared/ui/UiButton.vue";
 import UiField from "@/shared/ui/UiField.vue";
 
@@ -63,6 +68,7 @@ const roleLabels = {
 };
 
 const reportReasonLabels = {
+    inappropriate_image: "Неподходящее изображение",
     spam: "Спам",
     abuse: "Оскорбления",
     other: "Другое",
@@ -149,8 +155,7 @@ const isSelf = (user) => Number(user.id) === Number(authStore.user?.id);
 const formatReportStatus = (status) =>
     reportStatusLabels[status] || status || "Неизвестно";
 
-const formatTargetType = (type) =>
-    reportTypeLabels[type] || type || "Объект";
+const formatTargetType = (type) => reportTypeLabels[type] || type || "Объект";
 
 const formatRole = (roleName) => roleLabels[roleName] || roleName || "Без роли";
 
@@ -185,7 +190,8 @@ const reportTargetMeta = (report) => {
     }
 
     if (report.target_type === "tip") {
-        const authorName = report.target?.tip?.author_name || "Неизвестный автор";
+        const authorName =
+            report.target?.tip?.author_name || "Неизвестный автор";
         const authorRank = report.target?.tip?.author_rank;
         const plantName = report.target?.plant?.name || "растение без названия";
         return `${authorName}${authorRank !== undefined && authorRank !== null ? ` · ранг ${authorRank}` : ""} · растение «${plantName}»`;
@@ -211,13 +217,19 @@ const resolutionOptions = (report) => {
     if (report?.target_type === "tip") {
         return [
             { value: "tip_delete_rank", hint: "Совет будет удален." },
-            { value: "block_user", hint: "Автор совета потеряет доступ к аккаунту." },
+            {
+                value: "block_user",
+                hint: "Автор совета потеряет доступ к аккаунту.",
+            },
             { value: "tip_warn_rank", hint: "Автор получит предупреждение." },
         ];
     }
 
     return [
-        { value: "hide_plant", hint: "Растение исчезнет из публичной ленты навсегда." },
+        {
+            value: "hide_plant",
+            hint: "Растение исчезнет из публичной ленты навсегда.",
+        },
         { value: "block_user", hint: "Владелец потеряет доступ к аккаунту." },
         { value: "warn_user", hint: "Владелец получит предупреждение." },
     ];
@@ -290,7 +302,8 @@ const openRejectionDialog = (report) => {
 const review = async (report, status) => {
     if (status === "accepted") {
         selectedReport.value = report;
-        selectedResolutionAction.value = resolutionOptions(report)[0]?.value || "";
+        selectedResolutionAction.value =
+            resolutionOptions(report)[0]?.value || "";
         resolutionDialogOpen.value = true;
         return;
     }
@@ -302,7 +315,11 @@ const review = async (report, status) => {
 
     try {
         const finalComment = reportCommentValue(report).trim();
-        const updated = await adminStore.reviewReport(report.id, status, finalComment);
+        const updated = await adminStore.reviewReport(
+            report.id,
+            status,
+            finalComment,
+        );
         setReportComment(updated.id, updated.admin_comment || finalComment);
         toast.success(
             status === "accepted" ? "Жалоба принята" : "Жалоба отклонена",
@@ -355,7 +372,9 @@ const openAuditDetails = async (action) => {
 
     try {
         auditDetailsLoading.value = true;
-        const payload = await apiClient.get(`/admin/reports/${action.target_id}`);
+        const payload = await apiClient.get(
+            `/admin/reports/${action.target_id}`,
+        );
         selectedAuditReport.value = payload.data || payload;
     } catch (error) {
         toast.error(error.message);
@@ -400,6 +419,17 @@ const blockUser = async (user) => {
     try {
         await adminStore.blockUser(user.id, "Блокировка администратором.");
         toast.success("Пользователь заблокирован");
+    } catch (error) {
+        toast.error(error.message);
+    }
+};
+
+const unblockUser = async (user) => {
+    if (!window.confirm(`Разблокировать пользователя ${user.name}?`)) return;
+
+    try {
+        await adminStore.unblockUser(user.id);
+        toast.success("Пользователь разблокирован");
     } catch (error) {
         toast.error(error.message);
     }
@@ -666,101 +696,116 @@ onMounted(() => {
                         :key="report.id"
                         class="panel report-item"
                     >
-                    <header class="report-item__header">
-                        <div class="report-badges">
-                            <span
-                                class="report-badge"
-                                :data-tone="report.status"
-                            >
-                                {{ formatReportStatus(report.status) }}
-                            </span>
-                            <span class="report-badge report-badge--soft">
-                                {{ formatTargetType(report.target_type) }}
-                            </span>
-                            <span class="report-id">Жалоба #{{ report.id }}</span>
-                        </div>
-                        <span class="report-date">
-                            {{ formatIsoDateTime(report.created_at) }}
-                        </span>
-                    </header>
-
-                    <div class="report-item__summary">
-                        <strong>{{ reportTargetTitle(report) }}</strong>
-                        <span>
-                            {{ report.reporter?.name || "Неизвестный пользователь" }}
-                            · {{ formatReason(report.reason) }}
-                        </span>
-                    </div>
-
-                    <section class="report-context">
-                        <div class="report-context__body">
-                            <div class="report-context__label">
-                                Контекст объекта
+                        <header class="report-item__header">
+                            <div class="report-badges">
+                                <span
+                                    class="report-badge"
+                                    :data-tone="report.status"
+                                >
+                                    {{
+                                        report.status_label ||
+                                        getReportStatusLabel(report.status)
+                                    }}
+                                </span>
+                                <span class="report-badge report-badge--soft">
+                                    {{ getReportTypeLabel(report.target_type) }}
+                                </span>
+                                <span class="report-id"
+                                    >Жалоба #{{ report.id }}</span
+                                >
                             </div>
-                            <p>{{ reportTargetMeta(report) }}</p>
-                            <a
-                                v-if="reportHasPlantLink(report)"
-                                class="report-link report-context__plant-link"
-                                :href="reportPlantHref(report)"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                aria-label="Открыть профиль растения"
+                            <span class="report-date">
+                                {{ formatIsoDateTime(report.created_at) }}
+                            </span>
+                        </header>
+
+                        <div class="report-item__summary">
+                            <strong>{{ reportTargetTitle(report) }}</strong>
+                            <span>
+                                {{
+                                    report.reporter?.name ||
+                                    "Неизвестный пользователь"
+                                }}
+                                ·
+                                {{
+                                    report.reason_label ||
+                                    getReportReasonLabel(report.reason)
+                                }}
+                            </span>
+                        </div>
+
+                        <section class="report-context">
+                            <div class="report-context__body">
+                                <div class="report-context__label">
+                                    Контекст объекта
+                                </div>
+                                <p>{{ reportTargetMeta(report) }}</p>
+                                <a
+                                    v-if="reportHasPlantLink(report)"
+                                    class="report-link report-context__plant-link"
+                                    :href="reportPlantHref(report)"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    aria-label="Открыть профиль растения"
+                                >
+                                    <ExternalLink :size="15" />
+                                </a>
+                                <p
+                                    v-if="reportTargetStatus(report)"
+                                    class="report-context__status"
+                                >
+                                    Статус совета:
+                                    {{ reportTargetStatus(report) }}
+                                </p>
+                            </div>
+
+                            <blockquote
+                                v-if="report.target?.tip?.content"
+                                class="report-quote"
                             >
-                                <ExternalLink :size="15" />
-                            </a>
-                            <p
-                                v-if="reportTargetStatus(report)"
-                                class="report-context__status"
-                            >
-                                Статус совета: {{ reportTargetStatus(report) }}
+                                {{ report.target.tip.content }}
+                            </blockquote>
+                        </section>
+
+                        <section class="report-note">
+                            <div class="report-note__label">
+                                Комментарий пользователя
+                            </div>
+                            <p>
+                                {{
+                                    report.details ||
+                                    "Пользователь не добавил подробности к жалобе."
+                                }}
+                            </p>
+                        </section>
+
+                        <div
+                            v-if="report.reviewed_at || report.admin_comment"
+                            class="report-review"
+                        >
+                            <strong>Решение модератора</strong>
+                            <span v-if="reportReviewMeta(report)">
+                                {{ reportReviewMeta(report) }}
+                            </span>
+                            <p v-if="report.admin_comment">
+                                {{ report.admin_comment }}
                             </p>
                         </div>
 
-                        <blockquote
-                            v-if="report.target?.tip?.content"
-                            class="report-quote"
+                        <div
+                            v-if="report.status === 'pending'"
+                            class="admin-actions"
                         >
-                            {{ report.target.tip.content }}
-                        </blockquote>
-
-                    </section>
-
-                    <section class="report-note">
-                        <div class="report-note__label">
-                            Комментарий пользователя
+                            <UiButton
+                                variant="ghost"
+                                @click="review(report, 'rejected')"
+                            >
+                                Отклонить
+                            </UiButton>
+                            <UiButton @click="review(report, 'accepted')">
+                                Принять
+                            </UiButton>
                         </div>
-                        <p>
-                            {{
-                                report.details ||
-                                "Пользователь не добавил подробности к жалобе."
-                            }}
-                        </p>
-                    </section>
-
-                    <div
-                        v-if="report.reviewed_at || report.admin_comment"
-                        class="report-review"
-                    >
-                        <strong>Решение модератора</strong>
-                        <span v-if="reportReviewMeta(report)">
-                            {{ reportReviewMeta(report) }}
-                        </span>
-                        <p v-if="report.admin_comment">
-                            {{ report.admin_comment }}
-                        </p>
-                    </div>
-
-                    <div v-if="report.status === 'pending'" class="admin-actions">
-                        <UiButton
-                            variant="ghost"
-                            @click="review(report, 'rejected')"
-                        >
-                            Отклонить
-                        </UiButton>
-                        <UiButton @click="review(report, 'accepted')">
-                            Принять
-                        </UiButton>
-                    </div>
                     </article>
                 </div>
 
@@ -807,7 +852,9 @@ onMounted(() => {
                                 :src="user.avatar_url"
                                 alt=""
                             />
-                            <span v-else>{{ (user.name || user.email || "?").slice(0, 1) }}</span>
+                            <span v-else>{{
+                                (user.name || user.email || "?").slice(0, 1)
+                            }}</span>
                         </div>
                         <div class="user-main">
                             <strong>{{ user.name }}</strong>
@@ -817,7 +864,10 @@ onMounted(() => {
                             <span class="role-pill">
                                 {{ formatRole(user.role?.name) }}
                             </span>
-                            <span>Предупреждения {{ user.warnings_count || 0 }}/3</span>
+                            <span
+                                >Предупреждения
+                                {{ user.warnings_count || 0 }}/3</span
+                            >
                             <span v-if="user.is_blocked" class="user-blocked">
                                 Заблокирован
                             </span>
@@ -858,6 +908,16 @@ onMounted(() => {
                                 Заблокировать
                             </UiButton>
                         </div>
+                    </div>
+
+                    <div v-if="user.is_blocked" class="user-unblock-row">
+                        <UiButton
+                            variant="ghost"
+                            :disabled="isSelf(user)"
+                            @click="unblockUser(user)"
+                        >
+                            Разблокировать
+                        </UiButton>
                     </div>
 
                     <form
@@ -1011,7 +1071,9 @@ onMounted(() => {
                             <h2 class="panel__title">Выбор решения</h2>
                             <p>
                                 {{ reportTargetTitle(selectedReport) }} ·
-                                {{ formatTargetType(selectedReport.target_type) }}
+                                {{
+                                    formatTargetType(selectedReport.target_type)
+                                }}
                             </p>
                         </div>
                         <button
@@ -1035,7 +1097,9 @@ onMounted(() => {
                             :value="option.value"
                         />
                         <span>
-                            <strong>{{ resolutionActionLabels[option.value] }}</strong>
+                            <strong>{{
+                                resolutionActionLabels[option.value]
+                            }}</strong>
                             <small>{{ option.hint }}</small>
                         </span>
                     </label>
@@ -1045,7 +1109,12 @@ onMounted(() => {
                             :value="reportCommentValue(selectedReport)"
                             rows="3"
                             placeholder="Коротко опишите решение"
-                            @input="setReportComment(selectedReport.id, $event.target.value)"
+                            @input="
+                                setReportComment(
+                                    selectedReport.id,
+                                    $event.target.value,
+                                )
+                            "
                         />
                     </UiField>
 
@@ -1053,11 +1122,15 @@ onMounted(() => {
                         v-if="selectedResolutionIsFinalWarning"
                         class="resolution-warning"
                     >
-                        Это третье предупреждение: после применения решения аккаунт будет автоматически заблокирован.
+                        Это третье предупреждение: после применения решения
+                        аккаунт будет автоматически заблокирован.
                     </p>
 
                     <div class="resolution-dialog__actions">
-                        <UiButton variant="ghost" @click="closeResolutionDialog">
+                        <UiButton
+                            variant="ghost"
+                            @click="closeResolutionDialog"
+                        >
                             Отмена
                         </UiButton>
                         <UiButton @click="submitResolution">
@@ -1080,7 +1153,9 @@ onMounted(() => {
                             <h2 class="panel__title">Отклонить жалобу</h2>
                             <p>
                                 {{ reportTargetTitle(selectedReport) }} ·
-                                {{ formatTargetType(selectedReport.target_type) }}
+                                {{
+                                    formatTargetType(selectedReport.target_type)
+                                }}
                             </p>
                         </div>
                         <button
@@ -1098,11 +1173,18 @@ onMounted(() => {
                             :value="reportCommentValue(selectedReport)"
                             rows="4"
                             placeholder="Коротко объясните причину отказа"
-                            @input="setReportComment(selectedReport.id, $event.target.value)"
+                            @input="
+                                setReportComment(
+                                    selectedReport.id,
+                                    $event.target.value,
+                                )
+                            "
                         />
                     </UiField>
 
-                    <div class="resolution-dialog__actions rejection-dialog__actions">
+                    <div
+                        class="resolution-dialog__actions rejection-dialog__actions"
+                    >
                         <UiButton @click="submitRejection">
                             Отклонить
                         </UiButton>
@@ -1137,52 +1219,129 @@ onMounted(() => {
                     </div>
 
                     <div class="audit-details">
-                        <span v-if="auditDetailsLoading">Загрузка деталей...</span>
+                        <span v-if="auditDetailsLoading"
+                            >Загрузка деталей...</span
+                        >
                         <template v-else>
                             <dl class="audit-details__grid">
                                 <div>
                                     <dt>Жалоба</dt>
-                                    <dd>#{{ selectedAuditAction.target_id }}</dd>
+                                    <dd>
+                                        #{{ selectedAuditAction.target_id }}
+                                    </dd>
                                 </div>
                                 <div>
                                     <dt>Объект</dt>
                                     <dd>
-                                        {{ formatTargetType(selectedAuditReport?.target_type || selectedAuditAction.payload?.report_target_type) }}
-                                        #{{ selectedAuditReport?.target_id || selectedAuditAction.payload?.report_target_id }}
+                                        {{
+                                            formatTargetType(
+                                                selectedAuditReport?.target_type ||
+                                                    selectedAuditAction.payload
+                                                        ?.report_target_type,
+                                            )
+                                        }}
+                                        #{{
+                                            selectedAuditReport?.target_id ||
+                                            selectedAuditAction.payload
+                                                ?.report_target_id
+                                        }}
                                     </dd>
                                 </div>
                                 <div v-if="selectedAuditReport">
                                     <dt>Название</dt>
-                                    <dd>{{ reportTargetTitle(selectedAuditReport) }}</dd>
+                                    <dd>
+                                        {{
+                                            reportTargetTitle(
+                                                selectedAuditReport,
+                                            )
+                                        }}
+                                    </dd>
                                 </div>
                                 <div v-if="selectedAuditReport">
                                     <dt>Заявитель</dt>
-                                    <dd>{{ selectedAuditReport.reporter?.name || "Неизвестный пользователь" }}</dd>
+                                    <dd>
+                                        {{
+                                            selectedAuditReport.reporter
+                                                ?.name ||
+                                            "Неизвестный пользователь"
+                                        }}
+                                    </dd>
                                 </div>
                                 <div v-if="selectedAuditReport">
                                     <dt>Причина</dt>
-                                    <dd>{{ formatReason(selectedAuditReport.reason) }}</dd>
+                                    <dd>
+                                        {{
+                                            formatReason(
+                                                selectedAuditReport.reason,
+                                            )
+                                        }}
+                                    </dd>
                                 </div>
                                 <div>
                                     <dt>Статус решения</dt>
-                                    <dd>{{ (selectedAuditReport?.status || selectedAuditAction.payload?.status) === 'accepted' ? 'принята' : 'отклонена' }}</dd>
+                                    <dd>
+                                        {{
+                                            (selectedAuditReport?.status ||
+                                                selectedAuditAction.payload
+                                                    ?.status) === "accepted"
+                                                ? "принята"
+                                                : "отклонена"
+                                        }}
+                                    </dd>
                                 </div>
-                                <div v-if="selectedAuditReport?.resolution_action || selectedAuditAction.payload?.resolution_action">
+                                <div
+                                    v-if="
+                                        selectedAuditReport?.resolution_action ||
+                                        selectedAuditAction.payload
+                                            ?.resolution_action
+                                    "
+                                >
                                     <dt>Действие</dt>
-                                    <dd>{{ resolutionActionLabels[selectedAuditReport?.resolution_action || selectedAuditAction.payload.resolution_action] || selectedAuditReport?.resolution_action || selectedAuditAction.payload.resolution_action }}</dd>
+                                    <dd>
+                                        {{
+                                            resolutionActionLabels[
+                                                selectedAuditReport?.resolution_action ||
+                                                    selectedAuditAction.payload
+                                                        .resolution_action
+                                            ] ||
+                                            selectedAuditReport?.resolution_action ||
+                                            selectedAuditAction.payload
+                                                .resolution_action
+                                        }}
+                                    </dd>
                                 </div>
                             </dl>
-                            <div v-if="selectedAuditReport?.details" class="audit-details__note">
+                            <div
+                                v-if="selectedAuditReport?.details"
+                                class="audit-details__note"
+                            >
                                 <strong>Комментарий пользователя</strong>
                                 <p>{{ selectedAuditReport.details }}</p>
                             </div>
-                            <div v-if="selectedAuditReport?.resolution_summary" class="audit-details__note">
+                            <div
+                                v-if="selectedAuditReport?.resolution_summary"
+                                class="audit-details__note"
+                            >
                                 <strong>Итоговое решение</strong>
-                                <p>{{ selectedAuditReport.resolution_summary }}</p>
+                                <p>
+                                    {{ selectedAuditReport.resolution_summary }}
+                                </p>
                             </div>
-                            <div v-if="selectedAuditReport?.admin_comment || selectedAuditAction.payload?.admin_comment" class="audit-details__note">
+                            <div
+                                v-if="
+                                    selectedAuditReport?.admin_comment ||
+                                    selectedAuditAction.payload?.admin_comment
+                                "
+                                class="audit-details__note"
+                            >
                                 <strong>Комментарий модератора</strong>
-                                <p>{{ selectedAuditReport?.admin_comment || selectedAuditAction.payload.admin_comment }}</p>
+                                <p>
+                                    {{
+                                        selectedAuditReport?.admin_comment ||
+                                        selectedAuditAction.payload
+                                            .admin_comment
+                                    }}
+                                </p>
                             </div>
                         </template>
                     </div>
@@ -1300,6 +1459,8 @@ onMounted(() => {
 }
 
 .report-item {
+    display: flex;
+    flex-direction: column;
     gap: 14px;
     height: 100%;
 }
@@ -1307,6 +1468,7 @@ onMounted(() => {
 .reports-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-rows: 1fr;
     gap: 12px;
 }
 
@@ -1495,6 +1657,11 @@ onMounted(() => {
     align-items: center;
     justify-content: end;
     gap: 8px;
+}
+
+.user-unblock-row {
+    display: flex;
+    justify-content: flex-end;
 }
 
 .user-actions select {

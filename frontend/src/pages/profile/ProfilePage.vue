@@ -10,6 +10,11 @@ import { usePlantStore } from "@/entities/plant/model/plant.store";
 import { useTaskStore } from "@/entities/task/model/task.store";
 import { apiClient } from "@/shared/api/client";
 import { unwrapApiCollection } from "@/shared/api/mappers";
+import {
+    getReportReasonLabel,
+    getReportStatusLabel,
+    getReportTypeLabel,
+} from "@/shared/lib/reports";
 import CareCompletionChart from "@/shared/charts/CareCompletionChart.vue";
 import UiButton from "@/shared/ui/UiButton.vue";
 import UiField from "@/shared/ui/UiField.vue";
@@ -52,7 +57,9 @@ const avatarDragStart = ref({
 });
 const isProfileEditing = ref(false);
 const myReports = ref([]);
+const receivedReports = ref([]);
 const isReportsDialogOpen = ref(false);
+const reportsDialogMode = ref("my");
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const reportStatusLabels = {
@@ -72,12 +79,17 @@ const refreshPrivateData = async () => {
     await plantStore.loadPlants("private");
     taskStore.syncFromPlants(plantStore.all);
     await dashboardStore.load();
-    await loadMyReports();
+    await Promise.all([loadMyReports(), loadReceivedReports()]);
 };
 
 const loadMyReports = async () => {
     const payload = await apiClient.get("/reports/my?per_page=20");
     myReports.value = unwrapApiCollection(payload);
+};
+
+const loadReceivedReports = async () => {
+    const payload = await apiClient.get("/reports/received?per_page=20");
+    receivedReports.value = unwrapApiCollection(payload);
 };
 
 const reportTitle = (report) => {
@@ -90,8 +102,36 @@ const reportTitle = (report) => {
         : `Совет #${report.target_id}`;
 };
 
-const reportStatus = (status) => reportStatusLabels[status] || status;
-const reportType = (type) => reportTypeLabels[type] || type;
+const reportStatus = (report) =>
+    report.status_label || getReportStatusLabel(report.status);
+const reportType = (report) => getReportTypeLabel(report.target_type);
+const reportReason = (report) =>
+    report.reason_label || getReportReasonLabel(report.reason);
+const activeReports = computed(() =>
+    reportsDialogMode.value === "received"
+        ? receivedReports.value
+        : myReports.value,
+);
+const reportsDialogTitle = computed(() =>
+    reportsDialogMode.value === "received" ? "Жалобы на меня" : "Мои жалобы",
+);
+const activeReportsEmptyText = computed(() =>
+    reportsDialogMode.value === "received"
+        ? "На ваши растения и советы жалоб пока нет."
+        : "Вы пока не отправляли жалобы.",
+);
+
+const openReportsDialog = async (mode) => {
+    reportsDialogMode.value = mode;
+    isReportsDialogOpen.value = true;
+
+    if (mode === "received") {
+        await loadReceivedReports();
+        return;
+    }
+
+    await loadMyReports();
+};
 
 const redirectAfterAuth = async () => {
     const redirect = route.query.redirect;
@@ -512,8 +552,17 @@ onMounted(async () => {
                             <Edit3 :size="17" />
                             Редактировать
                         </UiButton>
-                        <UiButton variant="ghost" @click="isReportsDialogOpen = true">
+                        <UiButton
+                            variant="ghost"
+                            @click="openReportsDialog('my')"
+                        >
                             Мои жалобы
+                        </UiButton>
+                        <UiButton
+                            variant="ghost"
+                            @click="openReportsDialog('received')"
+                        >
+                            Жалобы на меня
                         </UiButton>
                     </div>
                 </div>
@@ -531,7 +580,10 @@ onMounted(async () => {
                         <span>{{
                             authStore.user?.email || "Email загружается..."
                         }}</span>
-                        <span>Предупреждения: {{ authStore.user?.warnings_count || 0 }}/3</span>
+                        <span
+                            >Предупреждения:
+                            {{ authStore.user?.warnings_count || 0 }}/3</span
+                        >
                     </div>
                 </div>
                 <UiButton variant="ghost" @click="logout">
@@ -796,39 +848,80 @@ onMounted(async () => {
         </section>
 
         <Teleport to="body">
-        <div
-            v-if="authStore.isAuthenticated && isReportsDialogOpen"
-            class="reports-modal"
-            @click.self="isReportsDialogOpen = false"
-        >
-        <section class="panel reports-card">
-            <button
-                class="reports-card__close"
-                type="button"
-                aria-label="Закрыть"
-                @click="isReportsDialogOpen = false"
+            <div
+                v-if="authStore.isAuthenticated && isReportsDialogOpen"
+                class="reports-modal"
+                @click.self="isReportsDialogOpen = false"
             >
-                <X :size="18" />
-            </button>
-            <h2 class="panel__title">Мои жалобы</h2>
-            <article
-                v-for="report in myReports"
-                :key="report.id"
-                class="report-status-row"
-            >
-                <div>
-                    <strong>{{ reportTitle(report) }}</strong>
-                    <span>{{ reportType(report.target_type) }} · {{ reportStatus(report.status) }}</span>
-                </div>
-                <p>
-                    {{ report.resolution_summary || report.admin_comment || "Решение пока не вынесено." }}
-                </p>
-            </article>
-            <p v-if="!myReports.length" class="reports-card__empty">
-                Вы пока не отправляли жалобы.
-            </p>
-        </section>
-        </div>
+                <section class="panel reports-card">
+                    <button
+                        class="reports-card__close"
+                        type="button"
+                        aria-label="Закрыть"
+                        @click="isReportsDialogOpen = false"
+                    >
+                        <X :size="18" />
+                    </button>
+                    <div class="reports-card__head">
+                        <h2 class="panel__title">{{ reportsDialogTitle }}</h2>
+                        <div class="reports-card__tabs">
+                            <button
+                                type="button"
+                                :class="{ active: reportsDialogMode === 'my' }"
+                                @click="openReportsDialog('my')"
+                            >
+                                Мои жалобы
+                            </button>
+                            <button
+                                type="button"
+                                :class="{
+                                    active: reportsDialogMode === 'received',
+                                }"
+                                @click="openReportsDialog('received')"
+                            >
+                                Жалобы на меня
+                            </button>
+                        </div>
+                    </div>
+                    <article
+                        v-for="report in activeReports"
+                        :key="report.id"
+                        class="report-status-row"
+                    >
+                        <div>
+                            <strong>{{ reportTitle(report) }}</strong>
+                            <span>
+                                {{ reportType(report) }} ·
+                                {{ reportReason(report) }} ·
+                                {{ reportStatus(report) }}
+                            </span>
+                        </div>
+                        <p>
+                            {{
+                                report.details ||
+                                report.resolution_summary ||
+                                report.admin_comment ||
+                                "Подробности не указаны."
+                            }}
+                        </p>
+                        <p
+                            v-if="
+                                report.resolution_summary ||
+                                report.admin_comment
+                            "
+                            class="report-status-row__resolution"
+                        >
+                            {{
+                                report.resolution_summary ||
+                                report.admin_comment
+                            }}
+                        </p>
+                    </article>
+                    <p v-if="!activeReports.length" class="reports-card__empty">
+                        {{ activeReportsEmptyText }}
+                    </p>
+                </section>
+            </div>
         </Teleport>
     </section>
 </template>
@@ -1140,6 +1233,35 @@ onMounted(async () => {
     background: var(--color-surface);
 }
 
+.reports-card__head {
+    display: grid;
+    gap: 10px;
+    padding-right: 44px;
+}
+
+.reports-card__tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.reports-card__tabs button {
+    min-height: 34px;
+    padding: 0 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    color: var(--color-muted);
+    background: var(--color-surface-soft);
+    cursor: pointer;
+    font-weight: 800;
+}
+
+.reports-card__tabs button.active {
+    color: #fff;
+    border-color: var(--color-green);
+    background: var(--color-green);
+}
+
 .reports-modal {
     position: fixed;
     inset: 0;
@@ -1189,6 +1311,10 @@ onMounted(async () => {
     margin: 0;
     color: var(--color-muted);
     font-weight: 800;
+}
+
+.report-status-row__resolution {
+    color: var(--color-green-dark) !important;
 }
 
 .profile-stats article {
