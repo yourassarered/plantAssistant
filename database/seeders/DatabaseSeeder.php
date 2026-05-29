@@ -16,11 +16,14 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             RoomSeeder::class,
             PlantSeeder::class,
+            PlantImageSeeder::class,
             CareSettingSeeder::class,
             CareLogSeeder::class,
             TipSeeder::class,
             LikeSeeder::class,
             FollowSeeder::class,
+            ReportSeeder::class,
+            ModeratorAuditLogSeeder::class,
         ]);
     }
 }
