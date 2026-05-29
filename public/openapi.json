@@ -75,6 +75,69 @@
                 ]
             }
         },
+        "/api/admin/plants/{plantId}/moderate": {
+            "post": {
+                "tags": [
+                    "Admin Reports"
+                ],
+                "summary": "Directly moderate plant",
+                "responses": {
+                    "200": {
+                        "description": "Plant moderated"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
+                    "201": {
+                        "description": "Created"
+                    }
+                },
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "plantId",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "resolution_action"
+                                ],
+                                "properties": {
+                                    "resolution_action": {
+                                        "type": "string",
+                                        "enum": [
+                                            "hide_plant",
+                                            "warn_user",
+                                            "block_user"
+                                        ]
+                                    },
+                                    "admin_comment": {
+                                        "type": "string",
+                                        "maxLength": 1000,
+                                        "nullable": true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/admin/reports": {
             "get": {
                 "tags": [
@@ -1941,9 +2004,9 @@
         "/api/plants/{plantId}/reports": {
             "post": {
                 "tags": [
-                    "Plants"
+                    "Reports"
                 ],
-                "summary": "POST /api/plants/{plantId}/reports",
+                "summary": "Create plant report",
                 "responses": {
                     "200": {
                         "description": "Successful response"
@@ -1958,7 +2021,7 @@
                         "description": "Validation error"
                     },
                     "201": {
-                        "description": "Created"
+                        "description": "Report created"
                     }
                 },
                 "parameters": [
@@ -1972,15 +2035,74 @@
                     }
                 ],
                 "requestBody": {
-                    "required": false,
+                    "required": true,
                     "content": {
                         "application/json": {
                             "schema": {
-                                "type": "object"
+                                "type": "object",
+                                "required": [
+                                    "reason"
+                                ],
+                                "properties": {
+                                    "reason": {
+                                        "type": "string",
+                                        "enum": [
+                                            "inappropriate_image",
+                                            "spam",
+                                            "abuse",
+                                            "misinformation",
+                                            "other"
+                                        ]
+                                    },
+                                    "details": {
+                                        "type": "string",
+                                        "maxLength": 1000,
+                                        "nullable": true
+                                    }
+                                }
                             }
                         }
                     }
                 }
+            },
+            "get": {
+                "tags": [
+                    "Reports"
+                ],
+                "summary": "Plant reports for owner or admin",
+                "responses": {
+                    "200": {
+                        "description": "Report list"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "plantId",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "per_page",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                        }
+                    }
+                ]
             }
         },
         "/api/plants/{plantId}/tips": {
@@ -2078,6 +2200,39 @@
                         "description": "Validation error"
                     }
                 }
+            }
+        },
+        "/api/reports/received": {
+            "get": {
+                "tags": [
+                    "Reports"
+                ],
+                "summary": "Reports received for my plants and tips",
+                "responses": {
+                    "200": {
+                        "description": "Report list"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "per_page",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                        }
+                    }
+                ]
             }
         },
         "/api/rooms": {
@@ -2847,10 +3002,10 @@
                 "tags": [
                     "Users"
                 ],
-                "summary": "POST /api/users/{id}/block",
+                "summary": "Block user",
                 "responses": {
                     "200": {
-                        "description": "Successful response"
+                        "description": "User blocked"
                     },
                     "401": {
                         "description": "Unauthorized"
@@ -2880,7 +3035,14 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "type": "object"
+                                "type": "object",
+                                "properties": {
+                                    "reason": {
+                                        "type": "string",
+                                        "maxLength": 1000,
+                                        "nullable": true
+                                    }
+                                }
                             }
                         }
                     }
@@ -2905,6 +3067,51 @@
                     },
                     "422": {
                         "description": "Validation error"
+                    }
+                },
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/users/{id}/unblock": {
+            "post": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Unblock user",
+                "responses": {
+                    "200": {
+                        "description": "User unblocked"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
+                    "201": {
+                        "description": "Created"
                     }
                 },
                 "parameters": [

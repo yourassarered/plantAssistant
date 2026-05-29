@@ -27,6 +27,7 @@ class PlantResource extends JsonResource
             'is_public_locked' => (bool) $this->is_public_locked,
             'public_hidden_at' => $this->public_hidden_at?->toISOString(),
             'public_hidden_reason' => $this->when($canManage, $this->public_hidden_reason),
+            'hidden_due_to_block' => (bool) $this->hidden_due_to_block,
             'user_id' => $this->user_id,
             'user' => new UserResource($this->whenLoaded('user')),
             'owner' => $this->when(
@@ -35,6 +36,7 @@ class PlantResource extends JsonResource
                     'id' => $this->user->id,
                     'name' => $this->user->name,
                     'rank' => $this->user->rank,
+                    'is_blocked' => $this->user->isBlocked(),
                     'avatar_url' => $this->user->avatar_path
                         ? Storage::disk('public')->url($this->user->avatar_path)
                         : asset('images/placeholders/avatar-placeholder.png'),
@@ -47,6 +49,14 @@ class PlantResource extends JsonResource
             'care_logs' => CareLogResource::collection($this->whenLoaded('careLogs')),
             'tips' => TipResource::collection($this->whenLoaded('tips')),
             'likes_count' => $this->when(isset($this->likes_count), $this->likes_count ?? $this->likes->count()),
+            'report_summary' => [
+                'total' => (int) ($this->pending_reports_count ?? 0)
+                    + (int) ($this->accepted_reports_count ?? 0)
+                    + (int) ($this->rejected_reports_count ?? 0),
+                'pending' => (int) ($this->pending_reports_count ?? 0),
+                'accepted' => (int) ($this->accepted_reports_count ?? 0),
+                'rejected' => (int) ($this->rejected_reports_count ?? 0),
+            ],
             'user_liked' => $this->when(
                 $request->user() && $this->relationLoaded('likes'),
                 $this->likes->contains('user_id', $request->user()?->id)

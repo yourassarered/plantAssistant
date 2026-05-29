@@ -15,7 +15,9 @@ class ReportResource extends JsonResource
             'target_type' => $this->target_type,
             'target_id' => $this->target_id,
             'status' => $this->status,
+            'status_label' => $this->statusLabel(),
             'reason' => $this->reason,
+            'reason_label' => $this->reasonLabel(),
             'details' => $this->details,
             'target' => $this->resolveTarget(),
             'moderation_effect' => $this->resolveModerationEffect(),
@@ -46,6 +48,8 @@ class ReportResource extends JsonResource
                     'owner_id' => $plant->user?->id,
                     'owner_name' => $plant->user?->name,
                     'owner_rank' => $plant->user?->rank,
+                    'owner_warnings_count' => $plant->user?->warnings_count,
+                    'owner_blocked_at' => $plant->user?->blocked_at?->toISOString(),
                     'is_public' => (bool) $plant->is_public,
                     'is_public_locked' => (bool) $plant->is_public_locked,
                     'public_hidden_at' => $plant->public_hidden_at?->toISOString(),
@@ -103,15 +107,15 @@ class ReportResource extends JsonResource
             return match ($this->status) {
                 'accepted' => [
                     'code' => 'tip_rank_penalty_applied',
-                    'summary' => 'Жалоба принята: ранг автора совета уже снижен на 1.',
+                    'summary' => 'Жалоба принята: санкция к совету уже применена.',
                 ],
                 'rejected' => [
                     'code' => 'tip_no_penalty',
-                    'summary' => 'Жалоба отклонена: штрафы для автора совета не применялись.',
+                    'summary' => 'Жалоба отклонена: санкции к автору совета не применялись.',
                 ],
                 default => [
                     'code' => 'tip_rank_penalty_pending',
-                    'summary' => 'Если жалоба будет принята, ранг автора совета снизится на 1.',
+                    'summary' => 'Если жалобу примут, к совету и его автору применят санкции.',
                 ],
             };
         }
@@ -119,16 +123,42 @@ class ReportResource extends JsonResource
         return match ($this->status) {
             'accepted' => [
                 'code' => 'plant_manual_review_applied',
-                'summary' => 'Жалоба принята и зафиксирована. Автоматических санкций для растения нет.',
+                'summary' => 'Жалоба принята и рассмотрена модератором.',
             ],
             'rejected' => [
                 'code' => 'plant_no_penalty',
-                'summary' => 'Жалоба отклонена. Автоматические санкции для растения не применялись.',
+                'summary' => 'Жалоба отклонена. Санкции к растению не применялись.',
             ],
             default => [
                 'code' => 'plant_manual_review_pending',
-                'summary' => 'Если жалоба будет принята, она только зафиксируется. Автоматических санкций для растения нет.',
+                'summary' => 'Жалоба ожидает решения модератора.',
             ],
+        };
+    }
+
+    private function statusLabel(): string
+    {
+        $status = $this->status ?: 'pending';
+
+        return match ($status) {
+            'pending' => 'На рассмотрении',
+            'accepted' => 'Принята',
+            'rejected' => 'Отклонена',
+            default => (string) $status,
+        };
+    }
+
+    private function reasonLabel(): string
+    {
+        $reason = $this->reason ?: 'other';
+
+        return match ($reason) {
+            'inappropriate_image' => 'Неподходящее изображение',
+            'spam' => 'Спам',
+            'abuse' => 'Оскорбления',
+            'misinformation' => 'Недостоверная информация',
+            'other' => 'Другое',
+            default => (string) $reason,
         };
     }
 }

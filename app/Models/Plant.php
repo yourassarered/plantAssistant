@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Plant extends Model
 {
@@ -18,6 +19,8 @@ class Plant extends Model
         'public_hidden_by',
         'public_hidden_reason',
         'is_public_locked',
+        'hidden_due_to_block',
+        'was_public_before_block',
         'user_id',
         'room_id',
     ];
@@ -27,6 +30,8 @@ class Plant extends Model
         'is_public' => 'boolean',
         'public_hidden_at' => 'datetime',
         'is_public_locked' => 'boolean',
+        'hidden_due_to_block' => 'boolean',
+        'was_public_before_block' => 'boolean',
         'height' => 'float',
     ];
 
@@ -86,5 +91,11 @@ class Plant extends Model
     public function latestImage()
     {
         return $this->hasOne(PlantImage::class)->latestOfMany();
+    }
+
+    public function reports(): HasMany
+    {
+        return $this->hasMany(Report::class, 'target_id')
+            ->where('target_type', Report::TARGET_PLANT);
     }
 }

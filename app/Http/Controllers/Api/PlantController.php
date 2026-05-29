@@ -20,7 +20,8 @@ class PlantController extends Controller
         $filters = PlantFiltersData::fromRequest($request);
 
         $query = Plant::where('user_id', $request->user()->id)
-            ->with(['room', 'latestImage', 'careSettings', 'careLogs']);
+            ->with(['room', 'latestImage', 'careSettings', 'careLogs'])
+            ->withCount($this->reportSummaryCounts());
 
         if ($filters->roomId) {
             $query->where('room_id', $filters->roomId);
@@ -71,6 +72,7 @@ class PlantController extends Controller
     public function show(Request $request, $id)
     {
         $plant = Plant::with(['user.role', 'room', 'latestImage', 'careSettings', 'likes'])
+            ->withCount($this->reportSummaryCounts())
             ->withCount('likes')
             ->findOrFail($id);
 
@@ -103,7 +105,7 @@ class PlantController extends Controller
 
         if (($validated['is_public'] ?? false) && $plant->is_public_locked) {
             return response()->json([
-                'message' => 'Растение скрыто модератором и больше не может быть опубликовано.',
+                'message' => 'Растение скрыто модератором и не может быть опубликовано повторно.',
             ], 422);
         }
 
@@ -130,6 +132,7 @@ class PlantController extends Controller
 
         $query = Plant::where('is_public', true)
             ->with(['user.role', 'room', 'latestImage', 'careSettings', 'likes'])
+            ->withCount($this->reportSummaryCounts())
             ->withCount('likes');
 
         if ($filters->search) {
@@ -155,6 +158,7 @@ class PlantController extends Controller
                 'careSettings',
                 'likes',
             ])
+            ->withCount($this->reportSummaryCounts())
             ->withCount('likes')
             ->findOrFail($id);
 
@@ -168,6 +172,7 @@ class PlantController extends Controller
 
         $plants = Plant::where('room_id', $roomId)
             ->with(['latestImage', 'careSettings', 'careLogs'])
+            ->withCount($this->reportSummaryCounts())
             ->orderBy('name')
             ->paginate(min($request->integer('per_page', 15), 100));
 
@@ -181,11 +186,15 @@ class PlantController extends Controller
 
         if (! $plant->is_public && $plant->is_public_locked) {
             return response()->json([
-                'message' => 'Растение скрыто модератором и больше не может быть опубликовано.',
+                'message' => 'Растение скрыто модератором и не может быть опубликовано повторно.',
             ], 422);
         }
 
         $plant->is_public = ! $plant->is_public;
+        if ($plant->is_public) {
+            $plant->public_hidden_at = null;
+            $plant->public_hidden_reason = null;
+        }
         $plant->save();
 
         return new PlantResource($plant->fresh('latestImage'));
@@ -307,5 +316,14 @@ class PlantController extends Controller
             ],
             'schedule' => $formattedSchedule,
         ]);
+    }
+
+    private function reportSummaryCounts(): array
+    {
+        return [
+            'reports as pending_reports_count' => fn ($query) => $query->where('status', 'pending'),
+            'reports as accepted_reports_count' => fn ($query) => $query->where('status', 'accepted'),
+            'reports as rejected_reports_count' => fn ($query) => $query->where('status', 'rejected'),
+        ];
     }
 }

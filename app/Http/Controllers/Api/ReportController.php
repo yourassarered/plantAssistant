@@ -41,6 +41,52 @@ class ReportController extends Controller
         return ReportResource::collection($reports);
     }
 
+    public function receivedReports(Request $request)
+    {
+        $user = $request->user();
+        $plantIds = Plant::where('user_id', $user->id)->pluck('id');
+        $tipIds = Tip::withTrashed()->where('author_id', $user->id)->pluck('id');
+
+        $reports = Report::with(['reporter', 'reviewer'])
+            ->where(function ($query) use ($plantIds, $tipIds) {
+                $query
+                    ->where(function ($inner) use ($plantIds) {
+                        $inner->where('target_type', Report::TARGET_PLANT)
+                            ->whereIn('target_id', $plantIds);
+                    })
+                    ->orWhere(function ($inner) use ($tipIds) {
+                        $inner->where('target_type', Report::TARGET_TIP)
+                            ->whereIn('target_id', $tipIds);
+                    });
+            })
+            ->latest()
+            ->paginate(min($request->integer('per_page', 30), 100));
+
+        $this->hydrateTargets($reports->getCollection());
+
+        return ReportResource::collection($reports);
+    }
+
+    public function plantReports(Request $request, int $plantId)
+    {
+        $plant = Plant::with('user')->findOrFail($plantId);
+        $user = $request->user();
+
+        if (! $user || ($user->id !== $plant->user_id && ! $user->isAdmin())) {
+            abort(403);
+        }
+
+        $reports = Report::with(['reporter', 'reviewer'])
+            ->where('target_type', Report::TARGET_PLANT)
+            ->where('target_id', $plantId)
+            ->latest()
+            ->paginate(min($request->integer('per_page', 50), 100));
+
+        $this->hydrateTargets($reports->getCollection());
+
+        return ReportResource::collection($reports);
+    }
+
     private function createReport(StoreReportRequest $request, string $targetType, int $targetId)
     {
         $report = Report::firstOrCreate(

@@ -234,4 +234,26 @@ class UserController extends Controller
 
         return new UserResource($user->fresh('role'));
     }
+
+    public function unblock(Request $request, $id)
+    {
+        $this->authorize('manage', User::class);
+
+        $user = User::with('role')->findOrFail($id);
+
+        $this->sanctions->unblock($user);
+
+        $this->audit->log(
+            actor: $request->user(),
+            action: 'user.unblock',
+            targetType: User::class,
+            targetId: $user->id,
+            payload: [
+                'name' => $user->name,
+            ],
+            request: $request
+        );
+
+        return new UserResource($user->fresh('role'));
+    }
 }

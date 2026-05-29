@@ -4,15 +4,17 @@ namespace App\Http\Controllers\Api;
 
 use App\DTO\ReportReviewData;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\ModeratePlantRequest;
 use App\Http\Requests\Api\ReviewReportRequest;
+use App\Http\Resources\PlantResource;
 use App\Http\Resources\ReportResource;
 use App\Models\Plant;
 use App\Models\Report;
 use App\Models\Tip;
 use App\Services\ModeratorAuditLogger;
 use App\Services\UserSanctionService;
-use Illuminate\Support\Collection;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -108,6 +110,44 @@ class AdminReportController extends Controller
         return new ReportResource($report);
     }
 
+    public function moderatePlant(ModeratePlantRequest $request, int $plantId)
+    {
+        $this->authorize('viewAny', Report::class);
+
+        $plant = DB::transaction(function () use ($request, $plantId) {
+            $plant = Plant::with('user')->lockForUpdate()->findOrFail($plantId);
+
+            $this->applyPlantAction(
+                $plant,
+                $request->string('resolution_action')->value(),
+                $request->input('admin_comment'),
+                (int) $request->user()->id,
+            );
+
+            return $plant->fresh(['user.role', 'room', 'latestImage', 'careSettings', 'likes'])
+                ->loadCount('likes')
+                ->loadCount([
+                    'reports as pending_reports_count' => fn ($query) => $query->where('status', 'pending'),
+                    'reports as accepted_reports_count' => fn ($query) => $query->where('status', 'accepted'),
+                    'reports as rejected_reports_count' => fn ($query) => $query->where('status', 'rejected'),
+                ]);
+        });
+
+        $this->audit->log(
+            actor: $request->user(),
+            action: 'plant.moderate_direct',
+            targetType: Plant::class,
+            targetId: $plant->id,
+            payload: [
+                'resolution_action' => $request->string('resolution_action')->value(),
+                'admin_comment' => $request->input('admin_comment'),
+            ],
+            request: $request
+        );
+
+        return new PlantResource($plant);
+    }
+
     private function hydrateTargets(Collection $reports): void
     {
         $plantIds = $reports
@@ -176,36 +216,53 @@ class AdminReportController extends Controller
         if ($action === 'block_user') {
             $this->sanctions->block($author, $comment ?: 'Блокировка по принятой жалобе на совет.');
 
-            return 'Автор совета заблокирован, активные токены и сессии сброшены.';
+            return 'Автор совета заблокирован, его советы удалены, ранг обнулен.';
         }
 
-        $author->decrement('rank');
+        if (! $tip->trashed()) {
+            $tip->delete();
+        }
+
+        $author->update([
+            'rank' => max(0, (int) $author->rank - 1),
+        ]);
 
         if ($action === 'tip_delete_rank') {
-            $tip->delete();
-
-            return 'Ранг автора снижен на 1, совет удален.';
+            return 'Совет удален, ранг автора снижен на 1.';
         }
 
         $warning = $this->sanctions->warn($author, $comment ?: 'Предупреждение по принятой жалобе на совет.');
 
         return $warning['blocked']
-            ? 'Ранг автора снижен на 1, выдано третье предупреждение, аккаунт автоматически заблокирован.'
-            : "Ранг автора снижен на 1, предупреждение выдано ({$warning['warnings_count']}/3).";
+            ? 'Совет удален, ранг автора снижен, выдано третье предупреждение и аккаунт автоматически заблокирован.'
+            : "Совет удален, ранг автора снижен и предупреждение выдано ({$warning['warnings_count']}/3).";
     }
 
     private function applyPlantResolution(Report $report, string $action, ?string $comment): string
     {
         $plant = Plant::with('user')->lockForUpdate()->findOrFail($report->target_id);
+
+        return $this->applyPlantAction(
+            $plant,
+            $action,
+            $comment,
+            request()->user()?->id,
+        );
+    }
+
+    private function applyPlantAction(Plant $plant, string $action, ?string $comment, ?int $moderatorId): string
+    {
         $owner = $plant->user;
 
         if ($action === 'hide_plant') {
             $plant->update([
                 'is_public' => false,
                 'public_hidden_at' => now(),
-                'public_hidden_by' => request()->user()?->id,
+                'public_hidden_by' => $moderatorId,
                 'public_hidden_reason' => $comment ?: 'Скрыто модератором по принятой жалобе.',
                 'is_public_locked' => true,
+                'hidden_due_to_block' => false,
+                'was_public_before_block' => false,
             ]);
 
             return 'Растение скрыто из публичной ленты. Повторная публикация владельцем заблокирована.';
@@ -218,13 +275,23 @@ class AdminReportController extends Controller
         if ($action === 'block_user') {
             $this->sanctions->block($owner, $comment ?: 'Блокировка по принятой жалобе на растение.');
 
-            return 'Владелец растения заблокирован, активные токены и сессии сброшены.';
+            return 'Владелец растения заблокирован, его публичные растения скрыты, советы удалены, ранг обнулен.';
         }
+
+        $plant->update([
+            'is_public' => false,
+            'public_hidden_at' => now(),
+            'public_hidden_by' => $moderatorId,
+            'public_hidden_reason' => $comment ?: 'Временно скрыто модератором после предупреждения владельцу.',
+            'is_public_locked' => false,
+            'hidden_due_to_block' => false,
+            'was_public_before_block' => false,
+        ]);
 
         $warning = $this->sanctions->warn($owner, $comment ?: 'Предупреждение по принятой жалобе на растение.');
 
         return $warning['blocked']
-            ? 'Выдано третье предупреждение, аккаунт владельца автоматически заблокирован.'
-            : "Предупреждение владельцу выдано ({$warning['warnings_count']}/3).";
+            ? 'Растение скрыто, владельцу выдано третье предупреждение и аккаунт автоматически заблокирован.'
+            : "Растение скрыто, владельцу выдано предупреждение ({$warning['warnings_count']}/3). Владелец сможет вернуть публикацию после исправления.";
     }
 }

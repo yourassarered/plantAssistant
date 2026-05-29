@@ -22,12 +22,12 @@ class FollowController extends Controller
 
         if (! $follow->wasRecentlyCreated) {
             return response()->json([
-                'message' => 'You are already following this user',
+                'message' => 'Вы уже подписаны на этого пользователя',
             ], 422);
         }
 
         return response()->json([
-            'message' => 'Successfully followed user',
+            'message' => 'Подписка оформлена',
             'following' => true,
         ]);
     }
@@ -43,14 +43,14 @@ class FollowController extends Controller
 
         if (! $follow) {
             return response()->json([
-                'message' => 'You are not following this user',
+                'message' => 'Вы не подписаны на этого пользователя',
             ], 422);
         }
 
         $follow->delete();
 
         return response()->json([
-            'message' => 'Successfully unfollowed user',
+            'message' => 'Подписка отменена',
             'following' => false,
         ]);
     }
@@ -119,8 +119,7 @@ class FollowController extends Controller
 
     public function followerCount($userId)
     {
-        $targetUser = User::findOrFail($userId);
-        $this->authorize('viewRelations', [Follow::class, $targetUser]);
+        User::findOrFail($userId);
 
         return response()->json([
             'user_id' => $userId,
@@ -130,8 +129,7 @@ class FollowController extends Controller
 
     public function followingCount($userId)
     {
-        $targetUser = User::findOrFail($userId);
-        $this->authorize('viewRelations', [Follow::class, $targetUser]);
+        User::findOrFail($userId);
 
         return response()->json([
             'user_id' => $userId,

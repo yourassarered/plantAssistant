@@ -246,6 +246,115 @@ Artisan::command('openapi:generate', function () {
                 ],
             ],
         ],
+        '/api/users/{id}/block' => [
+            'post' => [
+                'tags' => ['Users'],
+                'summary' => 'Block user',
+                'requestBody' => [
+                    'required' => false,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => [
+                                'type' => 'object',
+                                'properties' => [
+                                    'reason' => ['type' => 'string', 'maxLength' => 1000, 'nullable' => true],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+                'responses' => [
+                    '200' => ['description' => 'User blocked'],
+                    '403' => ['description' => 'Forbidden'],
+                ],
+            ],
+        ],
+        '/api/users/{id}/unblock' => [
+            'post' => [
+                'tags' => ['Users'],
+                'summary' => 'Unblock user',
+                'responses' => [
+                    '200' => ['description' => 'User unblocked'],
+                    '403' => ['description' => 'Forbidden'],
+                ],
+            ],
+        ],
+        '/api/admin/plants/{plantId}/moderate' => [
+            'post' => [
+                'tags' => ['Admin Reports'],
+                'summary' => 'Directly moderate plant',
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => [
+                                'type' => 'object',
+                                'required' => ['resolution_action'],
+                                'properties' => [
+                                    'resolution_action' => ['type' => 'string', 'enum' => ['hide_plant', 'warn_user', 'block_user']],
+                                    'admin_comment' => ['type' => 'string', 'maxLength' => 1000, 'nullable' => true],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+                'responses' => [
+                    '200' => ['description' => 'Plant moderated'],
+                    '403' => ['description' => 'Forbidden'],
+                    '422' => ['description' => 'Validation error'],
+                ],
+            ],
+        ],
+        '/api/plants/{plantId}/reports' => [
+            'get' => [
+                'tags' => ['Reports'],
+                'summary' => 'Plant reports for owner or admin',
+                'parameters' => [
+                    ['in' => 'path', 'name' => 'plantId', 'required' => true, 'schema' => ['type' => 'integer']],
+                    ['in' => 'query', 'name' => 'per_page', 'schema' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 100]],
+                ],
+                'responses' => [
+                    '200' => ['description' => 'Report list'],
+                    '403' => ['description' => 'Forbidden'],
+                ],
+            ],
+            'post' => [
+                'tags' => ['Reports'],
+                'summary' => 'Create plant report',
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => [
+                                'type' => 'object',
+                                'required' => ['reason'],
+                                'properties' => [
+                                    'reason' => ['type' => 'string', 'enum' => ['inappropriate_image', 'spam', 'abuse', 'misinformation', 'other']],
+                                    'details' => ['type' => 'string', 'maxLength' => 1000, 'nullable' => true],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+                'responses' => [
+                    '201' => ['description' => 'Report created'],
+                    '422' => ['description' => 'Validation error'],
+                ],
+            ],
+        ],
+        '/api/reports/received' => [
+            'get' => [
+                'tags' => ['Reports'],
+                'summary' => 'Reports received for my plants and tips',
+                'parameters' => [
+                    ['in' => 'query', 'name' => 'per_page', 'schema' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 100]],
+                ],
+                'responses' => [
+                    '200' => ['description' => 'Report list'],
+                    '401' => ['description' => 'Unauthorized'],
+                ],
+            ],
+        ],
     ];
 
     $routes = collect(Route::getRoutes())->filter(fn ($route) => str_starts_with($route->uri(), 'api/'));
