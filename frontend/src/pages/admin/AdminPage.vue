@@ -1,8 +1,6 @@
 <script setup>
 import { computed, onMounted, ref, watch } from "vue";
-import { RouterLink } from "vue-router";
 import {
-    ExternalLink,
     Pencil,
     Save,
     ShieldCheck,
@@ -22,6 +20,9 @@ const adminStore = useAdminStore();
 
 const activeTab = ref("reports");
 const reportComments = ref({});
+const resolutionDialogOpen = ref(false);
+const selectedReport = ref(null);
+const selectedResolutionAction = ref("");
 const userSearch = ref("");
 const reportStatusFilter = ref("");
 const reportTargetFilter = ref("");
@@ -58,6 +59,14 @@ const reportReasonLabels = {
     spam: "Спам",
     abuse: "Оскорбления",
     other: "Другое",
+};
+
+const resolutionActionLabels = {
+    tip_delete_rank: "Понизить ранг и удалить совет",
+    block_user: "Заблокировать пользователя",
+    tip_warn_rank: "Понизить ранг и выдать предупреждение",
+    hide_plant: "Скрыть растение",
+    warn_user: "Вынести предупреждение",
 };
 
 const filteredUsers = computed(() => {
@@ -128,19 +137,6 @@ const formatRole = (roleName) => roleLabels[roleName] || roleName || "Без р�
 const formatReason = (reason) =>
     reportReasonLabels[reason] || reason || "Без причины";
 
-const reportPlantId = (report) =>
-    report.target?.plant?.id ||
-    (report.target_type === "plant" ? report.target_id : null);
-
-const reportHasPlantLink = (report) => Boolean(reportPlantId(report));
-
-const reportPlantRoute = (report) => ({
-    name: "plant-details",
-    params: { id: reportPlantId(report) },
-});
-
-const reportPlantHref = (report) => `/plants/${reportPlantId(report)}`;
-
 const reportTargetTitle = (report) => {
     if (report.target_type === "plant") {
         return report.target?.plant?.name || `Растение #${report.target_id}`;
@@ -183,8 +179,38 @@ const reportReviewMeta = (report) => {
     return `${reviewerName} · ${formatIsoDateTime(report.reviewed_at)}`;
 };
 
-const moderationSummary = (report) =>
-    report.moderation_effect?.summary || "Автоматические последствия не указаны.";
+const resolutionOptions = (report) => {
+    if (report?.target_type === "tip") {
+        return [
+            { value: "tip_delete_rank", hint: "Совет будет удален через soft delete." },
+            { value: "block_user", hint: "Автор совета потеряет доступ к аккаунту." },
+            { value: "tip_warn_rank", hint: "Автор получит предупреждение." },
+        ];
+    }
+
+    return [
+        { value: "hide_plant", hint: "Растение исчезнет из публичной ленты навсегда." },
+        { value: "block_user", hint: "Владелец потеряет доступ к аккаунту." },
+        { value: "warn_user", hint: "Владелец получит предупреждение." },
+    ];
+};
+
+const reportTargetWarnings = (report) =>
+    Number(
+        report?.target_type === "tip"
+            ? report.target?.tip?.author_warnings_count
+            : report.target?.plant?.owner_warnings_count,
+    ) || 0;
+
+const selectedResolutionIsWarning = computed(() =>
+    ["tip_warn_rank", "warn_user"].includes(selectedResolutionAction.value),
+);
+
+const selectedResolutionIsFinalWarning = computed(
+    () =>
+        selectedResolutionIsWarning.value &&
+        reportTargetWarnings(selectedReport.value) >= 2,
+);
 
 const reportCommentValue = (report) => reportComments.value[report.id] || "";
 
@@ -213,6 +239,13 @@ const refreshTraffic = () => adminStore.loadTraffic(trafficMinutes.value);
 const review = async (report, status) => {
     const comment = reportCommentValue(report).trim();
 
+    if (status === "accepted") {
+        selectedReport.value = report;
+        selectedResolutionAction.value = resolutionOptions(report)[0]?.value || "";
+        resolutionDialogOpen.value = true;
+        return;
+    }
+
     if (status === "rejected" && !comment) {
         toast.error("Для отклонения жалобы добавьте комментарий модератора.");
         return;
@@ -224,6 +257,46 @@ const review = async (report, status) => {
         toast.success(
             status === "accepted" ? "Жалоба принята" : "Жалоба отклонена",
         );
+    } catch (error) {
+        toast.error(error.message);
+    }
+};
+
+const closeResolutionDialog = () => {
+    resolutionDialogOpen.value = false;
+    selectedReport.value = null;
+    selectedResolutionAction.value = "";
+};
+
+const submitResolution = async () => {
+    if (!selectedReport.value || !selectedResolutionAction.value) {
+        toast.error("Выберите решение по жалобе.");
+        return;
+    }
+
+    const comment = reportCommentValue(selectedReport.value).trim();
+
+    try {
+        const updated = await adminStore.reviewReport(
+            selectedReport.value.id,
+            "accepted",
+            comment,
+            selectedResolutionAction.value,
+        );
+        setReportComment(updated.id, updated.admin_comment || comment);
+        toast.success("Жалоба принята, решение применено");
+        closeResolutionDialog();
+    } catch (error) {
+        toast.error(error.message);
+    }
+};
+
+const blockUser = async (user) => {
+    if (!window.confirm(`Заблокировать пользователя ${user.name}?`)) return;
+
+    try {
+        await adminStore.blockUser(user.id, "Блокировка администратором.");
+        toast.success("Пользователь заблокирован");
     } catch (error) {
         toast.error(error.message);
     }
@@ -480,9 +553,6 @@ onMounted(() => {
                             <option value="tip">Совет</option>
                         </select>
                     </UiField>
-                    <UiButton variant="ghost" @click="refreshReports">
-                        Применить
-                    </UiButton>
                 </div>
 
                 <article
@@ -537,26 +607,6 @@ onMounted(() => {
                             {{ report.target.tip.content }}
                         </blockquote>
 
-                        <div
-                            v-if="reportHasPlantLink(report)"
-                            class="report-links"
-                        >
-                            <RouterLink
-                                class="report-link"
-                                :to="reportPlantRoute(report)"
-                            >
-                                Открыть растение
-                            </RouterLink>
-                            <a
-                                class="report-link report-link--icon"
-                                :href="reportPlantHref(report)"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                aria-label="Открыть растение в новой вкладке"
-                            >
-                                <ExternalLink :size="16" />
-                            </a>
-                        </div>
                     </section>
 
                     <section class="report-note">
@@ -569,11 +619,6 @@ onMounted(() => {
                                 "Пользователь не добавил подробности к жалобе."
                             }}
                         </p>
-                    </section>
-
-                    <section class="report-note report-note--effect">
-                        <div class="report-note__label">Последствия решения</div>
-                        <p>{{ moderationSummary(report) }}</p>
                     </section>
 
                     <div
@@ -590,6 +635,7 @@ onMounted(() => {
                     </div>
 
                     <textarea
+                        v-if="report.status === 'pending'"
                         :value="reportCommentValue(report)"
                         rows="3"
                         placeholder="Комментарий модератора"
@@ -598,7 +644,7 @@ onMounted(() => {
                         "
                     />
 
-                    <div class="admin-actions">
+                    <div v-if="report.status === 'pending'" class="admin-actions">
                         <UiButton
                             variant="ghost"
                             @click="review(report, 'rejected')"
@@ -640,9 +686,6 @@ onMounted(() => {
                         />
                         Сначала высокий ранг
                     </label>
-                    <UiButton variant="ghost" @click="refreshUsers">
-                        Найти
-                    </UiButton>
                 </div>
 
                 <article
@@ -661,6 +704,10 @@ onMounted(() => {
                         <div class="user-meta">
                             <span class="role-pill">
                                 {{ formatRole(user.role?.name) }}
+                            </span>
+                            <span>Предупреждения {{ user.warnings_count || 0 }}/3</span>
+                            <span v-if="user.is_blocked" class="user-blocked">
+                                Заблокирован
                             </span>
                             <span>Ранг {{ user.rank }}</span>
                         </div>
@@ -690,6 +737,14 @@ onMounted(() => {
                             >
                                 <Trash2 :size="18" />
                             </button>
+                            <UiButton
+                                v-if="!user.is_blocked"
+                                variant="ghost"
+                                :disabled="isSelf(user)"
+                                @click="blockUser(user)"
+                            >
+                                Заблокировать
+                            </UiButton>
                         </div>
                     </div>
 
@@ -823,6 +878,66 @@ onMounted(() => {
                 </section>
             </section>
         </template>
+
+        <Teleport to="body">
+            <div
+                v-if="resolutionDialogOpen && selectedReport"
+                class="resolution-modal"
+                @click.self="closeResolutionDialog"
+            >
+                <section class="panel resolution-dialog">
+                    <div class="resolution-dialog__head">
+                        <div>
+                            <h2 class="panel__title">Выбор решения</h2>
+                            <p>
+                                {{ reportTargetTitle(selectedReport) }} ·
+                                {{ formatTargetType(selectedReport.target_type) }}
+                            </p>
+                        </div>
+                        <button
+                            class="resolution-dialog__close"
+                            type="button"
+                            aria-label="Закрыть"
+                            @click="closeResolutionDialog"
+                        >
+                            <X :size="18" />
+                        </button>
+                    </div>
+
+                    <label
+                        v-for="option in resolutionOptions(selectedReport)"
+                        :key="option.value"
+                        class="resolution-option"
+                    >
+                        <input
+                            v-model="selectedResolutionAction"
+                            type="radio"
+                            :value="option.value"
+                        />
+                        <span>
+                            <strong>{{ resolutionActionLabels[option.value] }}</strong>
+                            <small>{{ option.hint }}</small>
+                        </span>
+                    </label>
+
+                    <p
+                        v-if="selectedResolutionIsFinalWarning"
+                        class="resolution-warning"
+                    >
+                        Это третье предупреждение: после применения решения аккаунт будет автоматически заблокирован.
+                    </p>
+
+                    <div class="resolution-dialog__actions">
+                        <UiButton variant="ghost" @click="closeResolutionDialog">
+                            Отмена
+                        </UiButton>
+                        <UiButton @click="submitResolution">
+                            Применить решение
+                        </UiButton>
+                    </div>
+                </section>
+            </div>
+        </Teleport>
     </section>
 </template>
 
@@ -953,6 +1068,10 @@ onMounted(() => {
     align-items: start;
     flex-direction: column;
     gap: 4px;
+}
+
+.admin-actions {
+    justify-content: flex-start;
 }
 
 .report-badges {
@@ -1093,10 +1212,87 @@ onMounted(() => {
 
 .user-actions {
     display: grid;
-    grid-template-columns: 38px minmax(120px, 150px) 38px;
+    grid-template-columns: 38px minmax(120px, 150px) 38px auto;
     align-items: center;
     justify-content: end;
     gap: 8px;
+}
+
+.user-blocked {
+    width: fit-content;
+    color: var(--color-red) !important;
+    font-weight: 900;
+}
+
+.resolution-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: grid;
+    place-items: center;
+    padding: 18px;
+    background: rgba(7, 30, 15, 0.58);
+}
+
+.resolution-dialog {
+    display: grid;
+    gap: 14px;
+    width: min(560px, 100%);
+    background: var(--color-surface);
+}
+
+.resolution-dialog__head,
+.resolution-dialog__actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.resolution-dialog__head p {
+    margin: 4px 0 0;
+    color: var(--color-muted);
+    font-weight: 800;
+}
+
+.resolution-dialog__close {
+    display: grid;
+    width: 36px;
+    height: 36px;
+    place-items: center;
+    border: 0;
+    border-radius: var(--radius-sm);
+    color: var(--color-muted);
+    background: var(--color-surface-soft);
+    cursor: pointer;
+}
+
+.resolution-option {
+    display: flex;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.64);
+    cursor: pointer;
+}
+
+.resolution-option span {
+    display: grid;
+    gap: 4px;
+}
+
+.resolution-option small,
+.resolution-warning {
+    color: var(--color-muted);
+    font-weight: 800;
+}
+
+.resolution-warning {
+    padding: 12px;
+    border-radius: var(--radius-sm);
+    color: #815b00;
+    background: #fff0b8;
 }
 
 .user-edit {

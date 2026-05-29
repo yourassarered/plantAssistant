@@ -61,6 +61,7 @@ const showPhotoManager = computed(() => pageMode.value === "photos");
 const currentPlantId = computed(
   () => editingPlant.value?.apiId || route.params.id,
 );
+const isPublicLocked = computed(() => Boolean(editingPlant.value?.isPublicLocked));
 const backTarget = computed(() =>
   route.params.id
     ? `/plants/${editingPlant.value?.id || route.params.id}`
@@ -233,7 +234,9 @@ const fillForm = () => {
       room: normalizeString(editingPlant.value.room, "Без комнаты"),
       height: normalizeNumber(editingPlant.value.height, 1),
       plantedAt: editingPlant.value.plantedAt || today,
-      isPublic: normalizeBoolean(editingPlant.value.isPublic),
+      isPublic: isPublicLocked.value
+        ? false
+        : normalizeBoolean(editingPlant.value.isPublic),
       waterEnabled: waterCare.enabled,
       waterEveryDays: waterCare.everyDays,
       feedEnabled: feedCare.enabled,
@@ -438,14 +441,16 @@ watch([() => route.params.id, () => route.name], loadPage);
               <strong>Публичность</strong>
               <small>
                 {{
-                  isPublic
+                  isPublicLocked
+                    ? "Растение скрыто модератором: повторная публикация недоступна"
+                    : isPublic
                     ? "Растение видно в публичной ленте"
                     : "Растение видно только вам"
                 }}
               </small>
             </span>
             <span class="plant-public-toggle__control">
-              <input v-model="isPublic" type="checkbox" />
+              <input v-model="isPublic" :disabled="isPublicLocked" type="checkbox" />
               <span></span>
             </span>
           </label>

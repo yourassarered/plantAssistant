@@ -20,6 +20,8 @@ class ReportResource extends JsonResource
             'target' => $this->resolveTarget(),
             'moderation_effect' => $this->resolveModerationEffect(),
             'admin_comment' => $this->admin_comment,
+            'resolution_action' => $this->resolution_action,
+            'resolution_summary' => $this->resolution_summary,
             'reporter' => new UserResource($this->whenLoaded('reporter')),
             'reviewer' => new UserResource($this->whenLoaded('reviewer')),
             'reviewed_at' => $this->reviewed_at?->toISOString(),
@@ -44,6 +46,8 @@ class ReportResource extends JsonResource
                     'owner_id' => $plant->user?->id,
                     'owner_name' => $plant->user?->name,
                     'is_public' => (bool) $plant->is_public,
+                    'is_public_locked' => (bool) $plant->is_public_locked,
+                    'public_hidden_at' => $plant->public_hidden_at?->toISOString(),
                 ],
             ];
         }
@@ -63,13 +67,19 @@ class ReportResource extends JsonResource
                     'status' => $tip->status,
                     'author_id' => $tip->author?->id,
                     'author_name' => $tip->author?->name,
+                    'author_warnings_count' => $tip->author?->warnings_count,
+                    'author_blocked_at' => $tip->author?->blocked_at?->toISOString(),
+                    'deleted_at' => $tip->deleted_at?->toISOString(),
                 ],
                 'plant' => [
                     'id' => $tip->plant?->id,
                     'name' => $tip->plant?->name,
                     'owner_id' => $tip->plant?->user?->id,
                     'owner_name' => $tip->plant?->user?->name,
+                    'owner_warnings_count' => $tip->plant?->user?->warnings_count,
+                    'owner_blocked_at' => $tip->plant?->user?->blocked_at?->toISOString(),
                     'is_public' => (bool) $tip->plant?->is_public,
+                    'is_public_locked' => (bool) $tip->plant?->is_public_locked,
                 ],
             ];
         }
@@ -79,6 +89,13 @@ class ReportResource extends JsonResource
 
     private function resolveModerationEffect(): array
     {
+        if ($this->resolution_summary) {
+            return [
+                'code' => $this->resolution_action ?: 'custom_resolution',
+                'summary' => $this->resolution_summary,
+            ];
+        }
+
         if ($this->target_type === Report::TARGET_TIP) {
             return match ($this->status) {
                 'accepted' => [

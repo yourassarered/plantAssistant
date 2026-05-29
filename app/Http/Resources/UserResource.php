@@ -19,12 +19,17 @@ class UserResource extends JsonResource
             || $request->user()?->isAdmin()
             || $request->is('api/auth/login')
             || $request->is('api/auth/register');
+        $canSeeModeration = (bool) $request->user()?->isAdmin();
 
         return [
             'id' => $this->id,
             'name' => $this->name,
             'email' => $this->when($canSeeEmail, $this->email),
             'rank' => $this->rank,
+            'warnings_count' => $this->when($canSeeModeration, (int) $this->warnings_count),
+            'blocked_at' => $this->when($canSeeModeration, $this->blocked_at?->toISOString()),
+            'block_reason' => $this->when($canSeeModeration, $this->block_reason),
+            'is_blocked' => $this->when($canSeeModeration, $this->isBlocked()),
             'avatar_url' => $this->avatar_path
                 ? Storage::disk('public')->url($this->avatar_path)
                 : asset('images/placeholders/avatar-placeholder.png'),

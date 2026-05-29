@@ -56,7 +56,7 @@ Route::get('/users/{id}', [UserController::class, 'show']);
 // PROTECTED ROUTES (Require Authentication)
 // ============================================================================
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'not_blocked'])->group(function () {
 
     // ========================================================================
     // AUTHENTICATION
@@ -80,6 +80,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware(['admin', 'throttle:admin-actions'])->group(function () {
         Route::delete('/users/{id}', [UserController::class, 'destroy']);
         Route::put('/users/{id}', [UserController::class, 'adminUpdate']);
+        Route::post('/users/{id}/block', [UserController::class, 'block']);
         Route::put('/users/{id}/role', [UserController::class, 'updateRole']);
         Route::delete('/users/{id}/avatar', [AvatarController::class, 'destroyForUser']);
 
@@ -162,6 +163,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/plants/{plantId}/reports', [ReportController::class, 'reportPlant']);
     Route::post('/tips/{tipId}/reports', [ReportController::class, 'reportTip']);
+    Route::get('/reports/my', [ReportController::class, 'myReports']);
 
     // ========================================================================
     // LIKES

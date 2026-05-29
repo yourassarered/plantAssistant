@@ -9,13 +9,17 @@ use App\Http\Resources\UserResource;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\ModeratorAuditLogger;
+use App\Services\UserSanctionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
-    public function __construct(private readonly ModeratorAuditLogger $audit) {}
+    public function __construct(
+        private readonly ModeratorAuditLogger $audit,
+        private readonly UserSanctionService $sanctions,
+    ) {}
 
     public function index(Request $request)
     {
@@ -191,6 +195,39 @@ class UserController extends Controller
             payload: [
                 'name' => $user->name,
                 'role_name' => $request->string('role_name')->value(),
+            ],
+            request: $request
+        );
+
+        return new UserResource($user->fresh('role'));
+    }
+
+    public function block(Request $request, $id)
+    {
+        $this->authorize('manage', User::class);
+
+        $user = User::with('role')->findOrFail($id);
+
+        if ($user->id === $request->user()->id) {
+            return response()->json([
+                'message' => 'Нельзя заблокировать собственный аккаунт',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'reason' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $this->sanctions->block($user, $validated['reason'] ?? 'Аккаунт заблокирован администратором.');
+
+        $this->audit->log(
+            actor: $request->user(),
+            action: 'user.block',
+            targetType: User::class,
+            targetId: $user->id,
+            payload: [
+                'name' => $user->name,
+                'reason' => $validated['reason'] ?? null,
             ],
             request: $request
         );

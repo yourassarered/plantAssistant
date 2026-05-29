@@ -91,12 +91,18 @@ export const useAdminStore = defineStore("admin", {
                 this.loading = false;
             }
         },
-        async reviewReport(reportId, status, adminComment = "") {
+        async reviewReport(
+            reportId,
+            status,
+            adminComment = "",
+            resolutionAction = null,
+        ) {
             const payload = await apiClient.put(
                 `/admin/reports/${reportId}/review`,
                 {
                     status,
                     admin_comment: adminComment,
+                    resolution_action: resolutionAction,
                 },
             );
             const updated = payload.data || payload;
@@ -126,6 +132,16 @@ export const useAdminStore = defineStore("admin", {
         async deleteUser(userId) {
             await apiClient.delete(`/users/${userId}`);
             this.users = this.users.filter((user) => user.id !== userId);
+        },
+        async blockUser(userId, reason = "") {
+            const payload = await apiClient.post(`/users/${userId}/block`, {
+                reason,
+            });
+            const updated = payload.data || payload;
+            this.users = this.users.map((user) =>
+                user.id === updated.id ? updated : user,
+            );
+            return updated;
         },
     },
 });

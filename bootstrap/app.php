@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\AdminMiddleware;
+use App\Http\Middleware\EnsureUserIsNotBlocked;
 use App\Http\Middleware\ForceJsonResponse;
 use App\Http\Middleware\TrackApiTraffic;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -28,6 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'admin' => AdminMiddleware::class,
+            'not_blocked' => EnsureUserIsNotBlocked::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

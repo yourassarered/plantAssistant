@@ -182,6 +182,16 @@
                                     "admin_comment": {
                                         "type": "string",
                                         "maxLength": 1000
+                                    },
+                                    "resolution_action": {
+                                        "type": "string",
+                                        "enum": [
+                                            "tip_delete_rank",
+                                            "block_user",
+                                            "tip_warn_rank",
+                                            "hide_plant",
+                                            "warn_user"
+                                        ]
                                     }
                                 }
                             }
@@ -2048,6 +2058,28 @@
                 }
             }
         },
+        "/api/reports/my": {
+            "get": {
+                "tags": [
+                    "Reports"
+                ],
+                "summary": "GET /api/reports/my",
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                }
+            }
+        },
         "/api/rooms": {
             "get": {
                 "tags": [
@@ -2808,6 +2840,51 @@
                         }
                     }
                 ]
+            }
+        },
+        "/api/users/{id}/block": {
+            "post": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "POST /api/users/{id}/block",
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
+                    "201": {
+                        "description": "Created"
+                    }
+                },
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object"
+                            }
+                        }
+                    }
+                }
             }
         },
         "/api/users/{id}/role": {

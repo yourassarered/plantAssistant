@@ -17,6 +17,16 @@ class ReviewReportRequest extends FormRequest
         return [
             'status' => ['required', Rule::in(['accepted', 'rejected'])],
             'admin_comment' => 'nullable|string|max:1000',
+            'resolution_action' => [
+                'nullable',
+                Rule::in([
+                    'tip_delete_rank',
+                    'block_user',
+                    'tip_warn_rank',
+                    'hide_plant',
+                    'warn_user',
+                ]),
+            ],
         ];
     }
 }

@@ -14,6 +14,10 @@ class Plant extends Model
         'planted_at',
         'height',
         'is_public',
+        'public_hidden_at',
+        'public_hidden_by',
+        'public_hidden_reason',
+        'is_public_locked',
         'user_id',
         'room_id',
     ];
@@ -21,6 +25,8 @@ class Plant extends Model
     protected $casts = [
         'planted_at' => 'datetime',
         'is_public' => 'boolean',
+        'public_hidden_at' => 'datetime',
+        'is_public_locked' => 'boolean',
         'height' => 'float',
     ];
 

@@ -23,6 +23,8 @@ class Report extends Model
         'reason',
         'details',
         'admin_comment',
+        'resolution_action',
+        'resolution_summary',
         'reviewed_by',
         'reviewed_at',
     ];

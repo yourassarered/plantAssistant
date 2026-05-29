@@ -24,6 +24,9 @@ class PlantResource extends JsonResource
             'planted_at' => $this->planted_at?->toISOString(),
             'height' => $this->height,
             'is_public' => $this->is_public,
+            'is_public_locked' => (bool) $this->is_public_locked,
+            'public_hidden_at' => $this->public_hidden_at?->toISOString(),
+            'public_hidden_reason' => $this->when($canManage, $this->public_hidden_reason),
             'user_id' => $this->user_id,
             'user' => new UserResource($this->whenLoaded('user')),
             'owner' => $this->when(

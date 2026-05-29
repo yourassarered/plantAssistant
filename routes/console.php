@@ -189,9 +189,10 @@ Artisan::command('openapi:generate', function () {
                                 'type' => 'object',
                                 'required' => ['status'],
                                 'properties' => [
-                                    'status' => ['type' => 'string', 'enum' => ['accepted', 'rejected']],
-                                    'admin_comment' => ['type' => 'string', 'maxLength' => 1000],
-                                ],
+	                                    'status' => ['type' => 'string', 'enum' => ['accepted', 'rejected']],
+	                                    'admin_comment' => ['type' => 'string', 'maxLength' => 1000],
+	                                    'resolution_action' => ['type' => 'string', 'enum' => ['tip_delete_rank', 'block_user', 'tip_warn_rank', 'hide_plant', 'warn_user']],
+	                                ],
                             ],
                         ],
                     ],

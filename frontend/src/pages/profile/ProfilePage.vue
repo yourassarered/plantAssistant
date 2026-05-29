@@ -8,6 +8,8 @@ import { useAuthStore } from "@/entities/auth/model/auth.store";
 import { useDashboardStore } from "@/entities/dashboard/model/dashboard.store";
 import { usePlantStore } from "@/entities/plant/model/plant.store";
 import { useTaskStore } from "@/entities/task/model/task.store";
+import { apiClient } from "@/shared/api/client";
+import { unwrapApiCollection } from "@/shared/api/mappers";
 import CareCompletionChart from "@/shared/charts/CareCompletionChart.vue";
 import UiButton from "@/shared/ui/UiButton.vue";
 import UiField from "@/shared/ui/UiField.vue";
@@ -49,7 +51,19 @@ const avatarDragStart = ref({
     cropSize: 0,
 });
 const isProfileEditing = ref(false);
+const myReports = ref([]);
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const reportStatusLabels = {
+    pending: "На рассмотрении",
+    accepted: "Принята",
+    rejected: "Отклонена",
+};
+
+const reportTypeLabels = {
+    plant: "Растение",
+    tip: "Совет",
+};
 
 const title = computed(() => (mode.value === "login" ? "Вход" : "Регистрация"));
 
@@ -57,7 +71,26 @@ const refreshPrivateData = async () => {
     await plantStore.loadPlants("private");
     taskStore.syncFromPlants(plantStore.all);
     await dashboardStore.load();
+    await loadMyReports();
 };
+
+const loadMyReports = async () => {
+    const payload = await apiClient.get("/reports/my?per_page=20");
+    myReports.value = unwrapApiCollection(payload);
+};
+
+const reportTitle = (report) => {
+    if (report.target_type === "plant") {
+        return report.target?.plant?.name || `Растение #${report.target_id}`;
+    }
+
+    return report.target?.plant?.name
+        ? `Совет к растению «${report.target.plant.name}»`
+        : `Совет #${report.target_id}`;
+};
+
+const reportStatus = (status) => reportStatusLabels[status] || status;
+const reportType = (type) => reportTypeLabels[type] || type;
 
 const redirectAfterAuth = async () => {
     const redirect = route.query.redirect;
@@ -754,6 +787,26 @@ onMounted(async () => {
                 >
             </article>
         </section>
+
+        <section v-if="authStore.isAuthenticated" class="panel reports-card">
+            <h2 class="panel__title">Мои жалобы</h2>
+            <article
+                v-for="report in myReports"
+                :key="report.id"
+                class="report-status-row"
+            >
+                <div>
+                    <strong>{{ reportTitle(report) }}</strong>
+                    <span>{{ reportType(report.target_type) }} · {{ reportStatus(report.status) }}</span>
+                </div>
+                <p>
+                    {{ report.resolution_summary || report.admin_comment || "Решение пока не вынесено." }}
+                </p>
+            </article>
+            <p v-if="!myReports.length" class="reports-card__empty">
+                Вы пока не отправляли жалобы.
+            </p>
+        </section>
     </section>
 </template>
 
@@ -1037,6 +1090,37 @@ onMounted(async () => {
 }
 
 .dashboard-card span {
+    color: var(--color-muted);
+    font-weight: 800;
+}
+
+.reports-card {
+    display: grid;
+    gap: 12px;
+}
+
+.report-status-row {
+    display: grid;
+    gap: 8px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.report-status-row:last-of-type {
+    border-bottom: 0;
+}
+
+.report-status-row div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.report-status-row span,
+.report-status-row p,
+.reports-card__empty {
+    margin: 0;
     color: var(--color-muted);
     font-weight: 800;
 }

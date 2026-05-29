@@ -61,6 +61,12 @@ class AuthController extends Controller
             ]);
         }
 
+        if ($user->isBlocked()) {
+            throw ValidationException::withMessages([
+                'email' => ['Аккаунт заблокирован. Вход в систему недоступен.'],
+            ]);
+        }
+
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([

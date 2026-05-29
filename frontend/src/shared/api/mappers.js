@@ -155,6 +155,9 @@ export const mapApiPlant = (plant) => {
         plantedAt: dateOnly(plant.planted_at),
         note: plant.is_public ? "Публичное растение" : "Личное растение",
         isPublic: Boolean(plant.is_public),
+        isPublicLocked: Boolean(plant.is_public_locked),
+        publicHiddenAt: dateOnly(plant.public_hidden_at),
+        publicHiddenReason: stringValue(plant.public_hidden_reason, ""),
         likesCount: numberValue(plant.likes_count, 0),
         userLiked: Boolean(
             plant.user_liked ??

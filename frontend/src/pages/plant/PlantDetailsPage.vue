@@ -139,6 +139,7 @@ const canReportPlant = computed(
 const canLikePlant = computed(
   () => authStore.isAuthenticated && plant.value?.isPublic && !isOwnPlant.value,
 );
+const isPublicLocked = computed(() => Boolean(plant.value?.isPublicLocked));
 const canShowCalendar = computed(() => Boolean(plant.value));
 
 const {
@@ -708,7 +709,7 @@ const openEditDialog = () => {
       room: plant.value.room || "",
       height: normalizedNumber(plant.value.height, 1),
       plantedAt: plant.value.plantedAt || today,
-      isPublic: Boolean(plant.value.isPublic),
+      isPublic: isPublicLocked.value ? false : Boolean(plant.value.isPublic),
       waterEnabled: waterCare.enabled,
       waterEveryDays: waterCare.everyDays,
       feedEnabled: feedCare.enabled,
@@ -1402,14 +1403,16 @@ watch(() => route.params.id, () => {
               <strong>Публичность</strong>
               <small>
                 {{
-                  editIsPublic
+                  isPublicLocked
+                    ? "Растение скрыто модератором: повторная публикация недоступна"
+                    : editIsPublic
                     ? "Растение видно в публичной ленте"
                     : "Растение видно только вам"
                 }}
               </small>
             </span>
             <span class="edit-public-toggle__control">
-              <input v-model="editIsPublic" type="checkbox" />
+              <input v-model="editIsPublic" :disabled="isPublicLocked" type="checkbox" />
               <span></span>
             </span>
           </label>

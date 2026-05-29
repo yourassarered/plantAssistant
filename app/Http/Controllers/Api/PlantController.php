@@ -101,6 +101,12 @@ class PlantController extends Controller
             $this->authorize('update', $room);
         }
 
+        if (($validated['is_public'] ?? false) && $plant->is_public_locked) {
+            return response()->json([
+                'message' => 'Растение скрыто модератором и больше не может быть опубликовано.',
+            ], 422);
+        }
+
         $plant->update($validated);
 
         return new PlantResource($plant->fresh(['room', 'latestImage']));
@@ -172,6 +178,12 @@ class PlantController extends Controller
     {
         $plant = Plant::findOrFail($id);
         $this->authorize('update', $plant);
+
+        if (! $plant->is_public && $plant->is_public_locked) {
+            return response()->json([
+                'message' => 'Растение скрыто модератором и больше не может быть опубликовано.',
+            ], 422);
+        }
 
         $plant->is_public = ! $plant->is_public;
         $plant->save();

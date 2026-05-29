@@ -9,6 +9,7 @@ readonly class ReportReviewData
     public function __construct(
         public string $status,
         public ?string $adminComment,
+        public ?string $resolutionAction,
     ) {}
 
     public static function fromRequest(ReviewReportRequest $request): self
@@ -16,6 +17,7 @@ readonly class ReportReviewData
         return new self(
             status: $request->string('status')->value(),
             adminComment: $request->input('admin_comment'),
+            resolutionAction: $request->input('resolution_action'),
         );
     }
 }

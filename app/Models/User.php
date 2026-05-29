@@ -17,6 +17,9 @@ class User extends Authenticatable
         'password',
         'role_id',
         'rank',
+        'warnings_count',
+        'blocked_at',
+        'block_reason',
         'avatar_path',
     ];
 
@@ -29,6 +32,8 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
         'rank' => 'integer',
+        'warnings_count' => 'integer',
+        'blocked_at' => 'datetime',
     ];
 
     /**
@@ -90,5 +95,10 @@ class User extends Authenticatable
     public function isAdmin(): bool
     {
         return $this->role?->name === 'admin';
+    }
+
+    public function isBlocked(): bool
+    {
+        return $this->blocked_at !== null;
     }
 }
