@@ -68,6 +68,10 @@ const isGalleryFullscreen = ref(false);
 const isTipsDialogOpen = ref(false);
 const isEditDialogOpen = ref(false);
 const isReportDialogOpen = ref(false);
+const isRejectTipDialogOpen = ref(false);
+const selectedRejectedTip = ref(null);
+const rejectTipReport = ref(false);
+const rejectTipReportDetails = ref("");
 const isPlantMenuOpen = ref(false);
 let loadRequestId = 0;
 
@@ -686,6 +690,41 @@ const reportTip = async (tip) => {
   }
 };
 
+const openRejectTipDialog = (tip) => {
+  selectedRejectedTip.value = tip;
+  rejectTipReport.value = false;
+  rejectTipReportDetails.value = "";
+  isRejectTipDialogOpen.value = true;
+};
+
+const closeRejectTipDialog = () => {
+  isRejectTipDialogOpen.value = false;
+  selectedRejectedTip.value = null;
+  rejectTipReport.value = false;
+  rejectTipReportDetails.value = "";
+};
+
+const confirmRejectTip = async () => {
+  const tip = selectedRejectedTip.value;
+  if (!tip) return;
+
+  if (rejectTipReport.value && !rejectTipReportDetails.value.trim()) {
+    toast.error("Добавьте комментарий к жалобе.");
+    return;
+  }
+
+  try {
+    await socialStore.updateTipStatus(plantApiId.value, tip.id, "rejected");
+    if (rejectTipReport.value) {
+      await socialStore.reportTip(tip.id, "other", rejectTipReportDetails.value.trim());
+    }
+    toast.success(rejectTipReport.value ? "Совет отклонён, жалоба отправлена" : "Совет отклонён");
+    closeRejectTipDialog();
+  } catch (error) {
+    toast.error(error.message);
+  }
+};
+
 const updateTipStatus = async (tip, status) => {
   try {
     await socialStore.updateTipStatus(plantApiId.value, tip.id, status);
@@ -1201,12 +1240,12 @@ watch(() => route.params.id, () => {
       >
           <div class="tips-panel__head">
             <h2 class="panel__title">Советы</h2>
-            <UiBadge tone="neutral">
+            <UiBadge v-if="isOwnPlant" tone="neutral">
               <MessageCircle :size="13" />
               {{ tipsCount }}
             </UiBadge>
             <button
-              v-if="dialogTips.length"
+              v-if="isOwnPlant && dialogTips.length"
               type="button"
               class="link-button"
               @click="isTipsDialogOpen = true"
@@ -1290,7 +1329,7 @@ watch(() => route.params.id, () => {
                 <button
                   type="button"
                   class="owner-tip-action owner-tip-action--reject"
-                  @click="updateTipStatus(tip, 'rejected')"
+                  @click="openRejectTipDialog(tip)"
                 >
                   <X :size="16" />
                   Отклонить
@@ -1333,7 +1372,7 @@ watch(() => route.params.id, () => {
                     type="button"
                     class="tip-icon-button tip-icon-button--danger"
                     aria-label="&#1054;&#1090;&#1082;&#1083;&#1086;&#1085;&#1080;&#1090;&#1100; &#1089;&#1086;&#1074;&#1077;&#1090;"
-                    @click="updateTipStatus(tip, 'rejected')"
+                    @click="openRejectTipDialog(tip)"
                   >
                     <X :size="16" />
                   </button>
@@ -1352,13 +1391,63 @@ watch(() => route.params.id, () => {
             </article>
           </div>
 
-          <div v-else-if="!isOwnPlant" class="guest-tips-empty">
+          <div v-else-if="!isOwnPlant && !canSuggestForPlant" class="guest-tips-empty">
             <strong>Советов пока нет</strong>
             <p class="muted">Станьте первым, кто оставит практическую рекомендацию.</p>
           </div>
       </section>
     </div>
   </section>
+
+  <div
+    v-if="isRejectTipDialogOpen"
+    class="edit-dialog"
+    @click.self="closeRejectTipDialog"
+  >
+    <section class="edit-dialog__card reject-tip-dialog">
+      <header class="edit-dialog__head">
+        <h2 class="panel__title">Отклонить совет</h2>
+        <button
+          type="button"
+          class="edit-dialog__close"
+          aria-label="Закрыть"
+          @click="closeRejectTipDialog"
+        >
+          <X :size="18" />
+        </button>
+      </header>
+
+      <p class="muted">Совет будет отклонён и больше не будет виден в списке.</p>
+      <div class="reject-tip-dialog__report-card">
+        <label class="reject-tip-dialog__check">
+          <input v-model="rejectTipReport" type="checkbox" />
+          <span class="reject-tip-dialog__icon">
+            <Flag :size="17" />
+          </span>
+          <span class="reject-tip-dialog__copy">
+            <strong>Отправить жалобу модераторам</strong>
+            <small>Если совет нарушает правила, добавьте короткий комментарий.</small>
+          </span>
+        </label>
+        <textarea
+          v-if="rejectTipReport"
+          v-model="rejectTipReportDetails"
+          rows="4"
+          placeholder="Комментарий к жалобе"
+        />
+      </div>
+
+      <div class="edit-dialog__actions reject-tip-dialog__actions">
+        <UiButton type="button" class="reject-tip-dialog__submit" @click="confirmRejectTip">
+          <Flag v-if="rejectTipReport" :size="16" />
+          {{ rejectTipReport ? "Отклонить и отправить" : "Только отклонить" }}
+        </UiButton>
+        <UiButton type="button" variant="ghost" @click="closeRejectTipDialog">
+          Отмена
+        </UiButton>
+      </div>
+    </section>
+  </div>
 
   <div
     v-if="isEditDialogOpen"
@@ -1542,7 +1631,7 @@ watch(() => route.params.id, () => {
                 type="button"
                 class="tip-icon-button tip-icon-button--danger"
                 aria-label="&#1054;&#1090;&#1082;&#1083;&#1086;&#1085;&#1080;&#1090;&#1100; &#1089;&#1086;&#1074;&#1077;&#1090;"
-                @click="updateTipStatus(tip, 'rejected')"
+                @click="openRejectTipDialog(tip)"
               >
                 <X :size="16" />
               </button>
@@ -2184,6 +2273,7 @@ watch(() => route.params.id, () => {
 }
 
 .tip-form textarea,
+.reject-tip-dialog textarea,
 .report-panel select,
 .report-panel textarea {
   width: 100%;
@@ -2318,6 +2408,65 @@ watch(() => route.params.id, () => {
   color: var(--color-red);
   border-color: rgba(224, 69, 50, 0.22);
   background: #fff3f1;
+}
+
+.reject-tip-dialog {
+  display: grid;
+  gap: 12px;
+}
+
+.reject-tip-dialog__check {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(224, 69, 50, 0.18);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  background: #fff8f5;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.reject-tip-dialog__check input {
+  margin-top: 6px;
+  accent-color: var(--color-red);
+}
+
+.reject-tip-dialog__report-card {
+  display: grid;
+  gap: 10px;
+}
+
+.reject-tip-dialog__icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--color-red);
+  background: #ffe7df;
+}
+
+.reject-tip-dialog__copy {
+  display: grid;
+  gap: 3px;
+}
+
+.reject-tip-dialog__copy small {
+  color: var(--color-muted);
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.reject-tip-dialog__actions {
+  justify-content: flex-start;
+  gap: 14px;
+}
+
+.reject-tip-dialog__submit :deep(svg) {
+  margin-right: 6px;
 }
 
 .owner-tips-empty {

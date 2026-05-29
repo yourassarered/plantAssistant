@@ -195,7 +195,7 @@ watch(
         </div>
 
         <div v-else-if="plantStore.loading" class="panel feed-state">
-            Загружаем растения из API...
+            Загрузка растений...
         </div>
 
         <div v-else>

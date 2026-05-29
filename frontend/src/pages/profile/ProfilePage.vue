@@ -52,6 +52,7 @@ const avatarDragStart = ref({
 });
 const isProfileEditing = ref(false);
 const myReports = ref([]);
+const isReportsDialogOpen = ref(false);
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const reportStatusLabels = {
@@ -506,10 +507,15 @@ onMounted(async () => {
             <section v-else class="panel auth-panel profile-card">
                 <div class="account-card__head">
                     <h2 class="panel__title">Аккаунт</h2>
-                    <UiButton variant="ghost" @click="startProfileEdit">
-                        <Edit3 :size="17" />
-                        Редактировать
-                    </UiButton>
+                    <div class="account-card__actions">
+                        <UiButton variant="ghost" @click="startProfileEdit">
+                            <Edit3 :size="17" />
+                            Редактировать
+                        </UiButton>
+                        <UiButton variant="ghost" @click="isReportsDialogOpen = true">
+                            Мои жалобы
+                        </UiButton>
+                    </div>
                 </div>
                 <div class="account-card__body">
                     <img
@@ -525,6 +531,7 @@ onMounted(async () => {
                         <span>{{
                             authStore.user?.email || "Email загружается..."
                         }}</span>
+                        <span>Предупреждения: {{ authStore.user?.warnings_count || 0 }}/3</span>
                     </div>
                 </div>
                 <UiButton variant="ghost" @click="logout">
@@ -788,7 +795,21 @@ onMounted(async () => {
             </article>
         </section>
 
-        <section v-if="authStore.isAuthenticated" class="panel reports-card">
+        <Teleport to="body">
+        <div
+            v-if="authStore.isAuthenticated && isReportsDialogOpen"
+            class="reports-modal"
+            @click.self="isReportsDialogOpen = false"
+        >
+        <section class="panel reports-card">
+            <button
+                class="reports-card__close"
+                type="button"
+                aria-label="Закрыть"
+                @click="isReportsDialogOpen = false"
+            >
+                <X :size="18" />
+            </button>
             <h2 class="panel__title">Мои жалобы</h2>
             <article
                 v-for="report in myReports"
@@ -807,6 +828,8 @@ onMounted(async () => {
                 Вы пока не отправляли жалобы.
             </p>
         </section>
+        </div>
+        </Teleport>
     </section>
 </template>
 
@@ -838,6 +861,19 @@ onMounted(async () => {
 
 .account-card__head {
     justify-content: space-between;
+}
+
+.account-card__actions {
+    display: flex;
+    align-items: stretch;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-left: auto;
+    min-width: 0;
+}
+
+.account-card__actions :deep(.ui-button) {
+    min-height: 42px;
 }
 
 .account-card__identity {
@@ -1095,8 +1131,38 @@ onMounted(async () => {
 }
 
 .reports-card {
+    position: relative;
     display: grid;
     gap: 12px;
+    width: min(720px, 100%);
+    max-height: calc(100vh - 36px);
+    overflow-y: auto;
+    background: var(--color-surface);
+}
+
+.reports-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: grid;
+    place-items: center;
+    padding: 18px;
+    background: rgba(7, 30, 15, 0.58);
+}
+
+.reports-card__close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    display: grid;
+    width: 36px;
+    height: 36px;
+    place-items: center;
+    border: 0;
+    border-radius: var(--radius-sm);
+    color: var(--color-muted);
+    background: var(--color-surface-soft);
+    cursor: pointer;
 }
 
 .report-status-row {
@@ -1141,6 +1207,12 @@ onMounted(async () => {
     font-weight: 800;
 }
 
+@media (max-width: 920px) {
+    .profile-overview-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 @media (max-width: 680px) {
     .profile-overview-grid {
         grid-template-columns: 1fr;
@@ -1160,12 +1232,17 @@ onMounted(async () => {
 
     .account-card__head,
     .account-card__body,
+    .account-card__actions,
     .profile-edit__actions {
         align-items: stretch;
         flex-direction: column;
     }
 
-    .account-card__head :deep(.ui-button),
+    .account-card__actions {
+        margin-left: 0;
+    }
+
+    .account-card__actions :deep(.ui-button),
     .profile-edit__actions :deep(.ui-button) {
         width: 100%;
     }
