@@ -191,7 +191,7 @@ Artisan::command('openapi:generate', function () {
                                 'properties' => [
 	                                    'status' => ['type' => 'string', 'enum' => ['accepted', 'rejected']],
 	                                    'admin_comment' => ['type' => 'string', 'maxLength' => 1000],
-	                                    'resolution_action' => ['type' => 'string', 'enum' => ['tip_delete_rank', 'block_user', 'tip_warn_rank', 'hide_plant', 'warn_user']],
+	                                    'resolution_action' => ['type' => 'string', 'enum' => ['tip_delete_rank', 'block_user', 'tip_warn_rank', 'hide_plant', 'warn_user', 'delete_plant']],
 	                                ],
                             ],
                         ],
@@ -291,7 +291,7 @@ Artisan::command('openapi:generate', function () {
                                 'type' => 'object',
                                 'required' => ['resolution_action'],
                                 'properties' => [
-                                    'resolution_action' => ['type' => 'string', 'enum' => ['hide_plant', 'warn_user', 'block_user']],
+                                    'resolution_action' => ['type' => 'string', 'enum' => ['hide_plant', 'warn_user', 'block_user', 'delete_plant']],
                                     'admin_comment' => ['type' => 'string', 'maxLength' => 1000, 'nullable' => true],
                                 ],
                             ],
@@ -300,6 +300,32 @@ Artisan::command('openapi:generate', function () {
                 ],
                 'responses' => [
                     '200' => ['description' => 'Plant moderated'],
+                    '403' => ['description' => 'Forbidden'],
+                    '422' => ['description' => 'Validation error'],
+                ],
+            ],
+        ],
+        '/api/admin/tips/{tipId}/moderate' => [
+            'post' => [
+                'tags' => ['Admin Reports'],
+                'summary' => 'Directly moderate tip',
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => [
+                                'type' => 'object',
+                                'required' => ['resolution_action'],
+                                'properties' => [
+                                    'resolution_action' => ['type' => 'string', 'enum' => ['tip_delete_rank', 'tip_warn_rank', 'block_user']],
+                                    'admin_comment' => ['type' => 'string', 'maxLength' => 1000, 'nullable' => true],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+                'responses' => [
+                    '200' => ['description' => 'Tip moderated'],
                     '403' => ['description' => 'Forbidden'],
                     '422' => ['description' => 'Validation error'],
                 ],

@@ -21,6 +21,7 @@ class ModeratePlantRequest extends FormRequest
                     'hide_plant',
                     'warn_user',
                     'block_user',
+                    'delete_plant',
                 ]),
             ],
             'admin_comment' => 'nullable|string|max:1000',

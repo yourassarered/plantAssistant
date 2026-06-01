@@ -58,6 +58,7 @@ Route::middleware(['auth:sanctum', 'not_blocked'])->group(function () {
         Route::get('/admin/reports/{id}', [AdminReportController::class, 'show']);
         Route::put('/admin/reports/{id}/review', [AdminReportController::class, 'review']);
         Route::post('/admin/plants/{plantId}/moderate', [AdminReportController::class, 'moderatePlant']);
+        Route::post('/admin/tips/{tipId}/moderate', [AdminReportController::class, 'moderateTip']);
         Route::get('/admin/metrics/traffic', [AdminMetricsController::class, 'traffic']);
     });
 

@@ -123,7 +123,8 @@
                                         "enum": [
                                             "hide_plant",
                                             "warn_user",
-                                            "block_user"
+                                            "block_user",
+                                            "delete_plant"
                                         ]
                                     },
                                     "admin_comment": {
@@ -253,8 +254,72 @@
                                             "block_user",
                                             "tip_warn_rank",
                                             "hide_plant",
-                                            "warn_user"
+                                            "warn_user",
+                                            "delete_plant"
                                         ]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/tips/{tipId}/moderate": {
+            "post": {
+                "tags": [
+                    "Admin Reports"
+                ],
+                "summary": "Directly moderate tip",
+                "responses": {
+                    "200": {
+                        "description": "Tip moderated"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
+                    "201": {
+                        "description": "Created"
+                    }
+                },
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "tipId",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "resolution_action"
+                                ],
+                                "properties": {
+                                    "resolution_action": {
+                                        "type": "string",
+                                        "enum": [
+                                            "tip_delete_rank",
+                                            "tip_warn_rank",
+                                            "block_user"
+                                        ]
+                                    },
+                                    "admin_comment": {
+                                        "type": "string",
+                                        "maxLength": 1000,
+                                        "nullable": true
                                     }
                                 }
                             }

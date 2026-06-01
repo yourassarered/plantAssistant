@@ -17,6 +17,7 @@ class FeedQueryService
             ->withCount($this->reportSummaryCounts())
             ->withCount('likes');
 
+        $this->excludeOwnPlants($query, $userId);
         $this->applyCommonFilters($query, $filters);
         $this->applySort($query, $filters);
 
@@ -29,7 +30,6 @@ class FeedQueryService
     public function personalFeed(int $userId, QueryFiltersData $filters): array
     {
         $followingIds = Follow::where('follower_id', $userId)->pluck('following_id')->toArray();
-        $followingIds[] = $userId;
 
         $query = Plant::where('is_public', true)
             ->whereIn('user_id', $followingIds)
@@ -37,6 +37,7 @@ class FeedQueryService
             ->withCount($this->reportSummaryCounts())
             ->withCount('likes');
 
+        $this->excludeOwnPlants($query, $userId);
         $this->applyCommonFilters($query, $filters);
         $this->applySort($query, $filters);
 
@@ -55,6 +56,7 @@ class FeedQueryService
             ->withCount('likes')
             ->orderByDesc('likes_count');
 
+        $this->excludeOwnPlants($query, $userId);
         $this->applyCommonFilters($query, $filters);
 
         return [
@@ -92,6 +94,7 @@ class FeedQueryService
             ->withCount('likes')
             ->orderByDesc('created_at');
 
+        $this->excludeOwnPlants($query, $userId);
         $this->applyCommonFilters($query, $filters);
 
         return [
@@ -114,6 +117,7 @@ class FeedQueryService
             ->withCount('likes')
             ->orderByDesc('likes_count');
 
+        $this->excludeOwnPlants($query, $userId);
         $this->applyCommonFilters($query, $filters);
 
         return [
@@ -130,6 +134,7 @@ class FeedQueryService
             ->withCount($this->reportSummaryCounts())
             ->withCount('likes');
 
+        $this->excludeOwnPlants($query, $userId);
         $this->applyCommonFilters($query, $filters);
         $this->applySort($query, $filters);
 
@@ -148,6 +153,13 @@ class FeedQueryService
         }
 
         return Like::where('user_id', $userId)->pluck('plant_id')->toArray();
+    }
+
+    private function excludeOwnPlants($query, ?int $userId): void
+    {
+        if ($userId) {
+            $query->where('user_id', '!=', $userId);
+        }
     }
 
     private function applyCommonFilters($query, QueryFiltersData $filters): void

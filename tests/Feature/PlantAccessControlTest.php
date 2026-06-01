@@ -5,9 +5,11 @@ namespace Tests\Feature;
 use App\Models\CareLog;
 use App\Models\CareSetting;
 use App\Models\Plant;
+use App\Models\Role;
 use App\Models\Tip;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class PlantAccessControlTest extends TestCase
@@ -143,5 +145,28 @@ class PlantAccessControlTest extends TestCase
         $this->actingAs($viewer)
             ->getJson("/api/plants/{$plant->id}/tips")
             ->assertForbidden();
+    }
+
+    public function test_admin_cannot_delete_foreign_plant_via_regular_endpoint(): void
+    {
+        Role::firstOrCreate(['name' => 'admin']);
+
+        $owner = User::factory()->create();
+        $admin = User::factory()->admin()->create();
+        $plant = Plant::create([
+            'name' => 'Owner plant',
+            'planted_at' => now()->toDateString(),
+            'is_public' => true,
+            'user_id' => $owner->id,
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        $this->deleteJson("/api/plants/{$plant->id}")
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('plants', [
+            'id' => $plant->id,
+        ]);
     }
 }

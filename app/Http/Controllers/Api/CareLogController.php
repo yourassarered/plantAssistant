@@ -18,7 +18,7 @@ class CareLogController extends Controller
     public function index(Request $request, $plantId)
     {
         $plant = Plant::findOrFail($plantId);
-        $this->authorize('update', $plant);
+        $this->authorize('create', [CareLog::class, $plant->user_id]);
 
         $logs = CareLog::where('plant_id', $plantId)
             ->orderBy('performed_at', 'desc')

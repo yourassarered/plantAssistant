@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\CareLog;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Storage;
@@ -17,6 +18,10 @@ class PlantResource extends JsonResource
     {
         $canManage = (bool) $request->user()?->can('update', $this->resource);
         $canDelete = (bool) $request->user()?->can('delete', $this->resource);
+        $canCompleteCare = (bool) $request->user()?->can('create', [
+            CareLog::class,
+            $this->user_id,
+        ]);
 
         return [
             'id' => $this->id,
@@ -63,7 +68,7 @@ class PlantResource extends JsonResource
             ),
             'can_manage' => $canManage,
             'can_delete' => $canDelete,
-            'can_complete_care' => $canManage,
+            'can_complete_care' => $canCompleteCare,
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];

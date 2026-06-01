@@ -19,7 +19,7 @@ class PlantPolicy
 
     public function delete(User $user, Plant $plant): bool
     {
-        return $plant->user_id === $user->id || $user->isAdmin();
+        return $plant->user_id === $user->id;
     }
 
     public function create(User $user): bool

@@ -25,7 +25,7 @@ class TipPolicy
 
     public function updateStatus(User $user, Tip $tip): bool
     {
-        return $tip->plant->user_id === $user->id || $user->isAdmin();
+        return $tip->plant->user_id === $user->id;
     }
 
     public function delete(User $user, Tip $tip): bool

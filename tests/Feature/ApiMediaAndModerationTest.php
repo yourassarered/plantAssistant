@@ -128,6 +128,68 @@ class ApiMediaAndModerationTest extends TestCase
         $this->assertSame(4, $tipAuthor->refresh()->rank);
     }
 
+    public function test_admin_can_delete_plant_through_direct_moderation(): void
+    {
+        Role::firstOrCreate(['name' => 'admin']);
+
+        $owner = User::factory()->create();
+        $admin = User::factory()->admin()->create();
+        $plant = Plant::create([
+            'name' => 'Palm',
+            'planted_at' => now()->subMonths(2),
+            'is_public' => true,
+            'user_id' => $owner->id,
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        $this->postJson("/api/admin/plants/{$plant->id}/moderate", [
+            'resolution_action' => 'delete_plant',
+            'admin_comment' => 'Удалено модератором.',
+        ])->assertOk()
+            ->assertJsonPath('message', 'Растение удалено модератором.');
+
+        $this->assertDatabaseMissing('plants', [
+            'id' => $plant->id,
+        ]);
+    }
+
+    public function test_admin_can_delete_plant_when_accepting_report(): void
+    {
+        Role::firstOrCreate(['name' => 'admin']);
+
+        $owner = User::factory()->create();
+        $reporter = User::factory()->create();
+        $admin = User::factory()->admin()->create();
+        $plant = Plant::create([
+            'name' => 'Rosemary',
+            'planted_at' => now()->subMonths(4),
+            'is_public' => true,
+            'user_id' => $owner->id,
+        ]);
+
+        Sanctum::actingAs($reporter);
+
+        $reportId = $this->postJson("/api/plants/{$plant->id}/reports", [
+            'reason' => 'spam',
+            'details' => 'Повторяющиеся и нежелательные публикации.',
+        ])->assertCreated()->json('data.id');
+
+        Sanctum::actingAs($admin);
+
+        $this->putJson("/api/admin/reports/{$reportId}/review", [
+            'status' => 'accepted',
+            'resolution_action' => 'delete_plant',
+            'admin_comment' => 'Растение удалено после проверки жалобы.',
+        ])->assertOk()
+            ->assertJsonPath('data.status', 'accepted')
+            ->assertJsonPath('data.resolution_action', 'delete_plant');
+
+        $this->assertDatabaseMissing('plants', [
+            'id' => $plant->id,
+        ]);
+    }
+
     public function test_non_admin_cannot_access_admin_reports(): void
     {
         Sanctum::actingAs(User::factory()->create());

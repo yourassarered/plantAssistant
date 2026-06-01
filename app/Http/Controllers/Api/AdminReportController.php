@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\DTO\ReportReviewData;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\ModeratePlantRequest;
+use App\Http\Requests\Api\ModerateTipRequest;
 use App\Http\Requests\Api\ReviewReportRequest;
 use App\Http\Resources\PlantResource;
 use App\Http\Resources\ReportResource;
@@ -114,38 +115,98 @@ class AdminReportController extends Controller
     {
         $this->authorize('viewAny', Report::class);
 
-        $plant = DB::transaction(function () use ($request, $plantId) {
+        $action = $request->string('resolution_action')->value();
+
+        $result = DB::transaction(function () use ($request, $plantId, $action) {
             $plant = Plant::with('user')->lockForUpdate()->findOrFail($plantId);
 
-            $this->applyPlantAction(
+            $resolution = $this->applyPlantAction(
                 $plant,
-                $request->string('resolution_action')->value(),
+                $action,
                 $request->input('admin_comment'),
                 (int) $request->user()->id,
             );
 
-            return $plant->fresh(['user.role', 'room', 'latestImage', 'careSettings', 'likes'])
-                ->loadCount('likes')
-                ->loadCount([
-                    'reports as pending_reports_count' => fn ($query) => $query->where('status', 'pending'),
-                    'reports as accepted_reports_count' => fn ($query) => $query->where('status', 'accepted'),
-                    'reports as rejected_reports_count' => fn ($query) => $query->where('status', 'rejected'),
-                ]);
+            if ($action === 'delete_plant') {
+                return [
+                    'deleted' => true,
+                    'message' => $resolution,
+                ];
+            }
+
+            return [
+                'deleted' => false,
+                'message' => $resolution,
+                'plant' => $plant->fresh(['user.role', 'room', 'latestImage', 'careSettings', 'likes'])
+                    ->loadCount('likes')
+                    ->loadCount([
+                        'reports as pending_reports_count' => fn ($query) => $query->where('status', 'pending'),
+                        'reports as accepted_reports_count' => fn ($query) => $query->where('status', 'accepted'),
+                        'reports as rejected_reports_count' => fn ($query) => $query->where('status', 'rejected'),
+                    ]),
+            ];
         });
 
         $this->audit->log(
             actor: $request->user(),
             action: 'plant.moderate_direct',
             targetType: Plant::class,
-            targetId: $plant->id,
+            targetId: $plantId,
             payload: [
-                'resolution_action' => $request->string('resolution_action')->value(),
+                'resolution_action' => $action,
                 'admin_comment' => $request->input('admin_comment'),
             ],
             request: $request
         );
 
-        return new PlantResource($plant);
+        if ($result['deleted']) {
+            return response()->json([
+                'message' => $result['message'],
+            ]);
+        }
+
+        return (new PlantResource($result['plant']))->additional([
+            'message' => $result['message'],
+        ]);
+    }
+
+    public function moderateTip(ModerateTipRequest $request, int $tipId)
+    {
+        $this->authorize('viewAny', Report::class);
+
+        $tip = Tip::withTrashed()
+            ->with(['author.role', 'plant.user.role'])
+            ->findOrFail($tipId);
+
+        $resolution = DB::transaction(function () use ($request, $tip) {
+            $lockedTip = Tip::withTrashed()
+                ->with(['author', 'plant.user'])
+                ->lockForUpdate()
+                ->findOrFail($tip->id);
+
+            return $this->moderateTipAction(
+                $lockedTip,
+                $request->string('resolution_action')->value(),
+                $request->input('admin_comment'),
+            );
+        });
+
+        $this->audit->log(
+            actor: $request->user(),
+            action: 'tip.moderate_direct',
+            targetType: Tip::class,
+            targetId: $tip->id,
+            payload: [
+                'resolution_action' => $request->string('resolution_action')->value(),
+                'admin_comment' => $request->input('admin_comment'),
+                'plant_id' => $tip->plant_id,
+            ],
+            request: $request
+        );
+
+        return response()->json([
+            'message' => $resolution,
+        ]);
     }
 
     private function hydrateTargets(Collection $reports): void
@@ -191,7 +252,7 @@ class AdminReportController extends Controller
     {
         $allowedActions = $report->target_type === Report::TARGET_TIP
             ? ['tip_delete_rank', 'block_user', 'tip_warn_rank']
-            : ['hide_plant', 'block_user', 'warn_user'];
+            : ['hide_plant', 'block_user', 'warn_user', 'delete_plant'];
 
         if (! $action || ! in_array($action, $allowedActions, true)) {
             throw ValidationException::withMessages([
@@ -207,6 +268,11 @@ class AdminReportController extends Controller
     private function applyTipResolution(Report $report, string $action, ?string $comment): string
     {
         $tip = Tip::withTrashed()->with('author')->lockForUpdate()->findOrFail($report->target_id);
+        return $this->moderateTipAction($tip, $action, $comment);
+    }
+
+    private function moderateTipAction(Tip $tip, string $action, ?string $comment): string
+    {
         $author = $tip->author;
 
         if (! $author) {
@@ -253,6 +319,12 @@ class AdminReportController extends Controller
     private function applyPlantAction(Plant $plant, string $action, ?string $comment, ?int $moderatorId): string
     {
         $owner = $plant->user;
+
+        if ($action === 'delete_plant') {
+            $plant->delete();
+
+            return 'Растение удалено модератором.';
+        }
 
         if ($action === 'hide_plant') {
             $plant->update([

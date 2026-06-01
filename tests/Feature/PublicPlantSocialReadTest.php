@@ -109,6 +109,34 @@ class PublicPlantSocialReadTest extends TestCase
         $this->assertFalse($plants->firstWhere('id', $otherPlant->id)['user_liked']);
     }
 
+    public function test_public_feed_excludes_current_user_plants_for_authenticated_viewer(): void
+    {
+        $viewer = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $ownPlant = Plant::create([
+            'name' => 'My fern',
+            'planted_at' => now()->toDateString(),
+            'is_public' => true,
+            'user_id' => $viewer->id,
+        ]);
+        $otherPlant = Plant::create([
+            'name' => 'Other fern',
+            'planted_at' => now()->toDateString(),
+            'is_public' => true,
+            'user_id' => $otherUser->id,
+        ]);
+        $token = $viewer->createToken('test-token')->plainTextToken;
+
+        $plants = collect($this
+            ->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/feed')
+            ->assertOk()
+            ->json('data'));
+
+        $this->assertFalse($plants->contains('id', $ownPlant->id));
+        $this->assertTrue($plants->contains('id', $otherPlant->id));
+    }
+
     public function test_liked_feed_returns_viewer_liked_plants(): void
     {
         $owner = User::factory()->create();
@@ -138,6 +166,37 @@ class PublicPlantSocialReadTest extends TestCase
         $this->assertTrue($plants->contains('id', $likedPlant->id));
         $this->assertFalse($plants->contains('id', $otherPlant->id));
         $this->assertTrue($plants->firstWhere('id', $likedPlant->id)['user_liked']);
+    }
+
+    public function test_liked_feed_excludes_current_user_own_liked_plants(): void
+    {
+        $viewer = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $ownLikedPlant = Plant::create([
+            'name' => 'My liked fern',
+            'planted_at' => now()->toDateString(),
+            'is_public' => true,
+            'user_id' => $viewer->id,
+        ]);
+        $otherLikedPlant = Plant::create([
+            'name' => 'Other liked fern',
+            'planted_at' => now()->toDateString(),
+            'is_public' => true,
+            'user_id' => $otherUser->id,
+        ]);
+
+        Like::create(['user_id' => $viewer->id, 'plant_id' => $ownLikedPlant->id]);
+        Like::create(['user_id' => $viewer->id, 'plant_id' => $otherLikedPlant->id]);
+        $token = $viewer->createToken('test-token')->plainTextToken;
+
+        $plants = collect($this
+            ->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/feed/liked')
+            ->assertOk()
+            ->json('data'));
+
+        $this->assertFalse($plants->contains('id', $ownLikedPlant->id));
+        $this->assertTrue($plants->contains('id', $otherLikedPlant->id));
     }
 
     public function test_personal_feed_returns_public_plants_from_followed_users(): void
@@ -179,6 +238,43 @@ class PublicPlantSocialReadTest extends TestCase
         $this->assertTrue($plants->contains('id', $followedPlant->id));
         $this->assertFalse($plants->contains('id', $privateFollowedPlant->id));
         $this->assertFalse($plants->contains('id', $unfollowedPlant->id));
+    }
+
+    public function test_personal_feed_excludes_current_user_plants_even_if_self_follow_exists(): void
+    {
+        $viewer = User::factory()->create();
+        $followedUser = User::factory()->create();
+        $ownPlant = Plant::create([
+            'name' => 'My followed fern',
+            'planted_at' => now()->toDateString(),
+            'is_public' => true,
+            'user_id' => $viewer->id,
+        ]);
+        $followedPlant = Plant::create([
+            'name' => 'Followed fern',
+            'planted_at' => now()->toDateString(),
+            'is_public' => true,
+            'user_id' => $followedUser->id,
+        ]);
+
+        Follow::create([
+            'follower_id' => $viewer->id,
+            'following_id' => $viewer->id,
+        ]);
+        Follow::create([
+            'follower_id' => $viewer->id,
+            'following_id' => $followedUser->id,
+        ]);
+        $token = $viewer->createToken('test-token')->plainTextToken;
+
+        $plants = collect($this
+            ->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/feed/personal')
+            ->assertOk()
+            ->json('data'));
+
+        $this->assertFalse($plants->contains('id', $ownPlant->id));
+        $this->assertTrue($plants->contains('id', $followedPlant->id));
     }
 
     public function test_personal_feed_accepts_frontend_sort_options(): void
