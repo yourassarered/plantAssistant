@@ -13,7 +13,6 @@ import {
     MapPin,
     Maximize2,
     MessageCircle,
-    MoreVertical,
     ImagePlus,
     RotateCw,
     Save,
@@ -80,11 +79,14 @@ const plantReports = ref([]);
 const isModerationDialogOpen = ref(false);
 const moderationAction = ref("warn_user");
 const moderationComment = ref("");
+const isTipModerationDialogOpen = ref(false);
+const tipModerationAction = ref("tip_warn_rank");
+const tipModerationComment = ref("");
+const selectedModeratedTip = ref(null);
 const isRejectTipDialogOpen = ref(false);
 const selectedRejectedTip = ref(null);
 const rejectTipReport = ref(false);
 const rejectTipReportDetails = ref("");
-const isPlantMenuOpen = ref(false);
 let loadRequestId = 0;
 
 const activeCalendarDate = ref(new Date());
@@ -143,8 +145,15 @@ const isOwnPlant = computed(
 
 const canManagePlant = computed(() => Boolean(plant.value?.canManage));
 const canDeletePlant = computed(() => Boolean(plant.value?.canDelete));
+const canShowOwnerDeleteAction = computed(
+    () => isOwnPlant.value && canDeletePlant.value,
+);
 const canCompleteCareForPlant = computed(() =>
     Boolean(plant.value?.canCompleteCare),
+);
+const canReviewTipsForPlant = computed(() => isOwnPlant.value);
+const canModerateTipsDirectly = computed(
+    () => authStore.isAdmin && !isOwnPlant.value,
 );
 const canSuggestForPlant = computed(
     () => authStore.isAuthenticated && !isOwnPlant.value,
@@ -183,6 +192,19 @@ const ownerWarningsCount = computed(
 const selectedModerationIsFinalWarning = computed(
     () =>
         moderationAction.value === "warn_user" && ownerWarningsCount.value >= 2,
+);
+const selectedTipAuthorWarningsCount = computed(
+    () =>
+        Number(
+            selectedModeratedTip.value?.author?.data?.warnings_count ??
+                selectedModeratedTip.value?.author?.warnings_count ??
+                0,
+        ) || 0,
+);
+const selectedTipModerationIsFinalWarning = computed(
+    () =>
+        tipModerationAction.value === "tip_warn_rank" &&
+        selectedTipAuthorWarningsCount.value >= 2,
 );
 
 const {
@@ -392,7 +414,7 @@ const displayableTips = (items) =>
 
 const visibleTips = computed(() => {
     if (isOwnPlant.value) return [];
-    if (canManagePlant.value) return limitTips(tips.value);
+    if (canModerateTipsDirectly.value) return limitTips(tips.value);
 
     return [];
 });
@@ -433,7 +455,7 @@ const dialogTips = computed(() => {
         );
     }
 
-    if (canManagePlant.value) return displayableTips(tips.value);
+    if (canModerateTipsDirectly.value) return displayableTips(tips.value);
 
     return [];
 });
@@ -444,6 +466,7 @@ const tipsCount = computed(() =>
 
 const canReportTip = (tip) =>
     authStore.isAuthenticated &&
+    !authStore.isAdmin &&
     tipAuthorId(tip) !== String(authStore.user?.id || "");
 
 const likesCount = computed(() => {
@@ -536,7 +559,7 @@ const resetTransientUi = () => {
     isReportDialogOpen.value = false;
     isPlantReportsDialogOpen.value = false;
     isModerationDialogOpen.value = false;
-    isPlantMenuOpen.value = false;
+    isTipModerationDialogOpen.value = false;
 };
 
 const loadPage = async () => {
@@ -752,17 +775,74 @@ const loadPlantReports = async () => {
 
 const closeModerationDialog = () => {
     isModerationDialogOpen.value = false;
+    moderationAction.value = "warn_user";
+    moderationComment.value = "";
+};
+
+const openTipModerationDialog = (tip) => {
+    if (!tip || !canModerateTipsDirectly.value) return;
+
+    selectedModeratedTip.value = tip;
+    tipModerationAction.value = "tip_warn_rank";
+    tipModerationComment.value = "";
+    isTipModerationDialogOpen.value = true;
+};
+
+const closeTipModerationDialog = () => {
+    isTipModerationDialogOpen.value = false;
+    selectedModeratedTip.value = null;
+    tipModerationAction.value = "tip_warn_rank";
+    tipModerationComment.value = "";
 };
 
 const submitPlantModeration = async () => {
     try {
-        await apiClient.post(`/admin/plants/${plantApiId.value}/moderate`, {
-            resolution_action: moderationAction.value,
-            admin_comment: moderationComment.value.trim() || null,
-        });
+        const selectedAction = moderationAction.value;
+        const payload = await apiClient.post(
+            `/admin/plants/${plantApiId.value}/moderate`,
+            {
+                resolution_action: selectedAction,
+                admin_comment: moderationComment.value.trim() || null,
+            },
+        );
+        const successMessage =
+            payload?.message || "Модерация растения применена";
         closeModerationDialog();
+        if (selectedAction === "delete_plant") {
+            toast.success(successMessage);
+            await router.push("/feed");
+            return;
+        }
         await loadPage();
-        toast.success("Модерация растения применена");
+        toast.success(successMessage);
+    } catch (error) {
+        toast.error(error.message);
+    }
+};
+
+const moderationButtonHint = computed(() =>
+    canModeratePlantDirectly.value
+        ? "Открыть модерацию растения"
+        : "Пожаловаться на растение",
+);
+
+const moderationButtonClass = computed(() => ({
+    "plant-action-icon-button--admin": canModeratePlantDirectly.value,
+    "plant-action-icon-button--report": !canModeratePlantDirectly.value,
+}));
+
+const submitTipModeration = async () => {
+    const tip = selectedModeratedTip.value;
+    if (!tip) return;
+
+    try {
+        const payload = await apiClient.post(`/admin/tips/${tip.id}/moderate`, {
+            resolution_action: tipModerationAction.value,
+            admin_comment: tipModerationComment.value.trim() || null,
+        });
+        closeTipModerationDialog();
+        await loadPage();
+        toast.success(payload?.message || "Модерация совета применена");
     } catch (error) {
         toast.error(error.message);
     }
@@ -930,11 +1010,10 @@ const deleteActivePhoto = async () => {
 };
 
 const removePlant = async () => {
-    if (!canDeletePlant.value) return;
+    if (!canShowOwnerDeleteAction.value) return;
     if (!window.confirm("Удалить это растение навсегда?")) return;
 
     try {
-        isPlantMenuOpen.value = false;
         await plantStore.deletePlant(plant.value.apiId);
         toast.success("Растение удалено");
         router.push("/feed");
@@ -1080,7 +1159,37 @@ watch(
 
                 <div class="plant-main">
                     <div class="plant-title-row">
-                        <h1>{{ plant.name }}</h1>
+                        <div class="plant-title-heading">
+                            <h1>{{ plant.name }}</h1>
+                            <div
+                                v-if="
+                                    canUsePlantFlag || canShowOwnerDeleteAction
+                                "
+                                class="plant-title-heading__tools"
+                            >
+                                <button
+                                    v-if="canUsePlantFlag"
+                                    type="button"
+                                    class="plant-action-icon-button"
+                                    :class="moderationButtonClass"
+                                    :aria-label="moderationButtonHint"
+                                    :title="moderationButtonHint"
+                                    @click="openReportDialog"
+                                >
+                                    <Flag :size="18" />
+                                </button>
+                                <button
+                                    v-if="canShowOwnerDeleteAction"
+                                    type="button"
+                                    class="plant-action-icon-button plant-action-icon-button--danger"
+                                    aria-label="Удалить растение"
+                                    title="Удалить растение"
+                                    @click="removePlant"
+                                >
+                                    <Trash2 :size="18" />
+                                </button>
+                            </div>
+                        </div>
                         <div
                             v-if="
                                 canViewPlantReports && plantReportBadge.visible
@@ -1101,21 +1210,14 @@ watch(
                                 Посмотреть жалобы
                             </UiButton>
                         </div>
-                        <div
-                            v-if="canManagePlant || canUsePlantFlag"
-                            class="plant-title-actions"
-                            :class="{
-                                'plant-title-actions--report-only':
-                                    canUsePlantFlag && !canManagePlant,
-                            }"
-                        >
+                        <div v-if="canManagePlant" class="plant-title-actions">
                             <div
                                 v-if="canManagePlant"
                                 class="plant-title-actions__group"
                             >
                                 <UiButton
-                                    v-if="canManagePlant"
                                     class="plant-action-button quick-photo-button"
+                                    variant="ghost"
                                     type="button"
                                     :disabled="quickPhotoUploading"
                                     aria-label="Добавить фото"
@@ -1128,7 +1230,6 @@ watch(
                                     <span v-else>Добавить фото</span>
                                 </UiButton>
                                 <UiButton
-                                    v-if="canManagePlant"
                                     class="plant-action-button"
                                     variant="ghost"
                                     type="button"
@@ -1138,40 +1239,6 @@ watch(
                                     <Settings2 :size="16" />
                                     Редактировать
                                 </UiButton>
-                            </div>
-                            <button
-                                v-if="canUsePlantFlag"
-                                type="button"
-                                class="plant-menu__button report-trigger-button"
-                                aria-label="Пожаловаться на растение"
-                                title="Пожаловаться"
-                                @click="openReportDialog"
-                            >
-                                <Flag :size="18" />
-                            </button>
-                            <div v-if="canManagePlant" class="plant-menu">
-                                <button
-                                    type="button"
-                                    class="plant-menu__button"
-                                    aria-label="Дополнительные действия"
-                                    @click="isPlantMenuOpen = !isPlantMenuOpen"
-                                >
-                                    <MoreVertical :size="20" />
-                                </button>
-                                <div
-                                    v-if="isPlantMenuOpen"
-                                    class="plant-menu__dropdown"
-                                >
-                                    <button
-                                        v-if="canDeletePlant"
-                                        type="button"
-                                        class="plant-menu__danger"
-                                        @click="removePlant"
-                                    >
-                                        <Trash2 :size="16" />
-                                        Удалить растение
-                                    </button>
-                                </div>
                             </div>
                             <input
                                 ref="quickPhotoInput"
@@ -1500,7 +1567,10 @@ watch(
                         </div>
                         <p>{{ tip.content }}</p>
                         <div
-                            v-if="tip.status === 'pending'"
+                            v-if="
+                                canReviewTipsForPlant &&
+                                tip.status === 'pending'
+                            "
                             class="owner-tip-actions"
                         >
                             <button
@@ -1550,28 +1620,13 @@ watch(
                             </button>
                             <div class="tip-actions">
                                 <button
-                                    v-if="
-                                        canManagePlant &&
-                                        tip.status === 'pending'
-                                    "
-                                    type="button"
-                                    class="tip-icon-button tip-icon-button--accept"
-                                    aria-label="&#1055;&#1088;&#1080;&#1085;&#1103;&#1090;&#1100; &#1089;&#1086;&#1074;&#1077;&#1090;"
-                                    @click="updateTipStatus(tip, 'accepted')"
-                                >
-                                    <Check :size="16" />
-                                </button>
-                                <button
-                                    v-if="
-                                        canManagePlant &&
-                                        tip.status === 'pending'
-                                    "
+                                    v-if="canModerateTipsDirectly"
                                     type="button"
                                     class="tip-icon-button tip-icon-button--danger"
-                                    aria-label="&#1054;&#1090;&#1082;&#1083;&#1086;&#1085;&#1080;&#1090;&#1100; &#1089;&#1086;&#1074;&#1077;&#1090;"
-                                    @click="openRejectTipDialog(tip)"
+                                    aria-label="Удалить совет с наказанием"
+                                    @click="openTipModerationDialog(tip)"
                                 >
-                                    <X :size="16" />
+                                    <Trash2 :size="16" />
                                 </button>
                                 <button
                                     v-if="canReportTip(tip)"
@@ -1600,6 +1655,103 @@ watch(
             </section>
         </div>
     </section>
+
+    <div
+        v-if="isTipModerationDialogOpen && selectedModeratedTip"
+        class="report-dialog"
+        @click.self="closeTipModerationDialog"
+    >
+        <form class="report-dialog__card" @submit.prevent="submitTipModeration">
+            <header class="report-dialog__head">
+                <h2 class="panel__title">Модерация совета</h2>
+                <button
+                    type="button"
+                    class="report-dialog__close"
+                    aria-label="Закрыть"
+                    @click="closeTipModerationDialog"
+                >
+                    <X :size="20" />
+                </button>
+            </header>
+
+            <div class="report-dialog__form">
+                <p class="muted">
+                    {{ selectedModeratedTip.content }}
+                </p>
+                <label class="moderation-option">
+                    <input
+                        v-model="tipModerationAction"
+                        type="radio"
+                        value="tip_warn_rank"
+                    />
+                    <span>
+                        <strong
+                            >Удалить совет, понизить ранг и выдать
+                            предупреждение</strong
+                        >
+                        <small
+                            >Совет будет удалён, автор получит
+                            предупреждение.</small
+                        >
+                    </span>
+                </label>
+                <label class="moderation-option">
+                    <input
+                        v-model="tipModerationAction"
+                        type="radio"
+                        value="tip_delete_rank"
+                    />
+                    <span>
+                        <strong>Удалить совет и понизить ранг</strong>
+                        <small
+                            >Совет будет удалён, а ранг автора снизится на
+                            1.</small
+                        >
+                    </span>
+                </label>
+                <label class="moderation-option">
+                    <input
+                        v-model="tipModerationAction"
+                        type="radio"
+                        value="block_user"
+                    />
+                    <span>
+                        <strong>Заблокировать пользователя</strong>
+                        <small
+                            >Автор потеряет доступ к аккаунту, его советы
+                            удалятся, ранг обнулится.</small
+                        >
+                    </span>
+                </label>
+                <p
+                    v-if="selectedTipModerationIsFinalWarning"
+                    class="resolution-warning"
+                >
+                    Это третье предупреждение: после него аккаунт будет
+                    автоматически заблокирован.
+                </p>
+                <textarea
+                    v-model="tipModerationComment"
+                    rows="4"
+                    placeholder="Комментарий модератора"
+                />
+            </div>
+
+            <footer class="report-dialog__footer">
+                <UiButton
+                    type="button"
+                    variant="ghost"
+                    @click="closeTipModerationDialog"
+                >
+                    Отмена
+                </UiButton>
+                <UiButton type="submit" variant="danger">
+                    <Trash2 :size="16" />
+                    Удалить с наказанием
+                </UiButton>
+            </footer>
+        </form>
+    </div>
 
     <div
         v-if="isRejectTipDialogOpen"
@@ -1860,25 +2012,14 @@ watch(
                     </div>
                     <p>{{ tip.content }}</p>
                     <div class="tip-item__footer">
-                        <div
-                            v-if="canManagePlant && tip.status === 'pending'"
-                            class="tip-actions"
-                        >
-                            <button
-                                type="button"
-                                class="tip-icon-button tip-icon-button--accept"
-                                aria-label="&#1055;&#1088;&#1080;&#1085;&#1103;&#1090;&#1100; &#1089;&#1086;&#1074;&#1077;&#1090;"
-                                @click="updateTipStatus(tip, 'accepted')"
-                            >
-                                <Check :size="16" />
-                            </button>
+                        <div v-if="canModerateTipsDirectly" class="tip-actions">
                             <button
                                 type="button"
                                 class="tip-icon-button tip-icon-button--danger"
-                                aria-label="&#1054;&#1090;&#1082;&#1083;&#1086;&#1085;&#1080;&#1090;&#1100; &#1089;&#1086;&#1074;&#1077;&#1090;"
-                                @click="openRejectTipDialog(tip)"
+                                aria-label="Удалить совет с наказанием"
+                                @click="openTipModerationDialog(tip)"
                             >
-                                <X :size="16" />
+                                <Trash2 :size="16" />
                             </button>
                         </div>
                         <button
@@ -2055,10 +2196,24 @@ watch(
                         value="hide_plant"
                     />
                     <span>
-                        <strong>Скрыть растение жёстко</strong>
+                        <strong>Скрыть растение навсегда</strong>
                         <small
                             >Повторная публикация владельцем будет
                             заблокирована.</small
+                        >
+                    </span>
+                </label>
+                <label class="moderation-option">
+                    <input
+                        v-model="moderationAction"
+                        type="radio"
+                        value="delete_plant"
+                    />
+                    <span>
+                        <strong>Удалить растение</strong>
+                        <small
+                            >Растение будет полностью удалено из системы и
+                            страницы растения больше не будет.</small
                         >
                     </span>
                 </label>
@@ -2303,14 +2458,28 @@ watch(
 }
 
 .plant-title-row {
+    display: grid;
+    gap: 12px;
+    width: 100%;
+}
+
+.plant-title-heading {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
     gap: 12px;
+    width: 100%;
 }
 
 .plant-title-row h1 {
     min-width: 0;
+    flex: 1 1 auto;
+}
+
+.plant-title-heading__tools {
+    display: inline-flex;
+    flex: 0 0 auto;
+    gap: 8px;
+    align-items: center;
 }
 
 .plant-title-report {
@@ -2318,95 +2487,89 @@ watch(
     align-items: center;
     flex-wrap: wrap;
     gap: 12px;
-    margin-left: auto;
 }
 
 .plant-title-actions {
     position: relative;
     display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
-    justify-content: flex-end;
-    margin-left: auto;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    width: 100%;
 }
 
 .plant-title-actions__group {
-    display: inline-flex;
-    flex-wrap: wrap;
+    display: grid;
     gap: 8px;
-    align-items: center;
-    justify-content: center;
+    width: 100%;
 }
 
 .plant-action-button {
-    min-height: 42px;
+    min-height: 44px;
     padding: 0 16px;
+    white-space: nowrap;
+    width: 100%;
 }
 
 .quick-photo-button {
-    flex: 0 0 auto;
+    flex: none;
 }
 
 .quick-photo-input {
     display: none;
 }
 
-.plant-menu {
-    position: relative;
-}
-
-.plant-menu__button {
+.plant-action-icon-button {
     display: grid;
-    width: 42px;
-    height: 42px;
+    width: 44px;
+    height: 44px;
     place-items: center;
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
+    border-radius: 14px;
     color: var(--color-ink);
     background: var(--color-surface);
+    box-shadow: 0 10px 22px rgba(24, 45, 28, 0.08);
     cursor: pointer;
+    transition:
+        transform 0.18s ease,
+        box-shadow 0.18s ease,
+        border-color 0.18s ease,
+        background-color 0.18s ease,
+        color 0.18s ease;
 }
 
-.report-trigger-button {
+.plant-action-icon-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 14px 26px rgba(24, 45, 28, 0.12);
+}
+
+.plant-action-icon-button--report {
+    border-color: rgba(179, 38, 30, 0.22);
     color: var(--color-red);
+    background: #fff7f5;
 }
 
-.report-trigger-button:hover {
-    border-color: rgba(179, 38, 30, 0.24);
-    background: #fff3f1;
+.plant-action-icon-button--admin {
+    border-color: #b3261e;
+    color: #fff;
+    background: #b3261e;
 }
 
-.plant-menu__dropdown {
-    position: absolute;
-    top: calc(100% + 6px);
-    right: 0;
-    z-index: 12;
-    display: grid;
-    min-width: 190px;
-    padding: 6px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    background: var(--color-surface);
-    box-shadow: var(--shadow-soft);
-}
-
-.plant-menu__dropdown button {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 38px;
-    padding: 0 10px;
-    border: 0;
-    border-radius: var(--radius-xs);
-    background: transparent;
-    cursor: pointer;
-    font-weight: 800;
-    text-align: left;
-}
-
-.plant-menu__danger {
+.plant-action-icon-button--danger {
+    border-color: rgba(179, 38, 30, 0.22);
     color: var(--color-red);
+    background: #fff7f5;
+}
+
+.plant-action-icon-button--report:hover,
+.plant-action-icon-button--danger:hover {
+    border-color: rgba(179, 38, 30, 0.3);
+    background: #fff1ee;
+}
+
+.plant-action-icon-button--admin:hover {
+    border-color: #8f1d17;
+    background: #8f1d17;
 }
 
 .plant-stats {
@@ -3498,8 +3661,6 @@ watch(
     }
 
     .plant-page--owner .plant-title-row {
-        display: grid;
-        grid-template-columns: 1fr;
         gap: 12px;
     }
 
@@ -3510,8 +3671,6 @@ watch(
 
     .plant-page--owner .plant-title-actions {
         width: 100%;
-        justify-content: center;
-        margin-left: 0;
     }
 
     .plant-page--owner .plant-hero-grid {
@@ -3612,27 +3771,24 @@ watch(
     .plant-title-actions {
         width: 100%;
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 42px;
+        grid-template-columns: 1fr;
         align-items: stretch;
         gap: 8px;
         justify-content: center;
         margin-left: 0;
     }
 
-    .plant-title-actions--report-only {
-        width: auto;
-        grid-template-columns: 42px;
-        justify-content: end;
-        margin-left: auto;
-    }
-
     .plant-title-actions__group {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: 1fr;
         width: 100%;
     }
 
-    .plant-title-actions__group :deep(.ui-button),
+    .plant-action-icon-button {
+        border-radius: 12px;
+    }
+
+    .plant-title-actions :deep(.ui-button),
     .plant-action-button {
         width: 100%;
         min-width: 0;

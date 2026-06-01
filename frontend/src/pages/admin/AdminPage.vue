@@ -71,6 +71,7 @@ const reportReasonLabels = {
     inappropriate_image: "Неподходящее изображение",
     spam: "Спам",
     abuse: "Оскорбления",
+    misinformation: "Недостоверная информация",
     other: "Другое",
 };
 
@@ -78,8 +79,9 @@ const resolutionActionLabels = {
     tip_delete_rank: "Понизить ранг и удалить совет",
     block_user: "Заблокировать пользователя",
     tip_warn_rank: "Удалить совет, понизить ранг и выдать предупреждение",
-    hide_plant: "Скрыть растение",
+    hide_plant: "Скрыть растение навсегда",
     warn_user: "Предупредить пользователя и скрыть растение",
+    delete_plant: "Удалить растение",
 };
 
 const filteredUsers = computed(() => {
@@ -230,8 +232,12 @@ const resolutionOptions = (report) => {
 
     return [
         {
+            value: "delete_plant",
+            hint: "Растение будет полностью удалено из системы.",
+        },
+        {
             value: "hide_plant",
-            hint: "Растение исчезнет из публичной ленты навсегда.",
+            hint: "Растение исчезнет из публичной ленты, а повторная публикация будет заблокирована.",
         },
         { value: "block_user", hint: "Владелец потеряет доступ к аккаунту." },
         {

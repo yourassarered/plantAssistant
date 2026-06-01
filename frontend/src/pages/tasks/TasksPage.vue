@@ -6,10 +6,7 @@ import { useRoute } from "vue-router";
 import { usePlantStore } from "@/entities/plant/model/plant.store";
 import { useTaskStore } from "@/entities/task/model/task.store";
 import TaskItem from "@/entities/task/ui/TaskItem.vue";
-import {
-    plantReportIndicator,
-    sumPlantReportSummaries,
-} from "@/shared/lib/reports";
+import { plantReportIndicator } from "@/shared/lib/reports";
 import { taskDateState } from "@/shared/lib/date/taskMarkers";
 import UiBadge from "@/shared/ui/UiBadge.vue";
 
@@ -36,7 +33,9 @@ const groupedByPlant = computed(() => {
                 plantName: task.plantName,
                 room: task.room,
                 image: task.plantImage,
-                reportSummary: {
+                // Сводка жалоб уже относится ко всему растению и повторяется
+                // в каждой задаче, поэтому здесь важно не суммировать её повторно.
+                reportSummary: task.reportSummary || {
                     total: 0,
                     pending: 0,
                     accepted: 0,
@@ -48,10 +47,6 @@ const groupedByPlant = computed(() => {
         }
         const group = groups.get(task.plantId);
         group.items.push(task);
-        group.reportSummary = sumPlantReportSummaries([
-            group.reportSummary,
-            task.reportSummary,
-        ]);
         if (taskDateState(task) === "today") {
             group.todayCount += 1;
         }
