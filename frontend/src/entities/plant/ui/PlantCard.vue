@@ -1,8 +1,9 @@
 <script setup>
 import { Heart, MapPin, MessageCircle, UserRound } from "lucide-vue-next";
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 
+import { plantPlaceholderImage } from "@/shared/api/mappers";
 import { plantReportIndicator } from "@/shared/lib/reports";
 import { summarizePlantCare } from "@/shared/lib/date/taskMarkers";
 import UiBadge from "@/shared/ui/UiBadge.vue";
@@ -23,6 +24,8 @@ const props = defineProps({
 const emit = defineEmits(["toggle-like", "suggest", "open-owner"]);
 
 const router = useRouter();
+const imageRetryCount = ref(0);
+const imageFailed = ref(false);
 const care = computed(() => summarizePlantCare(props.plant));
 const isFeedVariant = computed(() => props.variant === "feed");
 const isProfileVariant = computed(() => props.variant === "profile");
@@ -53,6 +56,18 @@ const likeButtonLabel = computed(() =>
 const reportIndicator = computed(() =>
     plantReportIndicator(props.plant.reportSummary),
 );
+const imageSrc = computed(() => {
+    const source = props.plant.image || plantPlaceholderImage;
+
+    if (imageFailed.value || source === plantPlaceholderImage) {
+        return plantPlaceholderImage;
+    }
+
+    if (!imageRetryCount.value || source.startsWith("data:")) return source;
+
+    const separator = source.includes("?") ? "&" : "?";
+    return `${source}${separator}_retry=${imageRetryCount.value}`;
+});
 
 const badgeText = computed(() => {
     if (care.value.primaryState === "overdue")
@@ -76,6 +91,26 @@ const openPlantFromKeyboard = (event) => {
     event.preventDefault();
     openPlant();
 };
+
+const handleImageError = () => {
+    if (imageSrc.value === plantPlaceholderImage) return;
+
+    if (imageRetryCount.value < 2) {
+        // Иногда storage-изображение появляется чуть позже ответа ленты.
+        imageRetryCount.value += 1;
+        return;
+    }
+
+    imageFailed.value = true;
+};
+
+watch(
+    () => props.plant,
+    () => {
+        imageRetryCount.value = 0;
+        imageFailed.value = false;
+    },
+);
 </script>
 
 <template>
@@ -95,9 +130,12 @@ const openPlantFromKeyboard = (event) => {
             <div class="plant-card__media">
                 <div class="plant-card__image-wrap">
                     <img
-                        :src="plant.image"
+                        :src="imageSrc"
                         :alt="plant.name"
                         class="plant-card__image"
+                        loading="lazy"
+                        decoding="async"
+                        @error="handleImageError"
                     />
                     <UiBadge
                         v-if="showCare && showCareBadge"

@@ -1,8 +1,8 @@
-import { API_ORIGIN } from "@/shared/api/client";
+import { API_BASE_URL, API_ORIGIN } from "@/shared/api/client";
 import { apiCareTypeToUi, uiCareTypeToApi } from "@/shared/lib/careTypes";
 import { todayIsoDate, toIsoDate } from "@/shared/lib/date/calendarGrid";
 
-const placeholderImage =
+export const plantPlaceholderImage =
     "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Crect width='400' height='400' fill='%23dfe8dc'/%3E%3Cpath d='M205 304c-43-44-48-104-15-153 18 21 26 48 24 82 26-48 61-72 105-72-7 75-45 124-114 143Z' fill='%2316843a'/%3E%3Cpath d='M179 306c-52-19-84-59-94-121 54 4 92 34 113 90 9-48 31-84 66-108 20 66-8 117-85 139Z' fill='%23b8d94c'/%3E%3C/svg%3E";
 
 const unwrapApiValue = (value) => {
@@ -35,22 +35,28 @@ const objectField = (value, field) => {
 const resolveAssetUrl = (url) => {
     const normalizedUrl = stringValue(url, "");
 
-    if (!normalizedUrl) return placeholderImage;
+    if (!normalizedUrl) return plantPlaceholderImage;
     if (normalizedUrl.startsWith("data:")) return normalizedUrl;
 
     try {
         const assetUrl = new URL(normalizedUrl, API_ORIGIN);
         const apiOrigin = new URL(API_ORIGIN);
+        const usesSameOriginApiProxy = API_BASE_URL.startsWith("/");
 
-        if (
-            assetUrl.pathname.startsWith("/storage/") &&
-            ["localhost", "127.0.0.1", "::1"].includes(assetUrl.hostname) &&
-            assetUrl.origin !== apiOrigin.origin
-        ) {
-            return new URL(
-                `${assetUrl.pathname}${assetUrl.search}${assetUrl.hash}`,
-                apiOrigin,
-            ).toString();
+        if (assetUrl.pathname.startsWith("/storage/")) {
+            if (usesSameOriginApiProxy) {
+                return `${assetUrl.pathname}${assetUrl.search}${assetUrl.hash}`;
+            }
+
+            if (
+                ["localhost", "127.0.0.1", "::1"].includes(assetUrl.hostname) &&
+                assetUrl.origin !== apiOrigin.origin
+            ) {
+                return new URL(
+                    `${assetUrl.pathname}${assetUrl.search}${assetUrl.hash}`,
+                    apiOrigin,
+                ).toString();
+            }
         }
 
         return assetUrl.toString();

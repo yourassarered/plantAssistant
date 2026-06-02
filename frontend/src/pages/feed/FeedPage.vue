@@ -259,8 +259,11 @@ watch(
     display: grid;
     gap: 14px;
     padding: 16px;
-    background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(245, 249, 243, 0.98));
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.94),
+        rgba(245, 249, 243, 0.98)
+    );
 }
 
 .feed-toolbar__controls {
