@@ -4,6 +4,7 @@ import { onMounted } from "vue";
 import { Toaster } from "vue-sonner";
 
 import { useAuthStore } from "@/entities/auth/model/auth.store";
+import { useInAppNotifications } from "@/features/notifications/model/useInAppNotifications";
 import AppShellDesktop from "./app/layouts/AppShellDesktop.vue";
 import AppShellMobile from "./app/layouts/AppShellMobile.vue";
 
@@ -13,6 +14,7 @@ const breakpoints = useBreakpoints({
 
 const isDesktop = breakpoints.greaterOrEqual("desktop");
 const authStore = useAuthStore();
+useInAppNotifications();
 
 onMounted(() => {
     authStore.ensureMeLoaded();

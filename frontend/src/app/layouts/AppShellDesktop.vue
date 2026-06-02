@@ -4,6 +4,7 @@ import { computed } from "vue";
 
 import { useAuthStore } from "@/entities/auth/model/auth.store";
 import tabIcon from "@/shared/assets/tab-icon.svg";
+import NotificationCenter from "@/widgets/notifications/NotificationCenter.vue";
 
 const authStore = useAuthStore();
 
@@ -42,6 +43,8 @@ const navItems = computed(() => [
                     {{ item.label }}
                 </RouterLink>
             </nav>
+
+            <NotificationCenter class="desktop-notifications" />
         </aside>
 
         <main class="desktop-content">
@@ -103,6 +106,10 @@ const navItems = computed(() => [
 .desktop-nav {
     display: grid;
     gap: 8px;
+}
+
+.desktop-notifications {
+    margin-top: 6px;
 }
 
 .desktop-nav__link {

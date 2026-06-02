@@ -1,9 +1,11 @@
 <script setup>
+import NotificationCenter from "@/widgets/notifications/NotificationCenter.vue";
 import BottomNavMobile from "@/widgets/navigation/BottomNavMobile.vue";
 </script>
 
 <template>
     <div class="app-shell app-shell--mobile">
+        <NotificationCenter compact />
         <main class="app-shell__content">
             <RouterView />
         </main>
