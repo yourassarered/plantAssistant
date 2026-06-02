@@ -1,33 +1,45 @@
 ﻿<script setup>
 import { computed } from "vue";
-import {
-    CalendarClock,
-    Droplets,
-    Leaf,
-    RotateCw,
-    Scissors,
-} from "lucide-vue-next";
+import { Droplets, Leaf, RotateCw, Scissors } from "lucide-vue-next";
 
 import { useCalendarStore } from "@/entities/calendar/model/calendar.store";
 import CalendarMonthGrid from "@/entities/calendar/ui/CalendarMonthGrid.vue";
 import { careTypes } from "@/shared/lib/careTypes";
-import { formatIsoDate } from "@/shared/lib/date/calendarGrid";
-import { groupTasksByDate, taskDateState } from "@/shared/lib/date/taskMarkers";
-import UiBadge from "@/shared/ui/UiBadge.vue";
+import {
+    calendarRangeForDate,
+    expandTasksForRange,
+} from "@/shared/lib/date/taskOccurrences";
+import { groupTasksByDate } from "@/shared/lib/date/taskMarkers";
 
 const props = defineProps({
     tasks: { type: Array, required: true },
 });
 
 const calendarStore = useCalendarStore();
-const tasksByDate = computed(() => groupTasksByDate(props.tasks));
+const visibleRange = computed(() => {
+    return calendarRangeForDate(
+        calendarStore.activeDateObject,
+        calendarStore.selectedDate,
+    );
+});
+const visibleTasks = computed(() =>
+    expandTasksForRange(
+        props.tasks,
+        visibleRange.value.start,
+        visibleRange.value.end,
+    ),
+);
+const tasksByDate = computed(() => groupTasksByDate(visibleTasks.value));
 const selectedTasks = computed(
-    () => tasksByDate.value[calendarStore.selectedDate] || [],
+    () =>
+        groupTasksByDate(
+            expandTasksForRange(
+                props.tasks,
+                calendarStore.selectedDate,
+                calendarStore.selectedDate,
+            ),
+        )[calendarStore.selectedDate] || [],
 );
-const selectedDateLabel = computed(() =>
-    formatIsoDate(calendarStore.selectedDate),
-);
-
 const icons = {
     water: Droplets,
     feed: Leaf,
@@ -48,8 +60,6 @@ const icons = {
         />
 
         <section class="day-panel">
-            <h3>{{ selectedDateLabel }}</h3>
-
             <TransitionGroup
                 v-if="selectedTasks.length"
                 name="calendar-task"
@@ -81,11 +91,6 @@ const icons = {
                             {{ task.room }}</span
                         >
                     </div>
-
-                    <UiBadge :tone="taskDateState(task)">
-                        <CalendarClock :size="12" />
-                        {{ formatIsoDate(task.dueAt) }}
-                    </UiBadge>
                 </article>
             </TransitionGroup>
 
@@ -105,7 +110,6 @@ const icons = {
     gap: 10px;
 }
 
-.day-panel h3,
 .day-panel p {
     margin: 0;
 }
@@ -122,7 +126,7 @@ const icons = {
 
 .calendar-task {
     display: grid;
-    grid-template-columns: 44px 30px minmax(0, 1fr) auto;
+    grid-template-columns: 44px 30px minmax(0, 1fr);
     align-items: center;
     gap: 8px;
     padding: 8px;
@@ -200,11 +204,6 @@ const icons = {
 @media (max-width: 680px) {
     .calendar-task {
         grid-template-columns: 40px 28px minmax(0, 1fr);
-    }
-
-    .calendar-task :deep(.ui-badge) {
-        grid-column: 1 / -1;
-        justify-self: start;
     }
 
     .calendar-task__image {

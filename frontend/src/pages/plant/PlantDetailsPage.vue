@@ -40,6 +40,10 @@ import {
     toIsoDate,
 } from "@/shared/lib/date/calendarGrid";
 import {
+    calendarRangeForDate,
+    expandTasksForRange,
+} from "@/shared/lib/date/taskOccurrences";
+import {
     getReportReasonLabel,
     getReportStatusLabel,
     plantReportIndicator,
@@ -119,15 +123,37 @@ const galleryTransitionName = computed(() => {
         : "plant-cover-slide-prev";
 });
 
-const tasks = computed(() =>
-    taskStore.all
+const plantScheduleTasks = computed(() => {
+    if (!plant.value) return [];
+
+    return Object.entries(plant.value.care || {}).map(([type, schedule]) => ({
+        id: `plant-${plant.value.id}-${type}-${schedule.nextAt}`,
+        careSettingId: schedule.id,
+        plantId: plant.value.apiId || plant.value.id,
+        plantName: plant.value.name,
+        room: plant.value.room,
+        plantImage: plant.value.image,
+        reportSummary: plant.value.reportSummary || null,
+        type,
+        dueAt: schedule.nextAt,
+        everyDays: schedule.everyDays,
+        completed: false,
+        canComplete: Boolean(plant.value.canCompleteCare),
+    }));
+});
+const tasks = computed(() => {
+    const storeTasks = taskStore.all
         .filter((task) => String(task.plantId) === String(plantApiId.value))
         .filter((task) => !task.completed)
         .map((task) => ({
             ...task,
-            everyDays: plant.value?.care?.[task.type]?.everyDays ?? null,
-        })),
-);
+            everyDays:
+                task.everyDays ?? plant.value?.care?.[task.type]?.everyDays,
+        }));
+
+    // Для чужого растения глобальный taskStore может быть пустым, поэтому календарь опирается на расписание самой карточки.
+    return storeTasks.length ? storeTasks : plantScheduleTasks.value;
+});
 const hasCare = computed(() =>
     Boolean(plant.value && Object.keys(plant.value.care || {}).length),
 );
@@ -325,6 +351,9 @@ const authorRank = computed(() => {
         plant.value?.raw?.user?.rank;
     return rank === null || rank === undefined ? null : rank;
 });
+const canShowAuthorLink = computed(
+    () => Boolean(authorId.value) && !isOwnPlant.value,
+);
 
 const tipAuthorId = (tip) =>
     String(tip.author?.data?.id || tip.author?.id || "");
@@ -488,10 +517,22 @@ const careLogDateKey = (log) => {
     return String(performedAt).slice(0, 10);
 };
 
+const calendarVisibleRange = computed(() =>
+    calendarRangeForDate(activeCalendarDate.value, selectedCalendarDate.value),
+);
+
+const plannedCalendarTasks = computed(() =>
+    expandTasksForRange(
+        tasks.value,
+        calendarVisibleRange.value.start,
+        calendarVisibleRange.value.end,
+    ),
+);
+
 const calendarMarkersByDate = computed(() => {
     const map = {};
 
-    tasks.value.forEach((task) => {
+    plannedCalendarTasks.value.forEach((task) => {
         const key = String(task.dueAt);
         map[key] = map[key] || [];
         map[key].push({ id: `task-${task.id}`, type: task.type });
@@ -511,15 +552,15 @@ const calendarMarkersByDate = computed(() => {
 const selectedDayItems = computed(() => {
     const selected = selectedCalendarDate.value;
 
-    const planned = tasks.value
-        .filter((task) => String(task.dueAt) === selected)
-        .map((task) => ({
+    const planned = expandTasksForRange(tasks.value, selected, selected).map(
+        (task) => ({
             id: `task-${task.id}`,
             type: task.type,
             title: careTypes[task.type]?.label || task.type,
             subtitle: "Запланировано",
             state: taskDateState(task),
-        }));
+        }),
+    );
 
     const history = careLogs.value
         .filter((log) => careLogDateKey(log) === selected)
@@ -1016,7 +1057,7 @@ const removePlant = async () => {
     try {
         await plantStore.deletePlant(plant.value.apiId);
         toast.success("Растение удалено");
-        router.push("/feed");
+        router.push("/my-plants");
     } catch (error) {
         toast.error(error.message);
     }
@@ -1160,7 +1201,19 @@ watch(
                 <div class="plant-main">
                     <div class="plant-title-row">
                         <div class="plant-title-heading">
-                            <h1>{{ plant.name }}</h1>
+                            <div class="plant-title-heading__text">
+                                <h1>{{ plant.name }}</h1>
+                                <RouterLink
+                                    v-if="canShowAuthorLink"
+                                    class="plant-author-link"
+                                    :to="`/users/${authorId}`"
+                                >
+                                    Автор: {{ authorName }}
+                                    <span v-if="authorRank !== null">
+                                        · ранг {{ authorRank }}
+                                    </span>
+                                </RouterLink>
+                            </div>
                             <div
                                 v-if="
                                     canUsePlantFlag || canShowOwnerDeleteAction
@@ -2465,14 +2518,38 @@ watch(
 
 .plant-title-heading {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 12px;
     width: 100%;
 }
 
-.plant-title-row h1 {
+.plant-title-heading__text {
+    display: grid;
     min-width: 0;
     flex: 1 1 auto;
+    gap: 5px;
+}
+
+.plant-title-row h1 {
+    min-width: 0;
+}
+
+.plant-author-link {
+    width: fit-content;
+    max-width: 100%;
+    overflow: hidden;
+    color: var(--color-muted);
+    font-size: 14px;
+    font-weight: 800;
+    text-decoration: none;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.plant-author-link:hover,
+.plant-author-link:focus-visible {
+    color: var(--color-green);
+    text-decoration: underline;
 }
 
 .plant-title-heading__tools {

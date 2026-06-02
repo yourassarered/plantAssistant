@@ -76,6 +76,7 @@ const buildPublicCareTasks = (sourcePlants) =>
             plantImage: plant.image,
             type,
             dueAt: schedule.nextAt,
+            everyDays: schedule.everyDays,
             completed: false,
         })),
     );
