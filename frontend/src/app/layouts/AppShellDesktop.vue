@@ -1,11 +1,5 @@
 ﻿<script setup>
-import {
-    Leaf,
-    ListTodo,
-    Shield,
-    Sprout,
-    UserRound,
-} from "lucide-vue-next";
+import { Leaf, ListTodo, Shield, Sprout, UserRound } from "lucide-vue-next";
 import { computed } from "vue";
 
 import { useAuthStore } from "@/entities/auth/model/auth.store";

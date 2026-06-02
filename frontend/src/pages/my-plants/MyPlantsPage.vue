@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, watch } from "vue";
+import { onBeforeUnmount, onMounted, watch } from "vue";
 import { Plus, RefreshCw, Search } from "lucide-vue-next";
 import { useRoute } from "vue-router";
 
@@ -13,13 +13,27 @@ import PlantListWidget from "@/widgets/plants/PlantListWidget.vue";
 const plantStore = usePlantStore();
 const taskStore = useTaskStore();
 const route = useRoute();
+const searchDebounceMs = 300;
+let searchRefreshTimer = null;
 
 const refresh = async () => {
     await plantStore.loadPlants("private");
     taskStore.syncFromPlants(plantStore.all);
 };
 
+const scheduleSearchRefresh = (value) => {
+    plantStore.setSearch(value);
+
+    window.clearTimeout(searchRefreshTimer);
+    searchRefreshTimer = window.setTimeout(() => {
+        refresh();
+    }, searchDebounceMs);
+};
+
 onMounted(refresh);
+onBeforeUnmount(() => {
+    window.clearTimeout(searchRefreshTimer);
+});
 watch(
     () => route.fullPath,
     () => {
@@ -59,8 +73,7 @@ watch(
                 <input
                     :value="plantStore.search"
                     placeholder="Поиск по названию"
-                    @input="plantStore.setSearch($event.target.value)"
-                    @change="refresh"
+                    @input="scheduleSearchRefresh($event.target.value)"
                 />
             </label>
 

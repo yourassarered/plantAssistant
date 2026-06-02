@@ -36,6 +36,8 @@ const profileEmail = ref("");
 const profilePassword = ref("");
 const profilePasswordConfirmation = ref("");
 const avatarFile = ref(null);
+const avatarOriginalFile = ref(null);
+const avatarOriginalPreviewUrl = ref("");
 const avatarPreviewUrl = ref("");
 const avatarCropX = ref(0);
 const avatarCropY = ref(0);
@@ -45,6 +47,7 @@ const avatarNaturalHeight = ref(0);
 const isAvatarDragging = ref(false);
 const isAvatarCropOpen = ref(false);
 const avatarCropStage = ref(null);
+const avatarCropImage = ref(null);
 const avatarCropMode = ref("move");
 const avatarDisplayWidth = ref(0);
 const avatarDisplayHeight = ref(0);
@@ -203,10 +206,15 @@ const fillProfileForm = () => {
 };
 
 const clearAvatarDraft = () => {
-    if (avatarPreviewUrl.value) {
-        URL.revokeObjectURL(avatarPreviewUrl.value);
-    }
+    [avatarPreviewUrl.value, avatarOriginalPreviewUrl.value]
+        .filter(Boolean)
+        .forEach((url, index, urls) => {
+            if (urls.indexOf(url) === index) URL.revokeObjectURL(url);
+        });
+
     avatarFile.value = null;
+    avatarOriginalFile.value = null;
+    avatarOriginalPreviewUrl.value = "";
     avatarPreviewUrl.value = "";
     avatarCropX.value = 0;
     avatarCropY.value = 0;
@@ -339,18 +347,25 @@ const onAvatarFileChange = (event) => {
     }
 
     clearAvatarDraft();
-    avatarFile.value = file;
-    avatarPreviewUrl.value = URL.createObjectURL(file);
+    avatarOriginalFile.value = file;
+    avatarOriginalPreviewUrl.value = URL.createObjectURL(file);
+    avatarPreviewUrl.value = avatarOriginalPreviewUrl.value;
     isAvatarCropOpen.value = true;
 };
 
 const createCroppedAvatarFile = async () => {
-    if (!avatarFile.value || !avatarPreviewUrl.value) return null;
-    if (!avatarDisplayWidth.value || !avatarDisplayHeight.value) return null;
+    if (!avatarOriginalFile.value || !avatarOriginalPreviewUrl.value)
+        return null;
+
+    const displayWidth =
+        avatarCropImage.value?.clientWidth || avatarDisplayWidth.value;
+    const displayHeight =
+        avatarCropImage.value?.clientHeight || avatarDisplayHeight.value;
+    if (!displayWidth || !displayHeight || !avatarCropSize.value) return null;
 
     const image = new Image();
     image.decoding = "async";
-    image.src = avatarPreviewUrl.value;
+    image.src = avatarOriginalPreviewUrl.value;
 
     await new Promise((resolve, reject) => {
         image.onload = resolve;
@@ -364,8 +379,8 @@ const createCroppedAvatarFile = async () => {
 
     const context = canvas.getContext("2d");
     if (!context) return null;
-    const scaleX = image.naturalWidth / avatarDisplayWidth.value;
-    const scaleY = image.naturalHeight / avatarDisplayHeight.value;
+    const scaleX = image.naturalWidth / displayWidth;
+    const scaleY = image.naturalHeight / displayHeight;
     const sourceX = avatarCropX.value * scaleX;
     const sourceY = avatarCropY.value * scaleY;
     const sourceWidth = avatarCropSize.value * scaleX;
@@ -430,10 +445,7 @@ const updateProfile = async () => {
         await authStore.updateProfile(payload);
 
         if (avatarFile.value) {
-            const croppedAvatar = await createCroppedAvatarFile();
-            if (croppedAvatar) {
-                await authStore.updateAvatar(croppedAvatar);
-            }
+            await authStore.updateAvatar(avatarFile.value);
         }
 
         fillProfileForm();
@@ -455,8 +467,26 @@ const deleteAvatar = async () => {
     }
 };
 
-const confirmAvatarCrop = () => {
+const confirmAvatarCrop = async () => {
     if (!avatarPreviewUrl.value) return;
+    const croppedAvatar = await createCroppedAvatarFile();
+
+    if (!croppedAvatar) {
+        toast.error("Не удалось применить кадр. Выберите изображение ещё раз.");
+        return;
+    }
+
+    const previousPreviewUrl = avatarPreviewUrl.value;
+    avatarFile.value = croppedAvatar;
+    avatarPreviewUrl.value = URL.createObjectURL(croppedAvatar);
+
+    if (
+        previousPreviewUrl &&
+        previousPreviewUrl !== avatarOriginalPreviewUrl.value
+    ) {
+        URL.revokeObjectURL(previousPreviewUrl);
+    }
+
     isAvatarCropOpen.value = false;
 };
 
@@ -547,24 +577,6 @@ onMounted(async () => {
             <section v-else class="panel auth-panel profile-card">
                 <div class="account-card__head">
                     <h2 class="panel__title">Аккаунт</h2>
-                    <div class="account-card__actions">
-                        <UiButton variant="ghost" @click="startProfileEdit">
-                            <Edit3 :size="17" />
-                            Редактировать
-                        </UiButton>
-                        <UiButton
-                            variant="ghost"
-                            @click="openReportsDialog('my')"
-                        >
-                            Мои жалобы
-                        </UiButton>
-                        <UiButton
-                            variant="ghost"
-                            @click="openReportsDialog('received')"
-                        >
-                            Жалобы на меня
-                        </UiButton>
-                    </div>
                 </div>
                 <div class="account-card__body">
                     <img
@@ -585,6 +597,15 @@ onMounted(async () => {
                             {{ authStore.user?.warnings_count || 0 }}/3</span
                         >
                     </div>
+                </div>
+                <div class="account-card__actions">
+                    <UiButton variant="ghost" @click="startProfileEdit">
+                        <Edit3 :size="17" />
+                        Редактировать
+                    </UiButton>
+                    <UiButton variant="ghost" @click="openReportsDialog('my')">
+                        Жалобы
+                    </UiButton>
                 </div>
                 <UiButton variant="ghost" @click="logout">
                     <LogOut :size="17" />
@@ -712,7 +733,8 @@ onMounted(async () => {
                     <div class="avatar-crop-workspace">
                         <div ref="avatarCropStage" class="avatar-crop-stage">
                             <img
-                                :src="avatarPreviewUrl"
+                                ref="avatarCropImage"
+                                :src="avatarOriginalPreviewUrl"
                                 alt=""
                                 class="avatar-crop-image"
                                 @load="onAvatarImageLoad"
@@ -957,16 +979,16 @@ onMounted(async () => {
 }
 
 .account-card__actions {
-    display: flex;
-    align-items: stretch;
-    justify-content: flex-end;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
-    margin-left: auto;
     min-width: 0;
 }
 
 .account-card__actions :deep(.ui-button) {
+    width: 100%;
     min-height: 42px;
+    justify-content: center;
 }
 
 .account-card__identity {
@@ -1340,6 +1362,12 @@ onMounted(async () => {
 }
 
 @media (max-width: 680px) {
+    .profile-edit-modal {
+        align-items: end;
+        padding: 0;
+        overflow: hidden;
+    }
+
     .profile-overview-grid {
         grid-template-columns: 1fr;
     }
@@ -1350,22 +1378,46 @@ onMounted(async () => {
 
     .profile-edit {
         grid-template-columns: 1fr;
+        width: 100%;
+        max-height: min(92dvh, calc(100vh - 18px));
+        padding-bottom: max(12px, env(safe-area-inset-bottom));
+        border-radius: var(--radius-md) var(--radius-md) 0 0;
     }
 
     .avatar-editor {
         grid-template-columns: 1fr;
     }
 
-    .account-card__head,
     .account-card__body,
-    .account-card__actions,
     .profile-edit__actions {
         align-items: stretch;
         flex-direction: column;
     }
 
     .account-card__actions {
-        margin-left: 0;
+        grid-template-columns: 1fr;
+    }
+
+    .profile-edit__head {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        padding-bottom: 10px;
+        background: var(--color-surface);
+    }
+
+    .profile-edit__actions {
+        position: sticky;
+        bottom: 0;
+        z-index: 2;
+        padding-top: 12px;
+        padding-bottom: max(4px, env(safe-area-inset-bottom));
+        border-top: 1px solid var(--color-border);
+        background: linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.82),
+            var(--color-surface) 22%
+        );
     }
 
     .account-card__actions :deep(.ui-button),

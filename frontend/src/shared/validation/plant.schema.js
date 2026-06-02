@@ -2,14 +2,17 @@ import { toTypedSchema } from "@vee-validate/zod";
 import { z } from "zod";
 
 const decimalNumber = (message) =>
-    z.preprocess((value) => {
-        if (typeof value === "string") {
-            const normalized = value.trim().replace(",", ".");
-            return normalized === "" ? value : Number(normalized);
-        }
+    z.preprocess(
+        (value) => {
+            if (typeof value === "string") {
+                const normalized = value.trim().replace(",", ".");
+                return normalized === "" ? value : Number(normalized);
+            }
 
-        return value;
-    }, z.number({ invalid_type_error: message }).min(1, message));
+            return value;
+        },
+        z.number({ invalid_type_error: message }).min(1, message),
+    );
 
 export const plantFormSchema = toTypedSchema(
     z.object({
