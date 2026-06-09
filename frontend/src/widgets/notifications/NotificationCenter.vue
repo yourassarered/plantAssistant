@@ -1,6 +1,6 @@
 <script setup>
 import { Bell, CheckCheck, Trash2, X } from "lucide-vue-next";
-import { computed, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 
 import { useNotificationStore } from "@/entities/notification/model/notification.store";
 
@@ -10,6 +10,8 @@ const props = defineProps({
 
 const notificationStore = useNotificationStore();
 const isOpen = ref(false);
+const triggerRef = ref(null);
+const panelStyle = ref({});
 
 const notifications = computed(() => notificationStore.latest);
 const unreadCount = computed(() => notificationStore.unreadCount);
@@ -17,9 +19,66 @@ const unreadLabel = computed(() =>
     unreadCount.value > 9 ? "9+" : String(unreadCount.value),
 );
 
+const viewportPadding = 12;
+const panelGap = 10;
+
+const updatePanelPosition = () => {
+    if (!triggerRef.value) return;
+
+    const triggerRect = triggerRef.value.getBoundingClientRect();
+    const panelWidth = Math.min(340, window.innerWidth - viewportPadding * 2);
+    const panelTop = Math.min(
+        triggerRect.bottom + panelGap,
+        window.innerHeight - 72,
+    );
+
+    if (props.compact) {
+        panelStyle.value = {
+            top: `${panelTop}px`,
+            right: `${viewportPadding}px`,
+            left: `${viewportPadding}px`,
+            width: "auto",
+            maxHeight: `calc(100dvh - ${panelTop + viewportPadding}px)`,
+        };
+        return;
+    }
+
+    const panelLeft = Math.min(
+        Math.max(viewportPadding, triggerRect.left),
+        window.innerWidth - panelWidth - viewportPadding,
+    );
+
+    panelStyle.value = {
+        top: `${panelTop}px`,
+        left: `${panelLeft}px`,
+        width: `${panelWidth}px`,
+        maxHeight: `calc(100dvh - ${panelTop + viewportPadding}px)`,
+    };
+};
+
+const openPanel = async () => {
+    isOpen.value = !isOpen.value;
+
+    if (isOpen.value) {
+        await nextTick();
+        updatePanelPosition();
+    }
+};
+
 const closePanel = () => {
     isOpen.value = false;
 };
+
+watch(isOpen, (opened) => {
+    const method = opened ? "addEventListener" : "removeEventListener";
+    window[method]("resize", updatePanelPosition);
+    window[method]("scroll", updatePanelPosition, true);
+});
+
+onBeforeUnmount(() => {
+    window.removeEventListener("resize", updatePanelPosition);
+    window.removeEventListener("scroll", updatePanelPosition, true);
+});
 </script>
 
 <template>
@@ -28,11 +87,12 @@ const closePanel = () => {
         :class="{ 'notification-center--compact': props.compact }"
     >
         <button
+            ref="triggerRef"
             type="button"
             class="notification-trigger"
             :aria-expanded="isOpen"
             aria-label="Уведомления"
-            @click="isOpen = !isOpen"
+            @click="openPanel"
         >
             <Bell :size="18" />
             <span v-if="unreadCount" class="notification-trigger__badge">
@@ -40,78 +100,96 @@ const closePanel = () => {
             </span>
         </button>
 
-        <section v-if="isOpen" class="notification-panel">
-            <header class="notification-panel__head">
-                <div>
-                    <strong>Уведомления</strong>
-                    <span>Только пока приложение открыто</span>
-                </div>
-                <button
-                    type="button"
-                    class="notification-icon-button"
-                    aria-label="Закрыть уведомления"
-                    @click="closePanel"
-                >
-                    <X :size="16" />
-                </button>
-            </header>
-
-            <div
-                v-if="notifications.length"
-                class="notification-panel__actions"
+        <Teleport to="body">
+            <section
+                v-if="isOpen"
+                class="notification-panel"
+                :class="{ 'notification-panel--compact': props.compact }"
+                :style="panelStyle"
             >
-                <button type="button" @click="notificationStore.markAllRead">
-                    <CheckCheck :size="15" />
-                    Прочитано
-                </button>
-                <button type="button" @click="notificationStore.clear">
-                    <Trash2 :size="15" />
-                    Очистить
-                </button>
-            </div>
-
-            <div v-if="notifications.length" class="notification-list">
-                <article
-                    v-for="notification in notifications"
-                    :key="notification.id"
-                    class="notification-item"
-                    :class="{
-                        'notification-item--unread': !notification.read,
-                        [`notification-item--${notification.type}`]: true,
-                    }"
-                >
+                <header class="notification-panel__head">
                     <div>
-                        <strong>{{ notification.title }}</strong>
-                        <p v-if="notification.body">{{ notification.body }}</p>
+                        <strong>Уведомления</strong>
+                        <span>Только пока приложение открыто</span>
                     </div>
+                    <button
+                        type="button"
+                        class="notification-icon-button"
+                        aria-label="Закрыть уведомления"
+                        @click="closePanel"
+                    >
+                        <X :size="16" />
+                    </button>
+                </header>
 
-                    <div class="notification-item__actions">
-                        <RouterLink
-                            v-if="notification.actionTo"
-                            :to="notification.actionTo"
-                            @click="notificationStore.markRead(notification.id)"
-                        >
-                            Открыть
-                        </RouterLink>
-                        <button
-                            type="button"
-                            @click="notificationStore.remove(notification.id)"
-                        >
-                            Убрать
-                        </button>
-                    </div>
-                </article>
-            </div>
+                <div
+                    v-if="notifications.length"
+                    class="notification-panel__actions"
+                >
+                    <button
+                        type="button"
+                        @click="notificationStore.markAllRead"
+                    >
+                        <CheckCheck :size="15" />
+                        Прочитано
+                    </button>
+                    <button type="button" @click="notificationStore.clear">
+                        <Trash2 :size="15" />
+                        Очистить
+                    </button>
+                </div>
 
-            <p v-else class="notification-empty">Пока нет новых напоминаний.</p>
-        </section>
+                <div v-if="notifications.length" class="notification-list">
+                    <article
+                        v-for="notification in notifications"
+                        :key="notification.id"
+                        class="notification-item"
+                        :class="{
+                            'notification-item--unread': !notification.read,
+                            [`notification-item--${notification.type}`]: true,
+                        }"
+                    >
+                        <div>
+                            <strong>{{ notification.title }}</strong>
+                            <p v-if="notification.body">
+                                {{ notification.body }}
+                            </p>
+                        </div>
+
+                        <div class="notification-item__actions">
+                            <RouterLink
+                                v-if="notification.actionTo"
+                                :to="notification.actionTo"
+                                @click="
+                                    notificationStore.markRead(notification.id)
+                                "
+                            >
+                                Открыть
+                            </RouterLink>
+                            <button
+                                type="button"
+                                @click="
+                                    notificationStore.remove(notification.id)
+                                "
+                            >
+                                Убрать
+                            </button>
+                        </div>
+                    </article>
+                </div>
+
+                <p v-else class="notification-empty">
+                    Пока нет новых напоминаний.
+                </p>
+            </section>
+        </Teleport>
     </div>
 </template>
 
 <style scoped>
 .notification-center {
     position: relative;
-    z-index: 30;
+    z-index: 80;
 }
 
 .notification-trigger {
@@ -146,17 +224,16 @@ const closePanel = () => {
 }
 
 .notification-panel {
-    position: absolute;
-    top: calc(100% + 10px);
-    left: 0;
+    position: fixed;
+    z-index: 1200;
     display: grid;
-    width: min(340px, calc(100vw - 28px));
     gap: 12px;
     padding: 14px;
     border: 1px solid #d7e3d2;
     border-radius: 18px;
     background: rgba(255, 255, 255, 0.98);
     box-shadow: 0 24px 48px rgba(24, 45, 28, 0.18);
+    overflow: auto;
 }
 
 .notification-panel__head,
@@ -250,14 +327,10 @@ const closePanel = () => {
     position: fixed;
     top: 12px;
     right: 12px;
-    z-index: 80;
+    z-index: 1201;
 }
 
-.notification-center--compact .notification-panel {
-    position: fixed;
-    top: 62px;
-    right: 12px;
-    left: 12px;
+.notification-panel--compact {
     width: auto;
 }
 </style>
