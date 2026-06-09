@@ -1,6 +1,7 @@
 <script setup>
 import { Bell, CheckCheck, Trash2, X } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
+import { useRouter } from "vue-router";
 
 import { useNotificationStore } from "@/entities/notification/model/notification.store";
 
@@ -9,6 +10,7 @@ const props = defineProps({
 });
 
 const notificationStore = useNotificationStore();
+const router = useRouter();
 const isOpen = ref(false);
 const triggerRef = ref(null);
 const panelStyle = ref({});
@@ -67,6 +69,52 @@ const openPanel = async () => {
 
 const closePanel = () => {
     isOpen.value = false;
+};
+
+const taskIdFromNotificationKey = (key) => {
+    const [, plantId, type, dueAt] = String(key || "").split(":");
+    if (!plantId || !type || !dueAt) return "";
+
+    return `${plantId}-${type}-${dueAt}`;
+};
+
+const notificationTaskId = (notification) =>
+    notification.taskId ||
+    notification.actionTo?.query?.task ||
+    taskIdFromNotificationKey(notification.key);
+
+const notificationTarget = (notification) => {
+    const taskId = notificationTaskId(notification);
+
+    if (taskId) {
+        return {
+            name: "tasks",
+            query: { task: taskId },
+        };
+    }
+
+    return notification.actionTo || { name: "tasks" };
+};
+
+const dispatchTaskFocus = (taskId) => {
+    if (!taskId) return;
+
+    window.dispatchEvent(
+        new CustomEvent("plant-assistant:focus-task", {
+            detail: { taskId },
+        }),
+    );
+};
+
+const handleNotificationOpen = async (notification) => {
+    notificationStore.markRead(notification.id);
+    closePanel();
+
+    const taskId = notificationTaskId(notification);
+    await router.push(notificationTarget(notification));
+    await nextTick();
+
+    dispatchTaskFocus(taskId);
 };
 
 watch(isOpen, (opened) => {
@@ -157,15 +205,13 @@ onBeforeUnmount(() => {
                         </div>
 
                         <div class="notification-item__actions">
-                            <RouterLink
+                            <button
                                 v-if="notification.actionTo"
-                                :to="notification.actionTo"
-                                @click="
-                                    notificationStore.markRead(notification.id)
-                                "
+                                type="button"
+                                @click="handleNotificationOpen(notification)"
                             >
                                 Открыть
-                            </RouterLink>
+                            </button>
                             <button
                                 type="button"
                                 @click="

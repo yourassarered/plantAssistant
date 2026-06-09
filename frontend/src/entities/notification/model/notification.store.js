@@ -16,7 +16,14 @@ export const useNotificationStore = defineStore("notifications", {
         latest: (state) => state.items.slice(0, maxNotifications),
     },
     actions: {
-        notify({ key, title, body = "", type = "info", actionTo = "" }) {
+        notify({
+            key,
+            title,
+            body = "",
+            type = "info",
+            actionTo = "",
+            taskId = "",
+        }) {
             if (!key || this.seenKeys[key]) return null;
 
             const notification = {
@@ -26,6 +33,7 @@ export const useNotificationStore = defineStore("notifications", {
                 body,
                 type,
                 actionTo,
+                taskId,
                 read: false,
                 createdAt: new Date().toISOString(),
             };

@@ -1,7 +1,14 @@
 ﻿<script setup>
-import { computed, onMounted, ref, watch } from "vue";
+import {
+    computed,
+    nextTick,
+    onBeforeUnmount,
+    onMounted,
+    ref,
+    watch,
+} from "vue";
 import { ChevronDown } from "lucide-vue-next";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 
 import { usePlantStore } from "@/entities/plant/model/plant.store";
 import { useTaskStore } from "@/entities/task/model/task.store";
@@ -13,8 +20,20 @@ import UiBadge from "@/shared/ui/UiBadge.vue";
 const plantStore = usePlantStore();
 const taskStore = useTaskStore();
 const route = useRoute();
+const router = useRouter();
 const mode = ref("active");
 const expandedGroups = ref({});
+const highlightedTaskId = ref("");
+let highlightTimer = null;
+
+const taskHighlightDurationMs = 2600;
+const availableModes = new Set(["active", "overdue", "done"]);
+
+const routeTaskId = () => {
+    const task = route.query.task;
+
+    return typeof task === "string" ? task : "";
+};
 
 const tasks = computed(() => {
     if (mode.value === "done")
@@ -62,6 +81,84 @@ const toggleGroup = (plantId) => {
     expandedGroups.value[key] = !expandedGroups.value[key];
 };
 
+const clearFocusedTask = () => {
+    if (!routeTaskId()) return;
+
+    router.replace({ name: "tasks" });
+};
+
+const setMode = (nextMode) => {
+    mode.value = nextMode;
+    clearFocusedTask();
+};
+
+const expandOnlyPlant = (plantId) => {
+    const targetKey = String(plantId);
+    const next = {};
+
+    groupedByPlant.value.forEach((group) => {
+        next[String(group.plantId)] = String(group.plantId) === targetKey;
+    });
+
+    expandedGroups.value = next;
+};
+
+const escapedTaskSelector = (taskId) => {
+    const escapedTaskId = window.CSS?.escape
+        ? window.CSS.escape(taskId)
+        : taskId.replace(/["\\]/g, "\\$&");
+
+    return `[data-task-id="${escapedTaskId}"]`;
+};
+
+const modeForTask = (task) => {
+    if (
+        typeof route.query.mode === "string" &&
+        availableModes.has(route.query.mode)
+    ) {
+        return route.query.mode;
+    }
+
+    if (task.completed) return "done";
+    if (taskDateState(task) === "overdue") return "overdue";
+
+    return "active";
+};
+
+const focusTaskById = async (taskId) => {
+    if (!taskId) return;
+
+    const task = taskStore.all.find((item) => item.id === taskId);
+    if (!task) return;
+
+    mode.value = modeForTask(task);
+    await nextTick();
+
+    expandOnlyPlant(task.plantId);
+
+    await nextTick();
+
+    const taskElement = document.querySelector(escapedTaskSelector(taskId));
+    if (!taskElement) return;
+
+    taskElement.scrollIntoView({ behavior: "smooth", block: "center" });
+
+    window.clearTimeout(highlightTimer);
+    highlightedTaskId.value = "";
+    await nextTick();
+
+    highlightedTaskId.value = taskId;
+    highlightTimer = window.setTimeout(() => {
+        if (highlightedTaskId.value === taskId) {
+            highlightedTaskId.value = "";
+        }
+    }, taskHighlightDurationMs);
+};
+
+const focusRouteTask = async () => {
+    await focusTaskById(routeTaskId());
+};
+
 watch(
     groupedByPlant,
     (groups) => {
@@ -81,15 +178,41 @@ const refresh = async () => {
     taskStore.syncFromPlants(ownPlants);
 };
 
-onMounted(refresh);
+const refreshAndFocusRouteTask = async () => {
+    await refresh();
+    await focusRouteTask();
+};
+
+const handleExternalTaskFocus = async (event) => {
+    const taskId = event.detail?.taskId;
+    if (!taskId) return;
+
+    await focusTaskById(taskId);
+};
+
+onMounted(() => {
+    window.addEventListener(
+        "plant-assistant:focus-task",
+        handleExternalTaskFocus,
+    );
+    refreshAndFocusRouteTask();
+});
 watch(
     () => route.fullPath,
     () => {
         if (route.name === "tasks") {
-            refresh();
+            refreshAndFocusRouteTask();
         }
     },
 );
+
+onBeforeUnmount(() => {
+    window.clearTimeout(highlightTimer);
+    window.removeEventListener(
+        "plant-assistant:focus-task",
+        handleExternalTaskFocus,
+    );
+});
 </script>
 
 <template>
@@ -106,17 +229,20 @@ watch(
         <div class="task-tabs">
             <button
                 :class="{ active: mode === 'active' }"
-                @click="mode = 'active'"
+                @click="setMode('active')"
             >
                 Активные
             </button>
             <button
                 :class="{ active: mode === 'overdue' }"
-                @click="mode = 'overdue'"
+                @click="setMode('overdue')"
             >
                 Просрочено
             </button>
-            <button :class="{ active: mode === 'done' }" @click="mode = 'done'">
+            <button
+                :class="{ active: mode === 'done' }"
+                @click="setMode('done')"
+            >
                 Готово
             </button>
         </div>
@@ -167,20 +293,27 @@ watch(
                     </span>
                 </button>
 
-                <TransitionGroup
-                    v-show="isExpanded(group.plantId)"
-                    name="task-replace"
-                    tag="div"
-                    class="task-group__list task-stack"
+                <div
+                    class="task-group__body"
+                    :class="{
+                        'task-group__body--open': isExpanded(group.plantId),
+                    }"
+                    :aria-hidden="!isExpanded(group.plantId)"
                 >
-                    <TaskItem
-                        v-for="task in group.items"
-                        :key="task.id"
-                        :task="task"
-                        :show-plant-name="false"
-                        :show-room="false"
-                    />
-                </TransitionGroup>
+                    <div class="task-group__body-inner">
+                        <div class="task-group__list task-stack">
+                            <TaskItem
+                                v-for="task in group.items"
+                                :key="task.id"
+                                :task="task"
+                                :show-plant-name="false"
+                                :show-room="false"
+                                :highlighted="highlightedTaskId === task.id"
+                                :data-task-id="task.id"
+                            />
+                        </div>
+                    </div>
+                </div>
             </article>
 
             <UiBadge v-if="!groupedByPlant.length" tone="neutral"
@@ -296,63 +429,39 @@ watch(
     transform: rotate(180deg);
 }
 
+.task-group__body {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transition:
+        grid-template-rows 0.26s cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 0.16s ease;
+}
+
+.task-group__body--open {
+    grid-template-rows: 1fr;
+    opacity: 1;
+}
+
+.task-group__body-inner {
+    min-height: 0;
+    overflow: hidden;
+}
+
 .task-group__list {
     display: grid;
     gap: 8px;
     padding: 10px;
+    transform: translateY(-4px);
+    transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.task-group__body--open .task-group__list {
+    transform: translateY(0);
 }
 
 .task-stack {
     position: relative;
     overflow: hidden;
-}
-
-.task-replace-enter-active,
-.task-replace-leave-active,
-.task-replace-move {
-    transition:
-        opacity 0.42s cubic-bezier(0.2, 0.72, 0.18, 1),
-        transform 0.42s cubic-bezier(0.2, 0.72, 0.18, 1),
-        box-shadow 0.42s ease;
-}
-
-.task-replace-enter-active {
-    animation: task-replace-highlight 0.7s ease;
-}
-
-.task-replace-leave-active {
-    position: absolute;
-    right: 0;
-    left: 0;
-    z-index: 1;
-}
-
-.task-replace-enter-from,
-.task-replace-leave-to {
-    opacity: 0;
-}
-
-.task-replace-enter-from {
-    transform: translateX(-36px) scale(0.985);
-}
-
-.task-replace-leave-to {
-    transform: translateX(48px) scale(0.985);
-}
-
-@keyframes task-replace-highlight {
-    0% {
-        box-shadow: 0 0 0 0 rgba(22, 132, 58, 0);
-    }
-
-    34% {
-        box-shadow:
-            0 0 0 2px rgba(22, 132, 58, 0.22),
-            0 12px 28px rgba(22, 132, 58, 0.16);
-    }
-
-    100% {
-        box-shadow: 0 0 0 0 rgba(22, 132, 58, 0);
-    }
 }
 </style>

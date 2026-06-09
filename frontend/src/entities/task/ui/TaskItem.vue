@@ -20,6 +20,7 @@ const props = defineProps({
     showPlantName: { type: Boolean, default: true },
     showRoom: { type: Boolean, default: true },
     hideMobileDueBadge: { type: Boolean, default: false },
+    highlighted: { type: Boolean, default: false },
 });
 
 const icons = {
@@ -41,6 +42,7 @@ const dueLabel = computed(() => formatTaskDueDate(props.task.dueAt));
             'task-item--completing': task.isCompleting,
             'task-item--today': state === 'today' && !task.completed,
             'task-item--hide-mobile-badge': hideMobileDueBadge,
+            'task-item--highlighted': highlighted,
         }"
     >
         <span
@@ -121,6 +123,10 @@ const dueLabel = computed(() => formatTaskDueDate(props.task.dueAt));
     background: #fff6ef;
 }
 
+.task-item--highlighted {
+    animation: task-item-focus-blink 1.25s ease-in-out 2;
+}
+
 .task-item--completing {
     border-color: var(--color-green);
     color: #fff;
@@ -172,6 +178,24 @@ const dueLabel = computed(() => formatTaskDueDate(props.task.dueAt));
 .task-item__content span {
     color: var(--color-muted);
     font-size: 13px;
+}
+
+@keyframes task-item-focus-blink {
+    0%,
+    100% {
+        border-color: var(--color-border);
+        box-shadow: none;
+        transform: translateY(0);
+    }
+
+    38%,
+    72% {
+        border-color: #f0b65a;
+        box-shadow:
+            0 0 0 3px rgba(240, 182, 90, 0.28),
+            0 18px 34px rgba(91, 76, 34, 0.14);
+        transform: translateY(-1px);
+    }
 }
 
 @media (max-width: 720px) {
