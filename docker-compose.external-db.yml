@@ -1,0 +1,10 @@
+services:
+  backend:
+    networks:
+      - default
+      - external_postgres
+
+networks:
+  external_postgres:
+    external: true
+    name: "${EXTERNAL_POSTGRES_NETWORK}"

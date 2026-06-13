@@ -1,0 +1,62 @@
+FROM composer:2 AS composer
+
+FROM php:8.4-cli-alpine AS backend
+
+WORKDIR /var/www/html
+
+RUN apk add --no-cache \
+        curl \
+        freetype-dev \
+        icu-dev \
+        libjpeg-turbo-dev \
+        libpng-dev \
+        libzip-dev \
+        linux-headers \
+        oniguruma-dev \
+        postgresql-dev \
+        unzip \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j"$(nproc)" \
+        bcmath \
+        exif \
+        gd \
+        intl \
+        mbstring \
+        opcache \
+        pcntl \
+        pdo_pgsql \
+        pgsql \
+        sockets \
+        zip
+
+COPY --from=composer /usr/bin/composer /usr/bin/composer
+COPY docker/php/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
+COPY docker/backend/entrypoint.sh /usr/local/bin/backend-entrypoint
+COPY . .
+
+RUN composer install \
+        --no-dev \
+        --prefer-dist \
+        --no-interaction \
+        --no-progress \
+        --no-scripts \
+        --optimize-autoloader \
+    && php artisan package:discover --ansi \
+    && ./vendor/bin/rr get-binary \
+    && chmod +x ./rr /usr/local/bin/backend-entrypoint \
+    && mkdir -p \
+        storage/app/public \
+        storage/app/roadrunner \
+        storage/framework/cache \
+        storage/framework/sessions \
+        storage/framework/views \
+        storage/logs \
+        bootstrap/cache \
+    && chown -R www-data:www-data storage bootstrap/cache public
+
+USER www-data
+
+EXPOSE 8000
+
+ENTRYPOINT ["backend-entrypoint"]
+CMD ["octane"]
