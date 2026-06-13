@@ -3,8 +3,9 @@ import { computed, onMounted, ref, watch } from "vue";
 import {
     ExternalLink,
     Pencil,
+    RefreshCw,
     Save,
-    ShieldCheck,
+    Search,
     Trash2,
     X,
 } from "lucide-vue-next";
@@ -39,7 +40,7 @@ const userSearch = ref("");
 const reportStatusFilter = ref("pending");
 const reportTargetFilter = ref("");
 const userRoleFilter = ref("");
-const sortUsersByRank = ref(false);
+const userSortMode = ref("alphabet");
 const trafficMinutes = ref(60);
 const editingUserId = ref(null);
 const userForm = ref({
@@ -86,19 +87,45 @@ const resolutionActionLabels = {
 
 const filteredUsers = computed(() => {
     const query = userSearch.value.trim().toLowerCase();
+    const source = query
+        ? adminStore.users.filter((user) =>
+              [user.name, user.email, user.role?.name]
+                  .filter(Boolean)
+                  .join(" ")
+                  .toLowerCase()
+                  .includes(query),
+          )
+        : adminStore.users;
 
-    if (!query) {
-        return adminStore.users;
+    const users = [...source];
+
+    if (userSortMode.value === "rank_desc") {
+        return users.sort(
+            (left, right) => Number(right.rank || 0) - Number(left.rank || 0),
+        );
     }
 
-    return adminStore.users.filter((user) =>
-        [user.name, user.email, user.role?.name]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase()
-            .includes(query),
+    if (userSortMode.value === "rank_asc") {
+        return users.sort(
+            (left, right) => Number(left.rank || 0) - Number(right.rank || 0),
+        );
+    }
+
+    return users.sort((left, right) =>
+        String(left.name || left.email || "").localeCompare(
+            String(right.name || right.email || ""),
+            "ru",
+            { sensitivity: "base" },
+        ),
     );
 });
+
+const editingUser = computed(
+    () =>
+        adminStore.users.find(
+            (user) => Number(user.id) === Number(editingUserId.value),
+        ) || null,
+);
 
 const displayedReports = computed(() =>
     adminStore.reports.filter((report) => {
@@ -283,7 +310,6 @@ const refreshUsers = () =>
     adminStore.loadUsers({
         search: userSearch.value.trim(),
         role: userRoleFilter.value,
-        sortByRank: sortUsersByRank.value,
     });
 
 const refreshTraffic = () => adminStore.loadTraffic(trafficMinutes.value);
@@ -483,6 +509,8 @@ const cancelEditUser = () => {
 };
 
 const saveUser = async (user) => {
+    if (!user) return;
+
     if (!userForm.value.name.trim()) {
         toast.error("Укажите имя пользователя.");
         return;
@@ -632,9 +660,10 @@ onMounted(() => {
             <UiButton
                 v-if="authStore.isAdmin"
                 variant="ghost"
+                class="admin-refresh-button"
                 @click="refreshActiveTab"
             >
-                <ShieldCheck :size="17" />
+                <RefreshCw :size="17" />
                 Обновить
             </UiButton>
         </header>
@@ -842,14 +871,25 @@ onMounted(() => {
                             <option value="admin">Администратор</option>
                         </select>
                     </UiField>
-                    <label class="rank-toggle">
-                        <input
-                            v-model="sortUsersByRank"
-                            type="checkbox"
-                            @change="refreshUsers"
-                        />
-                        Сначала высокий ранг
-                    </label>
+                    <UiField label="Сортировка">
+                        <select v-model="userSortMode">
+                            <option value="alphabet">По алфавиту</option>
+                            <option value="rank_desc">
+                                Сначала высокий ранг
+                            </option>
+                            <option value="rank_asc">
+                                Сначала низкий ранг
+                            </option>
+                        </select>
+                    </UiField>
+                    <UiButton
+                        variant="ghost"
+                        class="admin-filter-button"
+                        @click="refreshUsers"
+                    >
+                        <Search :size="17" />
+                        Найти
+                    </UiButton>
                 </div>
 
                 <article
@@ -886,6 +926,13 @@ onMounted(() => {
                             <span>Ранг {{ user.rank }}</span>
                         </div>
                         <div class="user-actions">
+                            <RouterLink
+                                class="user-profile-link"
+                                :to="`/users/${user.id}`"
+                            >
+                                <ExternalLink :size="17" />
+                                Профиль
+                            </RouterLink>
                             <button
                                 class="icon-button"
                                 type="button"
@@ -931,64 +978,6 @@ onMounted(() => {
                             Разблокировать
                         </UiButton>
                     </div>
-
-                    <form
-                        v-if="editingUserId === user.id"
-                        class="user-edit"
-                        @submit.prevent="saveUser(user)"
-                    >
-                        <UiField label="Имя">
-                            <input v-model="userForm.name" />
-                        </UiField>
-                        <UiField label="Email">
-                            <input v-model="userForm.email" type="email" />
-                        </UiField>
-                        <UiField label="Ранг">
-                            <input
-                                v-model.number="userForm.rank"
-                                min="0"
-                                type="number"
-                            />
-                        </UiField>
-                        <UiField label="Роль">
-                            <select
-                                v-model="userForm.role_name"
-                                :disabled="isSelf(user)"
-                            >
-                                <option value="user">Пользователь</option>
-                                <option value="admin">Администратор</option>
-                            </select>
-                        </UiField>
-                        <UiField label="Новый пароль">
-                            <input
-                                v-model="userForm.password"
-                                autocomplete="new-password"
-                                placeholder="Оставьте пустым без изменений"
-                                type="password"
-                            />
-                        </UiField>
-                        <UiField label="Повтор пароля">
-                            <input
-                                v-model="userForm.password_confirmation"
-                                autocomplete="new-password"
-                                type="password"
-                            />
-                        </UiField>
-                        <div class="user-edit__actions">
-                            <UiButton
-                                variant="ghost"
-                                type="button"
-                                @click="cancelEditUser"
-                            >
-                                <X :size="16" />
-                                Отмена
-                            </UiButton>
-                            <UiButton type="submit">
-                                <Save :size="16" />
-                                Сохранить
-                            </UiButton>
-                        </div>
-                    </form>
                 </article>
 
                 <div v-if="!filteredUsers.length" class="panel admin-state">
@@ -1009,7 +998,12 @@ onMounted(() => {
                             <option :value="720">720</option>
                         </select>
                     </UiField>
-                    <UiButton variant="ghost" @click="refreshTraffic">
+                    <UiButton
+                        variant="ghost"
+                        class="admin-refresh-button"
+                        @click="refreshTraffic"
+                    >
+                        <RefreshCw :size="17" />
                         Обновить метрики
                     </UiButton>
                 </div>
@@ -1210,6 +1204,93 @@ onMounted(() => {
 
         <Teleport to="body">
             <div
+                v-if="editingUser"
+                class="resolution-modal"
+                @click.self="cancelEditUser"
+            >
+                <section class="panel resolution-dialog user-edit-dialog">
+                    <div class="resolution-dialog__head">
+                        <div>
+                            <h2 class="panel__title">
+                                Редактировать пользователя
+                            </h2>
+                            <p>
+                                {{ editingUser.name }} ·
+                                {{ editingUser.email || "Email скрыт" }}
+                            </p>
+                        </div>
+                        <button
+                            class="resolution-dialog__close"
+                            type="button"
+                            aria-label="Закрыть"
+                            @click="cancelEditUser"
+                        >
+                            <X :size="18" />
+                        </button>
+                    </div>
+
+                    <form
+                        class="user-edit-modal"
+                        @submit.prevent="saveUser(editingUser)"
+                    >
+                        <UiField label="Имя">
+                            <input v-model="userForm.name" />
+                        </UiField>
+                        <UiField label="Email">
+                            <input v-model="userForm.email" type="email" />
+                        </UiField>
+                        <UiField label="Ранг">
+                            <input
+                                v-model.number="userForm.rank"
+                                min="0"
+                                type="number"
+                            />
+                        </UiField>
+                        <UiField label="Роль">
+                            <select
+                                v-model="userForm.role_name"
+                                :disabled="isSelf(editingUser)"
+                            >
+                                <option value="user">Пользователь</option>
+                                <option value="admin">Администратор</option>
+                            </select>
+                        </UiField>
+                        <UiField label="Новый пароль">
+                            <input
+                                v-model="userForm.password"
+                                autocomplete="new-password"
+                                placeholder="Оставьте пустым без изменений"
+                                type="password"
+                            />
+                        </UiField>
+                        <UiField label="Повтор пароля">
+                            <input
+                                v-model="userForm.password_confirmation"
+                                autocomplete="new-password"
+                                type="password"
+                            />
+                        </UiField>
+                        <div class="user-edit-modal__actions">
+                            <UiButton
+                                variant="ghost"
+                                type="button"
+                                @click="cancelEditUser"
+                            >
+                                <X :size="16" />
+                                Отмена
+                            </UiButton>
+                            <UiButton type="submit">
+                                <Save :size="16" />
+                                Сохранить
+                            </UiButton>
+                        </div>
+                    </form>
+                </section>
+            </div>
+        </Teleport>
+
+        <Teleport to="body">
+            <div
                 v-if="auditDialogOpen && selectedAuditAction"
                 class="resolution-modal"
                 @click.self="closeAuditDetails"
@@ -1365,14 +1446,16 @@ onMounted(() => {
 
 <style scoped>
 .admin-tabs {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px;
-    overflow-x: auto;
 }
 
 .admin-tabs button {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+    min-width: 0;
     gap: 8px;
     min-height: 38px;
     padding: 0 12px;
@@ -1382,6 +1465,8 @@ onMounted(() => {
     color: var(--color-muted);
     cursor: pointer;
     font-weight: 800;
+    text-align: center;
+    white-space: normal;
 }
 
 .admin-tabs button.active {
@@ -1397,6 +1482,10 @@ onMounted(() => {
     place-items: center;
     border-radius: 50%;
     background: rgba(255, 255, 255, 0.22);
+}
+
+.admin-refresh-button {
+    white-space: nowrap;
 }
 
 .admin-list,
@@ -1424,7 +1513,9 @@ onMounted(() => {
 }
 
 .admin-filters--users {
-    grid-template-columns: minmax(0, 1.6fr) minmax(180px, 220px) auto auto;
+    grid-template-columns:
+        minmax(0, 1.6fr) minmax(180px, 220px) minmax(210px, auto)
+        auto;
 }
 
 .admin-filters--wide {
@@ -1435,8 +1526,8 @@ onMounted(() => {
 .admin-filters input,
 .admin-filters select,
 .user-item select,
-.user-edit input,
-.user-edit select,
+.user-edit-modal input,
+.user-edit-modal select,
 .report-item textarea {
     width: 100%;
     min-height: 42px;
@@ -1461,13 +1552,10 @@ onMounted(() => {
     color: var(--color-muted);
 }
 
-.rank-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
+.admin-filter-button {
+    align-self: end;
     min-height: 42px;
-    color: var(--color-muted);
-    font-weight: 800;
+    white-space: nowrap;
 }
 
 .report-item {
@@ -1491,8 +1579,6 @@ onMounted(() => {
 .report-item__header,
 .report-item__summary,
 .report-links,
-.user-edit__actions,
-.admin-actions,
 .audit-row {
     display: flex;
     align-items: center;
@@ -1507,13 +1593,17 @@ onMounted(() => {
 }
 
 .admin-actions {
+    display: grid;
+    width: 100%;
     align-self: end;
-    justify-content: flex-start;
+    grid-template-columns: 1fr;
+    gap: 10px;
     margin-top: auto;
 }
 
 .admin-actions :deep(.ui-button) {
-    min-height: 40px;
+    width: 100%;
+    min-height: 44px;
 }
 
 .report-badges {
@@ -1671,6 +1761,20 @@ onMounted(() => {
     gap: 8px;
 }
 
+.user-profile-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 38px;
+    padding: 0 12px;
+    border-radius: var(--radius-sm);
+    color: var(--color-green-dark);
+    background: var(--color-green-soft);
+    font-weight: 800;
+    text-decoration: none;
+}
+
 .user-unblock-row {
     display: flex;
     justify-content: flex-end;
@@ -1717,17 +1821,26 @@ onMounted(() => {
     background: var(--color-surface);
 }
 
-.resolution-dialog__head,
-.resolution-dialog__actions {
+.resolution-dialog__head {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
 }
 
+.resolution-dialog__actions {
+    display: grid;
+    width: 100%;
+    gap: 10px;
+}
+
+.resolution-dialog__actions :deep(.ui-button) {
+    width: 100%;
+    min-height: 44px;
+}
+
 .rejection-dialog__actions {
-    justify-content: flex-start;
-    gap: 14px;
+    gap: 10px;
 }
 
 .resolution-dialog__head p {
@@ -1751,7 +1864,9 @@ onMounted(() => {
 
 .resolution-option {
     display: flex;
+    width: 100%;
     gap: 10px;
+    align-items: flex-start;
     padding: 16px;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
@@ -1785,17 +1900,26 @@ onMounted(() => {
     background: #fff0b8;
 }
 
-.user-edit {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
-    padding-top: 14px;
-    border-top: 1px solid var(--color-border);
+.user-edit-dialog {
+    width: min(680px, 100%);
 }
 
-.user-edit__actions {
+.user-edit-modal {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.user-edit-modal__actions {
+    display: grid;
     grid-column: 1 / -1;
-    justify-content: flex-end;
+    grid-template-columns: 1fr;
+    gap: 10px;
+}
+
+.user-edit-modal__actions :deep(.ui-button) {
+    width: 100%;
+    min-height: 44px;
 }
 
 .icon-button,
@@ -1821,7 +1945,7 @@ onMounted(() => {
 
 .icon-danger:disabled,
 .user-actions select:disabled,
-.user-edit select:disabled {
+.user-edit-modal select:disabled {
     cursor: not-allowed;
     opacity: 0.45;
 }
@@ -1947,23 +2071,162 @@ onMounted(() => {
 }
 
 @media (max-width: 760px) {
+    .page-header {
+        display: grid;
+        gap: 12px;
+    }
+
+    .admin-refresh-button {
+        width: 100%;
+    }
+
     .audit-details__grid,
     .reports-grid,
     .admin-metrics,
     .admin-filters--reports,
     .admin-filters--users,
     .admin-filters--wide,
-    .user-edit,
+    .user-edit-modal,
     .user-actions {
         grid-template-columns: 1fr;
     }
 
+    .admin-filters {
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .admin-filter-button {
+        width: 100%;
+    }
+
+    .reports-grid {
+        grid-auto-rows: auto;
+    }
+
+    .admin-tabs {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .admin-tabs button {
+        flex-direction: column;
+        gap: 6px;
+        min-height: 68px;
+        padding: 10px 8px;
+        font-size: 13px;
+        line-height: 1.15;
+    }
+
+    .admin-tabs span {
+        min-width: 26px;
+        height: 26px;
+        font-size: 12px;
+    }
+
     .report-item__header,
-    .admin-actions,
-    .user-edit__actions,
     .audit-row {
         align-items: start;
         flex-direction: column;
+    }
+
+    .report-item {
+        gap: 12px;
+        height: auto;
+    }
+
+    .report-item__header {
+        gap: 10px;
+    }
+
+    .report-badges {
+        width: 100%;
+    }
+
+    .report-date {
+        width: 100%;
+    }
+
+    .admin-actions {
+        display: grid;
+        width: 100%;
+        gap: 10px;
+        margin-top: 0;
+    }
+
+    .admin-actions :deep(.ui-button) {
+        width: 100%;
+        min-height: 44px;
+    }
+
+    .user-item {
+        gap: 12px;
+    }
+
+    .user-item__summary {
+        grid-template-columns: 1fr;
+    }
+
+    .user-avatar,
+    .user-meta,
+    .user-actions {
+        grid-column: auto;
+    }
+
+    .user-avatar {
+        width: 52px;
+        height: 52px;
+    }
+
+    .user-main strong,
+    .user-main span {
+        white-space: normal;
+    }
+
+    .user-actions {
+        width: 100%;
+        justify-content: stretch;
+    }
+
+    .user-actions select,
+    .user-profile-link,
+    .user-actions :deep(.ui-button),
+    .icon-button,
+    .icon-danger {
+        width: 100%;
+    }
+
+    .icon-button,
+    .icon-danger {
+        height: 42px;
+    }
+
+    .user-unblock-row {
+        justify-content: stretch;
+    }
+
+    .user-unblock-row :deep(.ui-button) {
+        width: 100%;
+    }
+
+    .resolution-dialog {
+        width: 100%;
+        max-height: calc(100vh - 20px);
+        overflow-y: auto;
+    }
+
+    .resolution-dialog__actions,
+    .rejection-dialog__actions,
+    .user-edit-modal__actions {
+        display: grid;
+        width: 100%;
+        gap: 10px;
+    }
+
+    .resolution-dialog__actions :deep(.ui-button),
+    .rejection-dialog__actions :deep(.ui-button),
+    .user-edit-modal__actions :deep(.ui-button) {
+        width: 100%;
+        min-height: 44px;
     }
 
     .audit-row__meta {
