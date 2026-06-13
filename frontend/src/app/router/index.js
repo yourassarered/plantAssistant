@@ -81,7 +81,13 @@ router.beforeEach(async (to) => {
     await authStore.ensureMeLoaded();
 
     if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-        return { name: "profile", query: { redirect: to.fullPath } };
+        return {
+            name: "profile",
+            query: {
+                redirect: to.fullPath,
+                authRequired: "1",
+            },
+        };
     }
 
     if (to.meta.requiresAdmin && !authStore.isAdmin) {

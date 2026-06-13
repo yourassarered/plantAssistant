@@ -1,6 +1,14 @@
 <script setup>
 import { computed, onMounted, ref, watch } from "vue";
-import { Edit3, LogIn, LogOut, UserPlus, X } from "lucide-vue-next";
+import {
+    Edit3,
+    Eye,
+    EyeOff,
+    LogIn,
+    LogOut,
+    UserPlus,
+    X,
+} from "lucide-vue-next";
 import { useRoute, useRouter } from "vue-router";
 import { toast } from "vue-sonner";
 
@@ -31,10 +39,14 @@ const name = ref("");
 const email = ref("");
 const password = ref("");
 const passwordConfirmation = ref("");
+const isPasswordVisible = ref(false);
+const isPasswordConfirmationVisible = ref(false);
 const profileName = ref("");
 const profileEmail = ref("");
 const profilePassword = ref("");
 const profilePasswordConfirmation = ref("");
+const isProfilePasswordVisible = ref(false);
+const isProfilePasswordConfirmationVisible = ref(false);
 const avatarFile = ref(null);
 const avatarOriginalFile = ref(null);
 const avatarOriginalPreviewUrl = ref("");
@@ -77,6 +89,18 @@ const reportTypeLabels = {
 };
 
 const title = computed(() => (mode.value === "login" ? "Вход" : "Регистрация"));
+const passwordInputType = computed(() =>
+    isPasswordVisible.value ? "text" : "password",
+);
+const passwordConfirmationInputType = computed(() =>
+    isPasswordConfirmationVisible.value ? "text" : "password",
+);
+const profilePasswordInputType = computed(() =>
+    isProfilePasswordVisible.value ? "text" : "password",
+);
+const profilePasswordConfirmationInputType = computed(() =>
+    isProfilePasswordConfirmationVisible.value ? "text" : "password",
+);
 
 const refreshPrivateData = async () => {
     await plantStore.loadPlants("private");
@@ -134,6 +158,20 @@ const openReportsDialog = async (mode) => {
     }
 
     await loadMyReports();
+};
+
+const consumeAuthRequiredNotice = async (authRequiredFlag) => {
+    if (authStore.isAuthenticated || authRequiredFlag !== "1") return;
+
+    toast("Чтобы открыть этот раздел, нужно авторизоваться.");
+
+    const nextQuery = { ...route.query };
+    delete nextQuery.authRequired;
+
+    await router.replace({
+        name: "profile",
+        query: nextQuery,
+    });
 };
 
 const redirectAfterAuth = async () => {
@@ -203,6 +241,8 @@ const fillProfileForm = () => {
     profileEmail.value = authStore.user?.email || "";
     profilePassword.value = "";
     profilePasswordConfirmation.value = "";
+    isProfilePasswordVisible.value = false;
+    isProfilePasswordConfirmationVisible.value = false;
 };
 
 const clearAvatarDraft = () => {
@@ -225,6 +265,12 @@ const clearAvatarDraft = () => {
     avatarDisplayHeight.value = 0;
     isAvatarDragging.value = false;
     isAvatarCropOpen.value = false;
+};
+
+const toggleAuthMode = () => {
+    mode.value = mode.value === "login" ? "register" : "login";
+    isPasswordVisible.value = false;
+    isPasswordConfirmationVisible.value = false;
 };
 
 const clampAvatarCrop = (x, y) => {
@@ -495,6 +541,14 @@ const cancelAvatarCrop = () => {
 };
 
 watch(
+    () => route.query.authRequired,
+    (authRequiredFlag) => {
+        consumeAuthRequiredNotice(authRequiredFlag);
+    },
+    { immediate: true },
+);
+
+watch(
     () => authStore.user,
     (user) => {
         fillProfileForm();
@@ -529,12 +583,16 @@ onMounted(async () => {
         </header>
 
         <div :class="{ 'profile-overview-grid': authStore.isAuthenticated }">
-            <section v-if="!authStore.isAuthenticated" class="panel auth-panel">
+            <section
+                v-if="!authStore.isAuthenticated"
+                class="panel auth-panel auth-panel--guest"
+            >
                 <div class="auth-panel__head">
                     <h2 class="panel__title">{{ title }}</h2>
                     <button
+                        class="auth-panel__switch"
                         type="button"
-                        @click="mode = mode === 'login' ? 'register' : 'login'"
+                        @click="toggleAuthMode"
                     >
                         {{
                             mode === "login"
@@ -543,6 +601,10 @@ onMounted(async () => {
                         }}
                     </button>
                 </div>
+                <p class="auth-panel__intro">
+                    Авторизация откроет доступ к вашим растениям, задачам ухода,
+                    лайкам и советам.
+                </p>
 
                 <UiField v-if="mode === 'register'" label="Имя">
                     <input v-model="name" autocomplete="name" />
@@ -551,18 +613,61 @@ onMounted(async () => {
                     <input v-model="email" type="email" autocomplete="email" />
                 </UiField>
                 <UiField label="Пароль">
-                    <input
-                        v-model="password"
-                        type="password"
-                        autocomplete="current-password"
-                    />
+                    <div class="password-field">
+                        <input
+                            v-model="password"
+                            :type="passwordInputType"
+                            :autocomplete="
+                                mode === 'login'
+                                    ? 'current-password'
+                                    : 'new-password'
+                            "
+                        />
+                        <button
+                            type="button"
+                            class="password-field__toggle"
+                            :aria-label="
+                                isPasswordVisible
+                                    ? 'Скрыть пароль'
+                                    : 'Показать пароль'
+                            "
+                            @click="isPasswordVisible = !isPasswordVisible"
+                        >
+                            <component
+                                :is="isPasswordVisible ? EyeOff : Eye"
+                                :size="18"
+                            />
+                        </button>
+                    </div>
                 </UiField>
                 <UiField v-if="mode === 'register'" label="Повтор пароля">
-                    <input
-                        v-model="passwordConfirmation"
-                        type="password"
-                        autocomplete="new-password"
-                    />
+                    <div class="password-field">
+                        <input
+                            v-model="passwordConfirmation"
+                            :type="passwordConfirmationInputType"
+                            autocomplete="new-password"
+                        />
+                        <button
+                            type="button"
+                            class="password-field__toggle"
+                            :aria-label="
+                                isPasswordConfirmationVisible
+                                    ? 'Скрыть пароль'
+                                    : 'Показать пароль'
+                            "
+                            @click="
+                                isPasswordConfirmationVisible =
+                                    !isPasswordConfirmationVisible
+                            "
+                        >
+                            <component
+                                :is="
+                                    isPasswordConfirmationVisible ? EyeOff : Eye
+                                "
+                                :size="18"
+                            />
+                        </button>
+                    </div>
                 </UiField>
 
                 <UiButton :disabled="authStore.loading" @click="submit">
@@ -687,18 +792,64 @@ onMounted(async () => {
                         <input v-model="profileEmail" type="email" />
                     </UiField>
                     <UiField label="Новый пароль">
-                        <input
-                            v-model="profilePassword"
-                            type="password"
-                            autocomplete="new-password"
-                        />
+                        <div class="password-field">
+                            <input
+                                v-model="profilePassword"
+                                :type="profilePasswordInputType"
+                                autocomplete="new-password"
+                            />
+                            <button
+                                type="button"
+                                class="password-field__toggle"
+                                :aria-label="
+                                    isProfilePasswordVisible
+                                        ? 'Скрыть пароль'
+                                        : 'Показать пароль'
+                                "
+                                @click="
+                                    isProfilePasswordVisible =
+                                        !isProfilePasswordVisible
+                                "
+                            >
+                                <component
+                                    :is="
+                                        isProfilePasswordVisible ? EyeOff : Eye
+                                    "
+                                    :size="18"
+                                />
+                            </button>
+                        </div>
                     </UiField>
                     <UiField label="Повтор пароля">
-                        <input
-                            v-model="profilePasswordConfirmation"
-                            type="password"
-                            autocomplete="new-password"
-                        />
+                        <div class="password-field">
+                            <input
+                                v-model="profilePasswordConfirmation"
+                                :type="profilePasswordConfirmationInputType"
+                                autocomplete="new-password"
+                            />
+                            <button
+                                type="button"
+                                class="password-field__toggle"
+                                :aria-label="
+                                    isProfilePasswordConfirmationVisible
+                                        ? 'Скрыть пароль'
+                                        : 'Показать пароль'
+                                "
+                                @click="
+                                    isProfilePasswordConfirmationVisible =
+                                        !isProfilePasswordConfirmationVisible
+                                "
+                            >
+                                <component
+                                    :is="
+                                        isProfilePasswordConfirmationVisible
+                                            ? EyeOff
+                                            : Eye
+                                    "
+                                    :size="18"
+                                />
+                            </button>
+                        </div>
                     </UiField>
                     <div class="profile-edit__actions">
                         <UiButton variant="ghost" @click="cancelProfileEdit">
@@ -1021,6 +1172,47 @@ onMounted(async () => {
 
 .auth-panel span {
     color: var(--color-muted);
+}
+
+.auth-panel__switch {
+    font-size: 14px;
+}
+
+.auth-panel__intro {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 14px;
+    line-height: 1.45;
+    font-weight: 800;
+}
+
+.password-field {
+    position: relative;
+}
+
+.password-field input {
+    padding-right: 48px;
+}
+
+.password-field__toggle {
+    position: absolute;
+    top: 50%;
+    right: 6px;
+    display: grid;
+    width: 36px;
+    height: 36px;
+    place-items: center;
+    border: 0;
+    border-radius: 10px;
+    color: var(--color-muted);
+    background: transparent;
+    cursor: pointer;
+    transform: translateY(-50%);
+}
+
+.password-field__toggle:hover {
+    color: var(--color-green-dark);
+    background: var(--color-surface-soft);
 }
 
 .profile-avatar {
@@ -1362,6 +1554,51 @@ onMounted(async () => {
 }
 
 @media (max-width: 680px) {
+    .auth-panel--guest {
+        gap: 14px;
+        padding: 18px;
+    }
+
+    .auth-panel--guest .panel__title {
+        font-size: 26px;
+        line-height: 1.15;
+    }
+
+    .auth-panel--guest :deep(.ui-field) {
+        gap: 8px;
+        font-size: 15px;
+    }
+
+    .auth-panel--guest :deep(.ui-field input) {
+        min-height: 50px;
+        padding: 12px 14px;
+        font-size: 16px;
+    }
+
+    .auth-panel--guest :deep(.ui-button) {
+        min-height: 50px;
+        font-size: 16px;
+    }
+
+    .auth-panel__head {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .auth-panel__switch {
+        padding: 0;
+        font-size: 15px;
+    }
+
+    .auth-panel__intro {
+        font-size: 15px;
+    }
+
+    .password-field__toggle {
+        width: 40px;
+        height: 40px;
+    }
+
     .profile-edit-modal {
         align-items: end;
         padding: 0;
