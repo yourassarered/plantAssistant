@@ -36,7 +36,7 @@ const complete = async () => {
             'task-toggle--completing': completing,
         }"
         type="button"
-        :disabled="task.completed || completing"
+        :disabled="task.completed"
         @click.stop="complete"
     >
         <Check :size="16" />
@@ -45,34 +45,69 @@ const complete = async () => {
 
 <style scoped>
 .task-toggle {
+    position: relative;
     display: grid;
+    overflow: hidden;
     width: 32px;
     height: 32px;
     place-items: center;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
     color: transparent;
-    background:
-        linear-gradient(var(--color-green), var(--color-green)) 0 100% / 100% 0
-            no-repeat,
-        #fff;
+    background: #fff;
     cursor: pointer;
     transition:
         border-color 0.2s ease,
         color 0.2s ease,
-        background-size 0.28s ease;
+        transform 0.2s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.task-toggle::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background: var(--color-green);
+    transform: translateY(101%);
+    transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.task-toggle svg {
+    position: relative;
+    z-index: 1;
 }
 
 .task-toggle--done,
 .task-toggle--completing {
     color: #fff;
     border-color: var(--color-green);
-    background-size:
-        100% 100%,
-        auto;
+}
+
+.task-toggle--done::before,
+.task-toggle--completing::before {
+    transform: translateY(0);
+}
+
+.task-toggle--completing {
+    animation: task-toggle-pop 0.36s ease both;
 }
 
 .task-toggle:disabled {
     cursor: default;
+}
+
+@keyframes task-toggle-pop {
+    0% {
+        transform: scale(1);
+    }
+
+    45% {
+        transform: scale(1.08);
+    }
+
+    100% {
+        transform: scale(1);
+    }
 }
 </style>

@@ -43,7 +43,11 @@ const resolveAssetUrl = (url) => {
         const apiOrigin = new URL(API_ORIGIN);
         const usesSameOriginApiProxy = API_BASE_URL.startsWith("/");
 
-        if (assetUrl.pathname.startsWith("/storage/")) {
+        const isBackendAsset = ["/storage/", "/images/"].some((prefix) =>
+            assetUrl.pathname.startsWith(prefix),
+        );
+
+        if (isBackendAsset) {
             if (usesSameOriginApiProxy) {
                 return `${assetUrl.pathname}${assetUrl.search}${assetUrl.hash}`;
             }
@@ -120,6 +124,17 @@ const formNumberValue = (value) => {
 };
 
 export const unwrapApiCollection = (payload) => unwrapApiValue(payload) || [];
+
+export const mapApiUser = (user) => {
+    const normalizedUser = unwrapApiValue(user) || {};
+
+    return {
+        ...normalizedUser,
+        avatar_url: normalizedUser.avatar_url
+            ? resolveAssetUrl(normalizedUser.avatar_url)
+            : "",
+    };
+};
 
 export const mapApiPlantImage = (image) => ({
     id: image.id,

@@ -8,7 +8,7 @@ import {
     watch,
 } from "vue";
 import { ChevronDown } from "lucide-vue-next";
-import { useRoute, useRouter } from "vue-router";
+import { useRoute } from "vue-router";
 
 import { usePlantStore } from "@/entities/plant/model/plant.store";
 import { useTaskStore } from "@/entities/task/model/task.store";
@@ -20,14 +20,11 @@ import UiBadge from "@/shared/ui/UiBadge.vue";
 const plantStore = usePlantStore();
 const taskStore = useTaskStore();
 const route = useRoute();
-const router = useRouter();
-const mode = ref("active");
 const expandedGroups = ref({});
 const highlightedTaskId = ref("");
 let highlightTimer = null;
 
 const taskHighlightDurationMs = 2600;
-const availableModes = new Set(["active", "overdue", "done"]);
 
 const routeTaskId = () => {
     const task = route.query.task;
@@ -35,12 +32,7 @@ const routeTaskId = () => {
     return typeof task === "string" ? task : "";
 };
 
-const tasks = computed(() => {
-    if (mode.value === "done")
-        return taskStore.all.filter((task) => task.completed);
-    if (mode.value === "overdue") return taskStore.overdueTasks;
-    return taskStore.pending;
-});
+const tasks = computed(() => taskStore.pending);
 
 const groupedByPlant = computed(() => {
     const groups = new Map();
@@ -61,17 +53,45 @@ const groupedByPlant = computed(() => {
                     rejected: 0,
                 },
                 todayCount: 0,
+                overdueCount: 0,
                 items: [],
             });
         }
         const group = groups.get(task.plantId);
         group.items.push(task);
-        if (taskDateState(task) === "today") {
+        const taskState = taskDateState(task);
+        if (taskState === "today") {
             group.todayCount += 1;
+        } else if (taskState === "overdue") {
+            group.overdueCount += 1;
         }
     }
 
-    return Array.from(groups.values());
+    return Array.from(groups.values()).sort((left, right) => {
+        const leftUrgentCount = left.todayCount + left.overdueCount;
+        const rightUrgentCount = right.todayCount + right.overdueCount;
+
+        if (rightUrgentCount !== leftUrgentCount) {
+            return rightUrgentCount - leftUrgentCount;
+        }
+
+        const leftDueAt = left.items
+            .map((task) => String(task.dueAt || ""))
+            .sort()[0];
+        const rightDueAt = right.items
+            .map((task) => String(task.dueAt || ""))
+            .sort()[0];
+
+        if (leftDueAt !== rightDueAt) {
+            return String(leftDueAt).localeCompare(String(rightDueAt), "ru");
+        }
+
+        return String(left.plantName || "").localeCompare(
+            String(right.plantName || ""),
+            "ru",
+            { sensitivity: "base" },
+        );
+    });
 });
 
 const isExpanded = (plantId) => Boolean(expandedGroups.value[String(plantId)]);
@@ -79,17 +99,6 @@ const isExpanded = (plantId) => Boolean(expandedGroups.value[String(plantId)]);
 const toggleGroup = (plantId) => {
     const key = String(plantId);
     expandedGroups.value[key] = !expandedGroups.value[key];
-};
-
-const clearFocusedTask = () => {
-    if (!routeTaskId()) return;
-
-    router.replace({ name: "tasks" });
-};
-
-const setMode = (nextMode) => {
-    mode.value = nextMode;
-    clearFocusedTask();
 };
 
 const expandOnlyPlant = (plantId) => {
@@ -111,27 +120,11 @@ const escapedTaskSelector = (taskId) => {
     return `[data-task-id="${escapedTaskId}"]`;
 };
 
-const modeForTask = (task) => {
-    if (
-        typeof route.query.mode === "string" &&
-        availableModes.has(route.query.mode)
-    ) {
-        return route.query.mode;
-    }
-
-    if (task.completed) return "done";
-    if (taskDateState(task) === "overdue") return "overdue";
-
-    return "active";
-};
-
 const focusTaskById = async (taskId) => {
     if (!taskId) return;
 
-    const task = taskStore.all.find((item) => item.id === taskId);
+    const task = taskStore.pending.find((item) => item.id === taskId);
     if (!task) return;
-
-    mode.value = modeForTask(task);
     await nextTick();
 
     expandOnlyPlant(task.plantId);
@@ -166,7 +159,7 @@ watch(
         groups.forEach((group) => {
             next[String(group.plantId)] =
                 expandedGroups.value[String(group.plantId)] ??
-                mode.value === "active";
+                (group.todayCount > 0 || group.overdueCount > 0);
         });
         expandedGroups.value = next;
     },
@@ -219,33 +212,10 @@ onBeforeUnmount(() => {
     <section class="page">
         <header class="page-header">
             <div>
-                <h1 class="page-title">Задачи ухода</h1>
-                <p class="page-subtitle">
-                    Сгруппированы по растениям, с быстрым доступом к действиям.
-                </p>
+                <h1 class="page-title">Уход</h1>
+                <p class="page-subtitle">{{ tasks.length }} мероприятий</p>
             </div>
         </header>
-
-        <div class="task-tabs">
-            <button
-                :class="{ active: mode === 'active' }"
-                @click="setMode('active')"
-            >
-                Активные
-            </button>
-            <button
-                :class="{ active: mode === 'overdue' }"
-                @click="setMode('overdue')"
-            >
-                Просрочено
-            </button>
-            <button
-                :class="{ active: mode === 'done' }"
-                @click="setMode('done')"
-            >
-                Готово
-            </button>
-        </div>
 
         <div class="task-groups">
             <article
@@ -267,23 +237,33 @@ onBeforeUnmount(() => {
                             >{{ group.room }} ·
                             {{ group.items.length }} задач</span
                         >
-                        <span
-                            v-if="
-                                plantReportIndicator(group.reportSummary)
-                                    .visible
-                            "
-                            class="task-group__report-indicator"
-                            :data-tone="
-                                plantReportIndicator(group.reportSummary).tone
-                            "
-                        >
-                            {{ plantReportIndicator(group.reportSummary).text }}
-                        </span>
-                    </div>
-                    <div v-if="group.todayCount > 0" class="task-group__today">
-                        <UiBadge tone="today"
-                            >Сегодня: {{ group.todayCount }}</UiBadge
-                        >
+                        <div class="task-group__badges">
+                            <UiBadge
+                                v-if="group.overdueCount > 0"
+                                tone="overdue"
+                            >
+                                Просрочено: {{ group.overdueCount }}
+                            </UiBadge>
+                            <UiBadge v-if="group.todayCount > 0" tone="today">
+                                Сегодня: {{ group.todayCount }}
+                            </UiBadge>
+                            <span
+                                v-if="
+                                    plantReportIndicator(group.reportSummary)
+                                        .visible
+                                "
+                                class="task-group__report-indicator"
+                                :data-tone="
+                                    plantReportIndicator(group.reportSummary)
+                                        .tone
+                                "
+                            >
+                                {{
+                                    plantReportIndicator(group.reportSummary)
+                                        .text
+                                }}
+                            </span>
+                        </div>
                     </div>
                     <span
                         class="task-group__chevron"
@@ -324,29 +304,6 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.task-tabs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-.task-tabs button {
-    min-height: 34px;
-    padding: 0 12px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    background: var(--color-surface);
-    color: var(--color-muted);
-    cursor: pointer;
-    font-weight: 800;
-}
-
-.task-tabs button.active {
-    color: #fff;
-    border-color: var(--color-green);
-    background: var(--color-green);
-}
-
 .task-groups {
     display: grid;
     gap: 10px;
@@ -359,7 +316,8 @@ onBeforeUnmount(() => {
     background: var(--color-surface);
 }
 
-.task-group--today {
+.task-group--today,
+.task-group--overdue {
     border-color: #f1bd95;
 }
 
@@ -372,7 +330,13 @@ onBeforeUnmount(() => {
     padding: 10px;
     cursor: pointer;
     text-align: left;
-    background: #f5f8f2;
+    background:
+        radial-gradient(
+            circle at top right,
+            rgba(255, 223, 198, 0.38),
+            transparent 34%
+        ),
+        linear-gradient(180deg, #f5f8f2, #eef5ea);
 }
 
 .task-group__head img {
@@ -386,6 +350,13 @@ onBeforeUnmount(() => {
 .task-group__meta {
     display: grid;
     gap: 2px;
+}
+
+.task-group__badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 2px;
 }
 
 .task-group__meta span {
@@ -409,18 +380,19 @@ onBeforeUnmount(() => {
     background: #fff0b8;
 }
 
+.task-group__report-indicator[data-tone="neutral"] {
+    color: #465443;
+    background: #e8eee3;
+}
+
 .task-group__report-indicator[data-tone="danger"] {
     color: #8f1f10;
     background: #ffd8d2;
 }
 
-.task-group__today {
-    margin-left: auto;
-}
-
 .task-group__chevron {
+    margin-left: auto;
     display: inline-flex;
-    margin-left: 8px;
     color: var(--color-muted);
     transition: transform 0.18s ease;
 }

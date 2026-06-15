@@ -10,6 +10,68 @@ import {
 } from "@/shared/api/mappers";
 import { summarizePlantCare } from "@/shared/lib/date/taskMarkers";
 
+const allowedPlantFilters = new Set(["attention", "all"]);
+
+const normalizePlantFilter = (filter) =>
+    allowedPlantFilters.has(filter) ? filter : "attention";
+
+const compareText = (left, right) =>
+    String(left || "").localeCompare(String(right || ""), "ru", {
+        sensitivity: "base",
+    });
+
+const careStateWeight = (state) => {
+    if (state === "overdue") return 0;
+    if (state === "today") return 1;
+    if (state === "soon") return 2;
+    return 3;
+};
+
+const comparePlantsByCarePriority = (left, right) => {
+    const leftCare = summarizePlantCare(left);
+    const rightCare = summarizePlantCare(right);
+    const weightDiff =
+        careStateWeight(leftCare.primaryState) -
+        careStateWeight(rightCare.primaryState);
+
+    if (weightDiff !== 0) return weightDiff;
+
+    const leftDueAt = leftCare.markers[0]?.dueAt || "9999-12-31";
+    const rightDueAt = rightCare.markers[0]?.dueAt || "9999-12-31";
+
+    if (leftDueAt !== rightDueAt) {
+        return leftDueAt.localeCompare(rightDueAt);
+    }
+
+    return compareText(left.name, right.name);
+};
+
+const sortPlantsForMyCollection = (plants, sortBy, sortOrder) => {
+    const normalizedSortBy = ["name", "planted_at"].includes(sortBy)
+        ? sortBy
+        : "created_at";
+    const direction = sortOrder === "asc" ? 1 : -1;
+
+    if (normalizedSortBy === "name") {
+        return [...plants].sort(
+            (left, right) =>
+                compareText(left.name, right.name) * direction ||
+                compareText(left.room, right.room) * direction,
+        );
+    }
+
+    if (normalizedSortBy === "planted_at") {
+        return [...plants].sort(
+            (left, right) =>
+                String(left.plantedAt || "").localeCompare(
+                    String(right.plantedAt || ""),
+                ) * direction || compareText(left.name, right.name),
+        );
+    }
+
+    return [...plants].sort(comparePlantsByCarePriority);
+};
+
 const applyLikedPlants = (plants, likedPlantIds) => {
     if (!Array.isArray(likedPlantIds)) return plants;
 
@@ -73,20 +135,25 @@ export const usePlantStore = defineStore("plants", {
         all: (state) => state.plants,
         byId: (state) => (id) => state.plants.find((plant) => plant.id === id),
         filteredPlants(state) {
-            if (state.activeFilter === "all") return state.plants;
+            const activeFilter = normalizePlantFilter(state.activeFilter);
 
-            return state.plants.filter((plant) => {
-                const care = summarizePlantCare(plant);
-                if (state.activeFilter === "attention") {
-                    return (
-                        care.primaryState === "overdue" ||
-                        care.primaryState === "today"
-                    );
-                }
-                return care.markers.some(
-                    (marker) => marker.state === state.activeFilter,
-                );
-            });
+            const plants =
+                activeFilter === "all"
+                    ? state.plants
+                    : state.plants.filter((plant) => {
+                          const care = summarizePlantCare(plant);
+                          return (
+                              activeFilter === "attention" &&
+                              (care.primaryState === "overdue" ||
+                                  care.primaryState === "today")
+                          );
+                      });
+
+            return sortPlantsForMyCollection(
+                plants,
+                state.sortBy,
+                state.sortOrder,
+            );
         },
         attentionCount(state) {
             return state.plants.filter((plant) => {
@@ -100,7 +167,7 @@ export const usePlantStore = defineStore("plants", {
     },
     actions: {
         setFilter(filter) {
-            this.activeFilter = filter;
+            this.activeFilter = normalizePlantFilter(filter);
         },
         setFeedMode(mode) {
             this.feedMode = mode;

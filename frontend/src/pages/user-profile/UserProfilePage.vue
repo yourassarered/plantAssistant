@@ -8,7 +8,11 @@ import { useAuthStore } from "@/entities/auth/model/auth.store";
 import { useCalendarStore } from "@/entities/calendar/model/calendar.store";
 import { useSocialStore } from "@/entities/social/model/social.store";
 import { apiClient } from "@/shared/api/client";
-import { mapApiPlant, unwrapApiCollection } from "@/shared/api/mappers";
+import {
+    mapApiPlant,
+    mapApiUser,
+    unwrapApiCollection,
+} from "@/shared/api/mappers";
 import { todayIsoDate } from "@/shared/lib/date/calendarGrid";
 import UiButton from "@/shared/ui/UiButton.vue";
 import CalendarWidget from "@/widgets/calendar/CalendarWidget.vue";
@@ -49,11 +53,13 @@ const user = computed(() => {
         plants.value[0]?.raw?.user?.data || plants.value[0]?.raw?.user || null;
     if (!rawUser) return null;
 
+    const mappedUser = mapApiUser(rawUser);
+
     return {
-        id: rawUser.id,
-        name: rawUser.name || "Пользователь",
-        rank: rawUser.rank ?? 0,
-        avatar_url: rawUser.avatar_url || "",
+        id: mappedUser.id,
+        name: mappedUser.name || "Пользователь",
+        rank: mappedUser.rank ?? 0,
+        avatar_url: mappedUser.avatar_url || "",
     };
 });
 
@@ -178,7 +184,9 @@ const load = async ({ refresh = false } = {}) => {
         loadedPlants.forEach((plant) => socialStore.applyPlantSnapshot(plant));
         calendarRevision.value += 1;
         focusCalendar(buildPublicCareTasks(loadedPlants));
-        profile.value = profilePayload?.data || profilePayload || null;
+        profile.value = profilePayload
+            ? mapApiUser(profilePayload?.data || profilePayload)
+            : null;
         isFollowing.value = Boolean(relationshipPayload?.i_follow_them);
         theyFollowMe.value = Boolean(relationshipPayload?.they_follow_me);
         followersCount.value = followersPayload?.followers_count ?? null;

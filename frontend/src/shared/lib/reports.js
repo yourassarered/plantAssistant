@@ -51,7 +51,6 @@ export const sumPlantReportSummaries = (summaries = []) =>
 export const plantReportIndicator = (summary = {}) => {
     const accepted = Number(summary.accepted || 0);
     const pending = Number(summary.pending || 0);
-    const total = Number(summary.total || 0);
 
     if (accepted > 0) {
         return {
@@ -70,8 +69,8 @@ export const plantReportIndicator = (summary = {}) => {
     }
 
     return {
-        visible: total > 0,
+        visible: false,
         tone: "neutral",
-        text: `Жалобы: ${total}`,
+        text: "",
     };
 };

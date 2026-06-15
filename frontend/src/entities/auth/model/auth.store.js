@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import { toast } from "vue-sonner";
 
 import { apiClient } from "@/shared/api/client";
+import { mapApiUser } from "@/shared/api/mappers";
 
 export const useAuthStore = defineStore("auth", {
     state: () => ({
@@ -27,7 +28,7 @@ export const useAuthStore = defineStore("auth", {
                     credentials,
                 );
                 this.token = payload.access_token;
-                this.user = payload.user?.data || payload.user;
+                this.user = mapApiUser(payload.user?.data || payload.user);
                 apiClient.setToken(payload.access_token);
                 await this.loadMe();
                 return payload;
@@ -48,7 +49,7 @@ export const useAuthStore = defineStore("auth", {
                     payload,
                 );
                 this.token = response.access_token;
-                this.user = response.user?.data || response.user;
+                this.user = mapApiUser(response.user?.data || response.user);
                 apiClient.setToken(response.access_token);
                 await this.loadMe();
                 return response;
@@ -67,7 +68,7 @@ export const useAuthStore = defineStore("auth", {
 
             try {
                 const payload = await apiClient.get("/auth/me");
-                this.user = payload.data || payload;
+                this.user = mapApiUser(payload.data || payload);
                 this.initialized = true;
                 return this.user;
             } catch (error) {
@@ -111,7 +112,7 @@ export const useAuthStore = defineStore("auth", {
         },
         async updateProfile(values) {
             const payload = await apiClient.put("/users/profile", values);
-            this.user = payload.data || payload;
+            this.user = mapApiUser(payload.data || payload);
             return this.user;
         },
         async updateAvatar(file) {
@@ -121,12 +122,12 @@ export const useAuthStore = defineStore("auth", {
                 "/users/profile/avatar",
                 formData,
             );
-            this.user = payload.data || payload;
+            this.user = mapApiUser(payload.data || payload);
             return this.user;
         },
         async deleteAvatar() {
             const payload = await apiClient.delete("/users/profile/avatar");
-            this.user = payload.data || payload;
+            this.user = mapApiUser(payload.data || payload);
             return this.user;
         },
     },

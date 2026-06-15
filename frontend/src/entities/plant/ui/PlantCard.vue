@@ -16,6 +16,7 @@ const props = defineProps({
     showActions: { type: Boolean, default: false },
     showCare: { type: Boolean, default: true },
     showCareBadge: { type: Boolean, default: true },
+    showReportIndicator: { type: Boolean, default: true },
     showOwner: { type: Boolean, default: true },
     canLike: { type: Boolean, default: false },
     canSuggest: { type: Boolean, default: false },
@@ -151,7 +152,7 @@ watch(
                 <div class="plant-card__head">
                     <h3>{{ plant.name }}</h3>
                     <span
-                        v-if="reportIndicator.visible"
+                        v-if="showReportIndicator && reportIndicator.visible"
                         class="plant-card__report-indicator"
                         :data-tone="reportIndicator.tone"
                     >
@@ -324,6 +325,11 @@ watch(
     background: #fff0b8;
 }
 
+.plant-card__report-indicator[data-tone="neutral"] {
+    color: #465443;
+    background: #e8eee3;
+}
+
 .plant-card__report-indicator[data-tone="danger"] {
     color: #8f1f10;
     background: #ffd8d2;
@@ -461,41 +467,44 @@ watch(
 
 @media (max-width: 560px) {
     .plant-card--wide .plant-actions {
-        grid-template-columns: repeat(2, 46px);
-        justify-content: start;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        justify-content: stretch;
     }
 
     .plant-card--wide .action-button {
-        display: grid;
-        grid-auto-flow: column;
-        place-content: center;
+        display: inline-flex;
         align-items: center;
-        width: 46px;
-        height: 46px;
+        justify-content: center;
+        width: 100%;
         min-height: 46px;
-        column-gap: 3px;
-        padding: 0;
-        font-size: 0;
+        padding: 10px 12px;
+        font-size: 13px;
+        line-height: 1.15;
+        text-align: center;
+        white-space: normal;
     }
 
     .plant-card--wide .action-button svg {
         flex: 0 0 auto;
-        margin: 0;
     }
 
     .plant-card--wide .action-button__count {
-        min-width: 0;
-        height: auto;
-        padding: 0;
-        background: transparent;
+        min-width: 22px;
+        height: 22px;
+        padding: 0 6px;
+        background: rgba(255, 255, 255, 0.18);
         font-size: 11px;
         font-weight: 900;
+    }
+
+    .plant-card--wide .action-button--ghost .action-button__count {
+        background: rgba(12, 94, 42, 0.1);
     }
 }
 
 @media (max-width: 760px) {
     .plant-card:not(.plant-card--wide) {
-        grid-template-columns: 1fr;
+        grid-template-columns: 112px minmax(0, 1fr);
     }
 
     .plant-card:not(.plant-card--wide) .plant-card__media {
@@ -505,6 +514,16 @@ watch(
     .plant-card:not(.plant-card--wide) .plant-card__image-wrap {
         aspect-ratio: 1 / 1;
         height: auto;
+    }
+}
+
+@media (max-width: 380px) {
+    .plant-card:not(.plant-card--wide) {
+        grid-template-columns: 98px minmax(0, 1fr);
+    }
+
+    .plant-card:not(.plant-card--wide) .plant-card__body {
+        padding: 10px;
     }
 }
 </style>

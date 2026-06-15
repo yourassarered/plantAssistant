@@ -1,5 +1,5 @@
 <script setup>
-import { onBeforeUnmount, onMounted, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, watch } from "vue";
 import { Plus, RefreshCw, Search } from "lucide-vue-next";
 import { useRoute } from "vue-router";
 
@@ -14,11 +14,42 @@ const plantStore = usePlantStore();
 const taskStore = useTaskStore();
 const route = useRoute();
 const searchDebounceMs = 300;
+const allowedSorts = new Set(["created_at", "name", "planted_at"]);
 let searchRefreshTimer = null;
+
+const sortValue = computed(() =>
+    allowedSorts.has(plantStore.sortBy) ? plantStore.sortBy : "created_at",
+);
+
+const normalizeMyPlantsState = () => {
+    plantStore.setFilter(plantStore.activeFilter);
+
+    if (!allowedSorts.has(plantStore.sortBy)) {
+        plantStore.setSort("created_at", "desc");
+        return;
+    }
+
+    if (plantStore.sortBy === "name" && plantStore.sortOrder !== "asc") {
+        plantStore.setSort("name", "asc");
+        return;
+    }
+
+    if (
+        ["created_at", "planted_at"].includes(plantStore.sortBy) &&
+        plantStore.sortOrder !== "desc"
+    ) {
+        plantStore.setSort(plantStore.sortBy, "desc");
+    }
+};
 
 const refresh = async () => {
     await plantStore.loadPlants("private");
     taskStore.syncFromPlants(plantStore.all);
+};
+
+const applySort = (value) => {
+    plantStore.setSort(value, value === "name" ? "asc" : "desc");
+    refresh();
 };
 
 const scheduleSearchRefresh = (value) => {
@@ -30,14 +61,20 @@ const scheduleSearchRefresh = (value) => {
     }, searchDebounceMs);
 };
 
-onMounted(refresh);
+onMounted(() => {
+    normalizeMyPlantsState();
+    refresh();
+});
+
 onBeforeUnmount(() => {
     window.clearTimeout(searchRefreshTimer);
 });
+
 watch(
     () => route.fullPath,
     () => {
         if (route.name === "my-plants") {
+            normalizeMyPlantsState();
             refresh();
         }
     },
@@ -77,14 +114,8 @@ watch(
                 />
             </label>
 
-            <select
-                :value="plantStore.sortBy"
-                @change="
-                    plantStore.setSort($event.target.value);
-                    refresh();
-                "
-            >
-                <option value="created_at">Сначала новые</option>
+            <select :value="sortValue" @change="applySort($event.target.value)">
+                <option value="created_at">По требованию ухода</option>
                 <option value="name">По названию</option>
                 <option value="planted_at">По посадке</option>
             </select>
@@ -92,9 +123,9 @@ watch(
 
         <div v-if="plantStore.error" class="panel my-state">
             <p>{{ plantStore.error }}</p>
-            <UiButton variant="ghost" @click="refresh"
-                >Повторить запрос</UiButton
-            >
+            <UiButton variant="ghost" @click="refresh">
+                Повторить запрос
+            </UiButton>
         </div>
 
         <div v-else-if="plantStore.loading" class="panel my-state">
@@ -132,15 +163,26 @@ watch(
 
 <style scoped>
 .my-actions {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: min(100%, 430px);
     gap: 8px;
     justify-content: flex-end;
 }
 
+.my-actions a {
+    display: grid;
+    color: inherit;
+    text-decoration: none;
+}
+
+.my-actions :deep(.ui-button) {
+    width: 100%;
+}
+
 .my-toolbar {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 170px;
+    grid-template-columns: minmax(0, 1fr) 190px;
     gap: 10px;
     align-items: center;
 }
@@ -184,6 +226,16 @@ watch(
 }
 
 @media (max-width: 760px) {
+    .page-header {
+        align-items: stretch;
+    }
+
+    .my-actions {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        justify-content: stretch;
+        width: 100%;
+    }
+
     .my-toolbar {
         grid-template-columns: 1fr;
     }

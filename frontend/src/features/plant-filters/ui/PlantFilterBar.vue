@@ -1,10 +1,5 @@
 <script setup>
-import {
-    AlertTriangle,
-    CalendarClock,
-    Leaf,
-    ListFilter,
-} from "lucide-vue-next";
+import { AlertTriangle, ListFilter } from "lucide-vue-next";
 
 defineProps({
     modelValue: { type: String, required: true },
@@ -14,8 +9,6 @@ const emit = defineEmits(["update:modelValue"]);
 
 const filters = [
     { value: "attention", label: "Требуют ухода", icon: AlertTriangle },
-    { value: "overdue", label: "Просрочено", icon: CalendarClock },
-    { value: "today", label: "Сегодня", icon: Leaf },
     { value: "all", label: "Все", icon: ListFilter },
 ];
 </script>
@@ -66,5 +59,23 @@ const filters = [
     color: #fff;
     border-color: var(--color-green);
     background: var(--color-green);
+}
+
+@media (max-width: 760px) {
+    .plant-filter-bar {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        overflow-x: visible;
+        padding-bottom: 0;
+    }
+
+    .plant-filter-bar__item {
+        justify-content: center;
+        min-width: 0;
+        min-height: 38px;
+        padding: 0 8px;
+        font-size: 12px;
+        white-space: normal;
+    }
 }
 </style>

@@ -4,8 +4,14 @@ import { useAuthStore } from "@/entities/auth/model/auth.store";
 
 export const router = createRouter({
     history: createWebHistory(),
+    scrollBehavior(to, from, savedPosition) {
+        if (savedPosition) return savedPosition;
+        if (to.hash) return { el: to.hash, top: 12, behavior: "smooth" };
+
+        return { top: 0, left: 0, behavior: "smooth" };
+    },
     routes: [
-        { path: "/", redirect: "/feed" },
+        { path: "/", redirect: { name: "feed" } },
         {
             path: "/feed",
             name: "feed",

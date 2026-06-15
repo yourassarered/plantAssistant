@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 
 import { apiClient } from "@/shared/api/client";
-import { unwrapApiCollection } from "@/shared/api/mappers";
+import { mapApiUser, unwrapApiCollection } from "@/shared/api/mappers";
 
 export const useAdminStore = defineStore("admin", {
     state: () => ({
@@ -30,7 +30,7 @@ export const useAdminStore = defineStore("admin", {
                         apiClient.get("/admin/metrics/traffic?minutes=60"),
                     ]);
 
-                this.users = unwrapApiCollection(usersPayload);
+                this.users = unwrapApiCollection(usersPayload).map(mapApiUser);
                 this.reports = unwrapApiCollection(reportsPayload);
                 this.traffic = trafficPayload;
             } catch (error) {
@@ -82,7 +82,7 @@ export const useAdminStore = defineStore("admin", {
                 const payload = await apiClient.get(
                     `/users?${params.toString()}`,
                 );
-                this.users = unwrapApiCollection(payload);
+                this.users = unwrapApiCollection(payload).map(mapApiUser);
             } catch (error) {
                 this.error = error.message;
             } finally {
@@ -117,7 +117,7 @@ export const useAdminStore = defineStore("admin", {
                     resolution_action: resolutionAction,
                 },
             );
-            const updated = payload.data || payload;
+            const updated = mapApiUser(payload.data || payload);
             this.reports = this.reports
                 .map((report) => (report.id === updated.id ? updated : report))
                 .filter((report) => report.id !== updated.id);
@@ -127,7 +127,7 @@ export const useAdminStore = defineStore("admin", {
             const payload = await apiClient.put(`/users/${userId}/role`, {
                 role_name: roleName,
             });
-            const updated = payload.data || payload;
+            const updated = mapApiUser(payload.data || payload);
             this.users = this.users.map((user) =>
                 user.id === updated.id ? updated : user,
             );
@@ -135,7 +135,7 @@ export const useAdminStore = defineStore("admin", {
         },
         async updateUser(userId, values) {
             const payload = await apiClient.put(`/users/${userId}`, values);
-            const updated = payload.data || payload;
+            const updated = mapApiUser(payload.data || payload);
             this.users = this.users.map((user) =>
                 user.id === updated.id ? updated : user,
             );
@@ -149,7 +149,7 @@ export const useAdminStore = defineStore("admin", {
             const payload = await apiClient.post(`/users/${userId}/block`, {
                 reason,
             });
-            const updated = payload.data || payload;
+            const updated = mapApiUser(payload.data || payload);
             this.users = this.users.map((user) =>
                 user.id === updated.id ? updated : user,
             );
@@ -160,7 +160,7 @@ export const useAdminStore = defineStore("admin", {
                 `/users/${userId}/unblock`,
                 {},
             );
-            const updated = payload.data || payload;
+            const updated = mapApiUser(payload.data || payload);
             this.users = this.users.map((user) =>
                 user.id === updated.id ? updated : user,
             );

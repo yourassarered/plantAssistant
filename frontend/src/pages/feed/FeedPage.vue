@@ -204,6 +204,7 @@ watch(
                 variant="feed"
                 :show-actions="true"
                 :show-care="false"
+                :show-report-indicator="false"
                 :can-like="true"
                 :can-suggest="true"
                 @toggle-like="toggleLike"

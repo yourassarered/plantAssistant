@@ -1,10 +1,12 @@
 ﻿<script setup>
 import { Leaf, ListTodo, Shield, Sprout, UserRound } from "lucide-vue-next";
-import { computed } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 
 import { useAuthStore } from "@/entities/auth/model/auth.store";
 
 const authStore = useAuthStore();
+const isKeyboardOpen = ref(false);
+let initialViewportHeight = 0;
 
 const items = computed(() => [
     { to: "/feed", label: "Лента", icon: Leaf },
@@ -15,11 +17,61 @@ const items = computed(() => [
         ? [{ to: "/admin", label: "Админ", icon: Shield }]
         : []),
 ]);
+
+const isEditableElement = (element) => {
+    if (!(element instanceof HTMLElement)) return false;
+
+    return Boolean(
+        element.closest("input, textarea, select, [contenteditable='true']"),
+    );
+};
+
+const syncKeyboardState = () => {
+    const viewport = window.visualViewport;
+    const viewportHeight = viewport?.height || window.innerHeight;
+    const focusedEditable = isEditableElement(document.activeElement);
+    const baselineHeight = Math.max(initialViewportHeight, window.innerHeight);
+    const keyboardLikelyOpen =
+        baselineHeight > 0 && baselineHeight - viewportHeight > 120;
+
+    if (!keyboardLikelyOpen && viewportHeight > initialViewportHeight) {
+        initialViewportHeight = viewportHeight;
+    }
+
+    isKeyboardOpen.value = focusedEditable && keyboardLikelyOpen;
+};
+
+const handleFocusIn = () => {
+    window.setTimeout(syncKeyboardState, 80);
+};
+
+const handleFocusOut = () => {
+    isKeyboardOpen.value = false;
+    window.setTimeout(syncKeyboardState, 120);
+};
+
+onMounted(() => {
+    initialViewportHeight = window.visualViewport?.height || window.innerHeight;
+    window.visualViewport?.addEventListener("resize", syncKeyboardState);
+    window.visualViewport?.addEventListener("scroll", syncKeyboardState);
+    window.addEventListener("resize", syncKeyboardState);
+    window.addEventListener("focusin", handleFocusIn);
+    window.addEventListener("focusout", handleFocusOut);
+});
+
+onBeforeUnmount(() => {
+    window.visualViewport?.removeEventListener("resize", syncKeyboardState);
+    window.visualViewport?.removeEventListener("scroll", syncKeyboardState);
+    window.removeEventListener("resize", syncKeyboardState);
+    window.removeEventListener("focusin", handleFocusIn);
+    window.removeEventListener("focusout", handleFocusOut);
+});
 </script>
 
 <template>
     <nav
         class="bottom-nav"
+        :class="{ 'bottom-nav--hidden': isKeyboardOpen }"
         :style="{ '--nav-count': items.length }"
         aria-label="Основная навигация"
     >
@@ -52,6 +104,17 @@ const items = computed(() => [
     background: #0f702e;
     box-shadow: 0 18px 40px rgba(7, 58, 24, 0.28);
     animation: bottom-nav-rise 0.34s ease;
+    transition:
+        opacity 0.2s ease,
+        visibility 0.2s ease,
+        transform 0.2s ease;
+}
+
+.bottom-nav--hidden {
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(calc(100% + 28px));
 }
 
 .bottom-nav__item {
