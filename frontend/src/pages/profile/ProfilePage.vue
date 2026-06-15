@@ -574,11 +574,7 @@ onMounted(async () => {
     <section class="page">
         <header v-if="authStore.isAuthenticated" class="page-header">
             <div>
-                <h1 class="page-title">Профиль ухода</h1>
-                <p class="page-subtitle">
-                    Вход открывает личные растения, календарь ухода, лайки и
-                    советы.
-                </p>
+                <h1 class="page-title">Профиль</h1>
             </div>
         </header>
 
@@ -589,17 +585,6 @@ onMounted(async () => {
             >
                 <div class="auth-panel__head">
                     <h2 class="panel__title">{{ title }}</h2>
-                    <button
-                        class="auth-panel__switch"
-                        type="button"
-                        @click="toggleAuthMode"
-                    >
-                        {{
-                            mode === "login"
-                                ? "Создать аккаунт"
-                                : "Уже есть аккаунт"
-                        }}
-                    </button>
                 </div>
                 <p class="auth-panel__intro">
                     Авторизация откроет доступ к вашим растениям, задачам ухода,
@@ -677,6 +662,26 @@ onMounted(async () => {
                     />
                     {{ authStore.loading ? "Отправляем..." : title }}
                 </UiButton>
+                <p class="auth-panel__switch-row">
+                    <span>
+                        {{
+                            mode === "login"
+                                ? "Нет аккаунта?"
+                                : "Уже есть аккаунт?"
+                        }}
+                    </span>
+                    <button
+                        class="auth-panel__switch"
+                        type="button"
+                        @click="toggleAuthMode"
+                    >
+                        {{
+                            mode === "login"
+                                ? "Зарегистрироваться"
+                                : "Войти"
+                        }}
+                    </button>
+                </p>
             </section>
 
             <section v-else class="panel auth-panel profile-card">
@@ -748,116 +753,124 @@ onMounted(async () => {
                             <X :size="18" />
                         </button>
                     </div>
-                    <div class="avatar-editor">
-                        <div class="avatar-editor__preview">
-                            <img
-                                v-if="
-                                    avatarPreviewUrl ||
-                                    authStore.user?.avatar_url
-                                "
-                                :src="
-                                    avatarPreviewUrl ||
-                                    authStore.user.avatar_url
-                                "
-                                alt=""
-                            />
-                            <span v-else>{{
-                                (profileName || authStore.user?.name || "?")
-                                    .slice(0, 1)
-                                    .toUpperCase()
-                            }}</span>
-                        </div>
-                        <div class="avatar-editor__controls">
-                            <label class="avatar-upload">
-                                Выбрать аватар
-                                <input
-                                    type="file"
-                                    accept="image/png,image/jpeg,image/webp"
-                                    @change="onAvatarFileChange"
+                    <div class="profile-edit__body">
+                        <div class="avatar-editor">
+                            <div class="avatar-editor__preview">
+                                <img
+                                    v-if="
+                                        avatarPreviewUrl ||
+                                        authStore.user?.avatar_url
+                                    "
+                                    :src="
+                                        avatarPreviewUrl ||
+                                        authStore.user.avatar_url
+                                    "
+                                    alt=""
                                 />
-                            </label>
-                            <UiButton
-                                v-if="authStore.user?.avatar_url"
-                                variant="ghost"
-                                @click="deleteAvatar"
-                            >
-                                Удалить текущий
+                                <span v-else>{{
+                                    (
+                                        profileName ||
+                                        authStore.user?.name ||
+                                        "?"
+                                    )
+                                        .slice(0, 1)
+                                        .toUpperCase()
+                                }}</span>
+                            </div>
+                            <div class="avatar-editor__controls">
+                                <label class="avatar-upload">
+                                    Выбрать аватар
+                                    <input
+                                        type="file"
+                                        accept="image/png,image/jpeg,image/webp"
+                                        @change="onAvatarFileChange"
+                                    />
+                                </label>
+                                <UiButton
+                                    v-if="authStore.user?.avatar_url"
+                                    variant="ghost"
+                                    @click="deleteAvatar"
+                                >
+                                    Удалить текущий
+                                </UiButton>
+                            </div>
+                        </div>
+                        <UiField label="Имя">
+                            <input v-model="profileName" />
+                        </UiField>
+                        <UiField label="Email">
+                            <input v-model="profileEmail" type="email" />
+                        </UiField>
+                        <UiField label="Новый пароль">
+                            <div class="password-field">
+                                <input
+                                    v-model="profilePassword"
+                                    :type="profilePasswordInputType"
+                                    autocomplete="new-password"
+                                />
+                                <button
+                                    type="button"
+                                    class="password-field__toggle"
+                                    :aria-label="
+                                        isProfilePasswordVisible
+                                            ? 'Скрыть пароль'
+                                            : 'Показать пароль'
+                                    "
+                                    @click="
+                                        isProfilePasswordVisible =
+                                            !isProfilePasswordVisible
+                                    "
+                                >
+                                    <component
+                                        :is="
+                                            isProfilePasswordVisible
+                                                ? EyeOff
+                                                : Eye
+                                        "
+                                        :size="18"
+                                    />
+                                </button>
+                            </div>
+                        </UiField>
+                        <UiField label="Повтор пароля">
+                            <div class="password-field">
+                                <input
+                                    v-model="profilePasswordConfirmation"
+                                    :type="profilePasswordConfirmationInputType"
+                                    autocomplete="new-password"
+                                />
+                                <button
+                                    type="button"
+                                    class="password-field__toggle"
+                                    :aria-label="
+                                        isProfilePasswordConfirmationVisible
+                                            ? 'Скрыть пароль'
+                                            : 'Показать пароль'
+                                    "
+                                    @click="
+                                        isProfilePasswordConfirmationVisible =
+                                            !isProfilePasswordConfirmationVisible
+                                    "
+                                >
+                                    <component
+                                        :is="
+                                            isProfilePasswordConfirmationVisible
+                                                ? EyeOff
+                                                : Eye
+                                        "
+                                        :size="18"
+                                    />
+                                </button>
+                            </div>
+                        </UiField>
+                        <div class="profile-edit__actions">
+                            <UiButton variant="ghost" @click="cancelProfileEdit">
+                                Отмена
+                            </UiButton>
+                            <UiButton @click="updateProfile">
+                                Сохранить профиль
                             </UiButton>
                         </div>
-                    </div>
-                    <UiField label="Имя">
-                        <input v-model="profileName" />
-                    </UiField>
-                    <UiField label="Email">
-                        <input v-model="profileEmail" type="email" />
-                    </UiField>
-                    <UiField label="Новый пароль">
-                        <div class="password-field">
-                            <input
-                                v-model="profilePassword"
-                                :type="profilePasswordInputType"
-                                autocomplete="new-password"
-                            />
-                            <button
-                                type="button"
-                                class="password-field__toggle"
-                                :aria-label="
-                                    isProfilePasswordVisible
-                                        ? 'Скрыть пароль'
-                                        : 'Показать пароль'
-                                "
-                                @click="
-                                    isProfilePasswordVisible =
-                                        !isProfilePasswordVisible
-                                "
-                            >
-                                <component
-                                    :is="
-                                        isProfilePasswordVisible ? EyeOff : Eye
-                                    "
-                                    :size="18"
-                                />
-                            </button>
-                        </div>
-                    </UiField>
-                    <UiField label="Повтор пароля">
-                        <div class="password-field">
-                            <input
-                                v-model="profilePasswordConfirmation"
-                                :type="profilePasswordConfirmationInputType"
-                                autocomplete="new-password"
-                            />
-                            <button
-                                type="button"
-                                class="password-field__toggle"
-                                :aria-label="
-                                    isProfilePasswordConfirmationVisible
-                                        ? 'Скрыть пароль'
-                                        : 'Показать пароль'
-                                "
-                                @click="
-                                    isProfilePasswordConfirmationVisible =
-                                        !isProfilePasswordConfirmationVisible
-                                "
-                            >
-                                <component
-                                    :is="
-                                        isProfilePasswordConfirmationVisible
-                                            ? EyeOff
-                                            : Eye
-                                    "
-                                    :size="18"
-                                />
-                            </button>
-                        </div>
-                    </UiField>
-                    <div class="profile-edit__actions">
-                        <UiButton variant="ghost" @click="cancelProfileEdit">
-                            Отмена
-                        </UiButton>
-                        <UiButton @click="updateProfile"
-                            >Сохранить профиль</UiButton
-                        >
                     </div>
                 </section>
             </div>
@@ -1027,16 +1040,20 @@ onMounted(async () => {
                 @click.self="isReportsDialogOpen = false"
             >
                 <section class="panel reports-card">
-                    <button
-                        class="reports-card__close"
-                        type="button"
-                        aria-label="Закрыть"
-                        @click="isReportsDialogOpen = false"
-                    >
-                        <X :size="18" />
-                    </button>
                     <div class="reports-card__head">
-                        <h2 class="panel__title">{{ reportsDialogTitle }}</h2>
+                        <div class="reports-card__title-row">
+                            <h2 class="panel__title">
+                                {{ reportsDialogTitle }}
+                            </h2>
+                            <button
+                                class="reports-card__close"
+                                type="button"
+                                aria-label="Закрыть"
+                                @click="isReportsDialogOpen = false"
+                            >
+                                <X :size="18" />
+                            </button>
+                        </div>
                         <div class="reports-card__tabs">
                             <button
                                 type="button"
@@ -1056,43 +1073,48 @@ onMounted(async () => {
                             </button>
                         </div>
                     </div>
-                    <article
-                        v-for="report in activeReports"
-                        :key="report.id"
-                        class="report-status-row"
-                    >
-                        <div>
-                            <strong>{{ reportTitle(report) }}</strong>
-                            <span>
-                                {{ reportType(report) }} ·
-                                {{ reportReason(report) }} ·
-                                {{ reportStatus(report) }}
-                            </span>
-                        </div>
-                        <p>
-                            {{
-                                report.details ||
-                                report.resolution_summary ||
-                                report.admin_comment ||
-                                "Подробности не указаны."
-                            }}
-                        </p>
-                        <p
-                            v-if="
-                                report.resolution_summary ||
-                                report.admin_comment
-                            "
-                            class="report-status-row__resolution"
+                    <div class="reports-card__body">
+                        <article
+                            v-for="report in activeReports"
+                            :key="report.id"
+                            class="report-status-row"
                         >
-                            {{
-                                report.resolution_summary ||
-                                report.admin_comment
-                            }}
+                            <div>
+                                <strong>{{ reportTitle(report) }}</strong>
+                                <span>
+                                    {{ reportType(report) }} ·
+                                    {{ reportReason(report) }} ·
+                                    {{ reportStatus(report) }}
+                                </span>
+                            </div>
+                            <p>
+                                {{
+                                    report.details ||
+                                    report.resolution_summary ||
+                                    report.admin_comment ||
+                                    "Подробности не указаны."
+                                }}
+                            </p>
+                            <p
+                                v-if="
+                                    report.resolution_summary ||
+                                    report.admin_comment
+                                "
+                                class="report-status-row__resolution"
+                            >
+                                {{
+                                    report.resolution_summary ||
+                                    report.admin_comment
+                                }}
+                            </p>
+                        </article>
+                        <p
+                            v-if="!activeReports.length"
+                            class="reports-card__empty"
+                        >
+                            {{ activeReportsEmptyText }}
                         </p>
-                    </article>
-                    <p v-if="!activeReports.length" class="reports-card__empty">
-                        {{ activeReportsEmptyText }}
-                    </p>
+                    </div>
                 </section>
             </div>
         </Teleport>
@@ -1162,20 +1184,29 @@ onMounted(async () => {
     gap: 12px;
 }
 
-.auth-panel__head button {
+.auth-panel__switch {
     border: 0;
+    padding: 0;
     color: var(--color-green-dark);
     background: transparent;
     cursor: pointer;
     font-weight: 800;
+    text-decoration: underline;
+    text-underline-offset: 3px;
 }
 
 .auth-panel span {
     color: var(--color-muted);
 }
 
-.auth-panel__switch {
+.auth-panel__switch-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    margin: -2px 0 0;
     font-size: 14px;
+    font-weight: 800;
 }
 
 .auth-panel__intro {
@@ -1306,6 +1337,7 @@ onMounted(async () => {
 .profile-edit {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto minmax(0, 1fr);
     gap: 12px;
     width: min(620px, 100%);
     max-height: calc(100vh - 36px);
@@ -1314,10 +1346,16 @@ onMounted(async () => {
 }
 
 .profile-edit__head,
-.profile-edit__actions,
-.avatar-editor,
+.profile-edit__body,
 .profile-edit .ui-button {
     grid-column: 1 / -1;
+}
+
+.profile-edit__body {
+    display: grid;
+    gap: 12px;
+    min-width: 0;
+    min-height: 0;
 }
 
 .avatar-editor {
@@ -1358,13 +1396,14 @@ onMounted(async () => {
 .avatar-crop-controls {
     display: grid;
     gap: 10px;
+    min-width: 0;
 }
 
 .avatar-upload {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 190px;
+    width: min(100%, 220px);
     min-height: 38px;
     padding: 0 14px;
     border-radius: var(--radius-sm);
@@ -1375,7 +1414,7 @@ onMounted(async () => {
 }
 
 .avatar-editor__controls :deep(.ui-button) {
-    width: 190px;
+    width: min(100%, 220px);
 }
 
 .avatar-upload input {
@@ -1442,24 +1481,41 @@ onMounted(async () => {
     display: grid;
     gap: 12px;
     width: min(720px, 100%);
+    max-width: calc(100vw - 36px);
     max-height: calc(100vh - 36px);
-    overflow-y: auto;
+    max-height: calc(100dvh - 36px);
+    overflow-x: hidden;
+    overflow-y: hidden;
+    grid-template-rows: auto minmax(0, 1fr);
     background: var(--color-surface);
 }
 
 .reports-card__head {
     display: grid;
     gap: 10px;
-    padding-right: 44px;
+    padding: 2px 0 0;
 }
 
 .reports-card__tabs {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
 }
 
+.reports-card__title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-width: 0;
+}
+
+.reports-card__title-row .panel__title {
+    min-width: 0;
+}
+
 .reports-card__tabs button {
+    width: 100%;
     min-height: 34px;
     padding: 0 12px;
     border: 1px solid var(--color-border);
@@ -1483,22 +1539,28 @@ onMounted(async () => {
     display: grid;
     place-items: center;
     padding: 18px;
+    overflow: hidden;
     background: rgba(7, 30, 15, 0.58);
 }
 
 .reports-card__close {
-    position: absolute;
-    top: 14px;
-    right: 14px;
     display: grid;
-    width: 36px;
-    height: 36px;
+    width: 40px;
+    height: 40px;
     place-items: center;
     border: 0;
     border-radius: var(--radius-sm);
     color: var(--color-muted);
     background: var(--color-surface-soft);
     cursor: pointer;
+}
+
+.reports-card__body {
+    display: grid;
+    gap: 12px;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 4px;
 }
 
 .report-status-row {
@@ -1517,14 +1579,19 @@ onMounted(async () => {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+    min-width: 0;
 }
 
+.report-status-row strong,
 .report-status-row span,
 .report-status-row p,
 .reports-card__empty {
+    min-width: 0;
     margin: 0;
     color: var(--color-muted);
     font-weight: 800;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .report-status-row__resolution {
@@ -1580,13 +1647,7 @@ onMounted(async () => {
         font-size: 16px;
     }
 
-    .auth-panel__head {
-        align-items: flex-start;
-        flex-direction: column;
-    }
-
-    .auth-panel__switch {
-        padding: 0;
+    .auth-panel__switch-row {
         font-size: 15px;
     }
 
@@ -1615,14 +1676,34 @@ onMounted(async () => {
 
     .profile-edit {
         grid-template-columns: 1fr;
+        grid-template-rows: auto minmax(0, 1fr);
         width: 100%;
         max-height: min(92dvh, calc(100vh - 18px));
-        padding-bottom: max(12px, env(safe-area-inset-bottom));
+        overflow: hidden;
+        padding-bottom: 0;
         border-radius: var(--radius-md) var(--radius-md) 0 0;
+    }
+
+    .profile-edit__body {
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding-bottom: max(12px, env(safe-area-inset-bottom));
     }
 
     .avatar-editor {
         grid-template-columns: 1fr;
+        justify-items: stretch;
+    }
+
+    .avatar-editor__preview {
+        width: min(100%, 168px);
+        justify-self: center;
+    }
+
+    .avatar-upload,
+    .avatar-editor__controls :deep(.ui-button) {
+        width: 100%;
+        min-height: 46px;
     }
 
     .account-card__body,
@@ -1664,6 +1745,36 @@ onMounted(async () => {
 
     .dashboard-grid {
         grid-template-columns: 1fr;
+    }
+
+    .reports-modal {
+        place-items: center;
+        padding: 16px;
+    }
+
+    .reports-card {
+        width: min(720px, 100%);
+        max-width: calc(100vw - 32px);
+        max-height: min(92dvh, calc(100vh - 18px));
+        padding-bottom: max(14px, env(safe-area-inset-bottom));
+        border-radius: var(--radius-md);
+    }
+
+    .reports-card__head {
+        padding-right: 42px;
+    }
+
+    .reports-card__tabs {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .reports-card__tabs button {
+        min-height: 42px;
+    }
+
+    .report-status-row div {
+        display: grid;
+        gap: 4px;
     }
 }
 </style>

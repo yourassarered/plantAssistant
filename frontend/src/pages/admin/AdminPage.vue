@@ -47,6 +47,7 @@ const userForm = ref({
     name: "",
     email: "",
     rank: 0,
+    warnings_count: 0,
     role_name: "user",
     password: "",
     password_confirmation: "",
@@ -125,6 +126,10 @@ const editingUser = computed(
         adminStore.users.find(
             (user) => Number(user.id) === Number(editingUserId.value),
         ) || null,
+);
+
+const userWarningsWillBlock = computed(
+    () => Number(userForm.value.warnings_count || 0) >= 3,
 );
 
 const displayedReports = computed(() =>
@@ -473,29 +478,13 @@ const unblockUser = async (user) => {
     }
 };
 
-const updateRole = async (user, roleName) => {
-    if (
-        !window.confirm(
-            `Изменить роль пользователя ${user.name} на ${formatRole(roleName)}?`,
-        )
-    ) {
-        return;
-    }
-
-    try {
-        await adminStore.updateUserRole(user.id, roleName);
-        toast.success("Роль обновлена");
-    } catch (error) {
-        toast.error(error.message);
-    }
-};
-
 const startEditUser = (user) => {
     editingUserId.value = user.id;
     userForm.value = {
         name: user.name || "",
         email: user.email || "",
         rank: Number(user.rank || 0),
+        warnings_count: Number(user.warnings_count || 0),
         role_name: user.role?.name || "user",
         password: "",
         password_confirmation: "",
@@ -539,6 +528,7 @@ const saveUser = async (user) => {
             name: userForm.value.name.trim(),
             email: userForm.value.email.trim(),
             rank: Number(userForm.value.rank || 0),
+            warnings_count: Number(userForm.value.warnings_count || 0),
             role_name: userForm.value.role_name,
         };
 
@@ -941,14 +931,6 @@ onMounted(() => {
                             >
                                 <Pencil :size="18" />
                             </button>
-                            <select
-                                :value="user.role?.name"
-                                :disabled="isSelf(user)"
-                                @change="updateRole(user, $event.target.value)"
-                            >
-                                <option value="user">Пользователь</option>
-                                <option value="admin">Администратор</option>
-                            </select>
                             <button
                                 class="icon-danger"
                                 type="button"
@@ -1245,6 +1227,29 @@ onMounted(() => {
                                 min="0"
                                 type="number"
                             />
+                        </UiField>
+                        <UiField label="Предупреждения">
+                            <div class="warning-slider">
+                                <input
+                                    v-model.number="userForm.warnings_count"
+                                    max="3"
+                                    min="0"
+                                    step="1"
+                                    type="range"
+                                />
+                                <div class="warning-slider__meta">
+                                    <strong
+                                        >{{ userForm.warnings_count || 0 }}/3</strong
+                                    >
+                                    <span>
+                                        {{
+                                            userWarningsWillBlock
+                                                ? "При сохранении пользователь сразу будет заблокирован."
+                                                : "Можно выставить до трёх предупреждений."
+                                        }}
+                                    </span>
+                                </div>
+                            </div>
                         </UiField>
                         <UiField label="Роль">
                             <select
@@ -1780,11 +1785,6 @@ onMounted(() => {
     justify-content: flex-end;
 }
 
-.user-actions select {
-    width: auto;
-    min-width: 150px;
-}
-
 .user-blocked {
     width: fit-content;
     color: var(--color-red) !important;
@@ -1798,6 +1798,8 @@ onMounted(() => {
     display: grid;
     place-items: center;
     padding: 18px;
+    overflow-y: auto;
+    overflow-x: hidden;
     background: rgba(7, 30, 15, 0.58);
 }
 
@@ -1805,9 +1807,15 @@ onMounted(() => {
     display: grid;
     gap: 18px;
     width: min(760px, 100%);
+    max-width: calc(100vw - 36px);
+    max-height: calc(100vh - 36px);
+    max-height: calc(100dvh - 36px);
     font-size: 16px;
     line-height: 1.55;
     background: var(--color-surface);
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
 }
 
 .resolution-dialog textarea {
@@ -1825,13 +1833,34 @@ onMounted(() => {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    min-width: 0;
     gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 6;
+    padding-top: 4px;
+    padding-bottom: 8px;
+    background: var(--color-surface);
+}
+
+.resolution-dialog__head > div {
+    min-width: 0;
 }
 
 .resolution-dialog__actions {
     display: grid;
     width: 100%;
     gap: 10px;
+    position: sticky;
+    bottom: 0;
+    z-index: 6;
+    padding-top: 12px;
+    padding-bottom: max(4px, env(safe-area-inset-bottom));
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.82),
+        var(--color-surface) 28%
+    );
 }
 
 .resolution-dialog__actions :deep(.ui-button) {
@@ -1910,11 +1939,43 @@ onMounted(() => {
     gap: 12px;
 }
 
+.warning-slider {
+    display: grid;
+    gap: 8px;
+}
+
+.warning-slider input[type="range"] {
+    width: 100%;
+}
+
+.warning-slider__meta {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 8px;
+    color: var(--color-muted);
+    font-weight: 800;
+}
+
+.warning-slider__meta strong {
+    color: var(--color-green-dark);
+}
+
 .user-edit-modal__actions {
     display: grid;
     grid-column: 1 / -1;
     grid-template-columns: 1fr;
     gap: 10px;
+    position: sticky;
+    bottom: 0;
+    z-index: 6;
+    padding-top: 12px;
+    padding-bottom: max(4px, env(safe-area-inset-bottom));
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.82),
+        var(--color-surface) 28%
+    );
 }
 
 .user-edit-modal__actions :deep(.ui-button) {
@@ -1944,7 +2005,6 @@ onMounted(() => {
 }
 
 .icon-danger:disabled,
-.user-actions select:disabled,
 .user-edit-modal select:disabled {
     cursor: not-allowed;
     opacity: 0.45;
@@ -1986,6 +2046,7 @@ onMounted(() => {
 }
 
 .audit-row {
+    min-width: 0;
     padding: 12px 0;
     border-bottom: 1px solid var(--color-border);
 }
@@ -1996,6 +2057,18 @@ onMounted(() => {
 
 .audit-row__meta {
     white-space: nowrap;
+}
+
+.audit-row__body,
+.audit-row__body strong,
+.audit-row__body span,
+.audit-row__meta,
+.audit-details,
+.audit-details dd,
+.audit-details p {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .audit-details-button {
@@ -2015,6 +2088,7 @@ onMounted(() => {
 .audit-details__grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    min-width: 0;
     gap: 12px;
     margin: 0;
 }
@@ -2022,6 +2096,7 @@ onMounted(() => {
 .audit-details__grid div,
 .audit-details__note {
     display: grid;
+    min-width: 0;
     gap: 4px;
     padding: 12px;
     border: 1px solid var(--color-border);
@@ -2187,7 +2262,6 @@ onMounted(() => {
         justify-content: stretch;
     }
 
-    .user-actions select,
     .user-profile-link,
     .user-actions :deep(.ui-button),
     .icon-button,
@@ -2210,8 +2284,7 @@ onMounted(() => {
 
     .resolution-dialog {
         width: 100%;
-        max-height: calc(100vh - 20px);
-        overflow-y: auto;
+        max-height: min(92dvh, calc(100vh - 20px));
     }
 
     .resolution-dialog__actions,

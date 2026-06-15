@@ -138,6 +138,7 @@ class UserController extends Controller
             $user->name = $validated['name'];
             $user->email = $validated['email'];
             $user->rank = $validated['rank'];
+            $user->warnings_count = (int) $validated['warnings_count'];
             $user->role_id = $role->id;
 
             if (! empty($validated['password'])) {
@@ -149,6 +150,11 @@ class UserController extends Controller
             return $user;
         });
 
+        if ((int) $validated['warnings_count'] >= UserSanctionService::WARNING_LIMIT && ! $user->isBlocked()) {
+            $this->sanctions->block($user, 'Автоблокировка после 3 предупреждений.');
+            $user = $user->fresh('role');
+        }
+
         $this->audit->log(
             actor: $request->user(),
             action: 'user.update',
@@ -159,6 +165,7 @@ class UserController extends Controller
                 'email' => $validated['email'],
                 'rank' => $validated['rank'],
                 'role_name' => $validated['role_name'],
+                'warnings_count' => (int) $validated['warnings_count'],
                 'password_changed' => ! empty($validated['password']),
             ],
             request: $request

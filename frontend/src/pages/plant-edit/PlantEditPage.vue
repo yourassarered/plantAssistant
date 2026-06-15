@@ -15,6 +15,7 @@ import {
     Settings2,
     Trash2,
     Upload,
+    X,
 } from "lucide-vue-next";
 import { toast } from "vue-sonner";
 
@@ -59,6 +60,7 @@ const showCareSettings = computed(
 );
 const showPhotoManager = computed(() => pageMode.value === "photos");
 const showCreatePhotoUpload = computed(() => pageMode.value === "create");
+const isCreateMode = computed(() => !isEditMode.value);
 const currentPlantId = computed(
     () => editingPlant.value?.apiId || route.params.id,
 );
@@ -80,6 +82,7 @@ const submitLabel = computed(() => {
     if (pageMode.value === "plant") return "Сохранить растение";
     return "Создать растение";
 });
+const createFormSubtitle = computed(() => "Новая запись будет добавлена в ваш список растений.");
 
 const { handleSubmit, errors, isSubmitting, resetForm } = useForm({
     validationSchema: plantFormSchema,
@@ -320,6 +323,10 @@ const deletePhoto = async (image) => {
     }
 };
 
+const closeCreateForm = () => {
+    router.push("/my-plants");
+};
+
 const onSubmit = handleSubmit(async (values) => {
     try {
         if (isEditMode.value && editingPlant.value) {
@@ -366,6 +373,27 @@ const loadPage = async () => {
         await loadImages();
         return;
     }
+
+    loadedEditingPlant.value = null;
+    photoFile.value = null;
+    plantImages.value = [];
+    resetForm({
+        values: {
+            name: "",
+            room: "Кухня",
+            height: 30,
+            plantedAt: today,
+            isPublic: false,
+            waterEnabled: true,
+            waterEveryDays: 4,
+            feedEnabled: true,
+            feedEveryDays: 21,
+            pruneEnabled: true,
+            pruneEveryDays: 30,
+            rotateEnabled: true,
+            rotateEveryDays: 7,
+        },
+    });
 };
 
 onMounted(loadPage);
@@ -375,7 +403,7 @@ watch([() => route.params.id, () => route.name], loadPage);
 
 <template>
     <section class="page">
-        <header class="page-header">
+        <header v-if="isEditMode" class="page-header">
             <div>
                 <h1 class="page-title">
                     {{ pageTitle }}
@@ -420,11 +448,29 @@ watch([() => route.params.id, () => route.name], loadPage);
             </RouterLink>
         </div>
 
-        <form
+        <div
             v-else-if="!showPhotoManager"
-            class="plant-form"
-            @submit.prevent="onSubmit"
+            class="plant-form-shell"
+            :class="{ 'plant-form-shell--modal': isCreateMode }"
         >
+            <div v-if="isCreateMode" class="plant-form-modal-head">
+                <div>
+                    <h1 class="page-title">{{ pageTitle }}</h1>
+                    <p class="page-subtitle">
+                        {{ createFormSubtitle }}
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    class="plant-form-modal-close"
+                    aria-label="Закрыть"
+                    @click="closeCreateForm"
+                >
+                    <X :size="18" />
+                </button>
+            </div>
+
+            <form class="plant-form" @submit.prevent="onSubmit">
             <section v-if="showPlantSettings" class="panel form-section">
                 <h2 class="panel__title">Параметры растения</h2>
                 <div class="plant-fields">
@@ -537,11 +583,22 @@ watch([() => route.params.id, () => route.name], loadPage);
                 </div>
             </section>
 
-            <UiButton type="submit" :disabled="isSubmitting">
-                <Save :size="17" />
-                {{ isSubmitting ? "Сохраняем..." : submitLabel }}
-            </UiButton>
-        </form>
+                <div class="plant-form__actions">
+                    <UiButton
+                        v-if="isCreateMode"
+                        type="button"
+                        variant="ghost"
+                        @click="closeCreateForm"
+                    >
+                        Отмена
+                    </UiButton>
+                    <UiButton type="submit" :disabled="isSubmitting">
+                        <Save :size="17" />
+                        {{ isSubmitting ? "Сохраняем..." : submitLabel }}
+                    </UiButton>
+                </div>
+            </form>
+        </div>
 
         <section v-else class="panel photo-manager">
             <div class="photo-upload">
@@ -591,6 +648,80 @@ watch([() => route.params.id, () => route.name], loadPage);
 .plant-form-auth {
     display: grid;
     gap: 12px;
+}
+
+.plant-form-shell {
+    display: grid;
+    gap: 12px;
+}
+
+.plant-form-shell--modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    overflow: auto;
+    background: rgba(7, 30, 15, 0.56);
+}
+
+.plant-form-shell--modal .plant-form {
+    width: min(920px, 100%);
+    max-width: calc(100vw - 32px);
+    max-height: calc(100vh - 32px);
+    max-height: calc(100dvh - 32px);
+    padding: 16px;
+    border-radius: var(--radius-md);
+    overflow: auto;
+    background: var(--color-surface);
+    box-shadow: var(--shadow-soft);
+}
+
+.plant-form-modal-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    width: min(920px, 100%);
+    margin: 0 auto;
+}
+
+.plant-form-modal-close {
+    display: grid;
+    width: 40px;
+    height: 40px;
+    place-items: center;
+    border: 0;
+    border-radius: var(--radius-sm);
+    color: var(--color-muted);
+    background: var(--color-surface-soft);
+    cursor: pointer;
+}
+
+.plant-form-shell--modal .plant-form__actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin: 0 -16px -16px;
+    padding: 12px 16px max(12px, env(safe-area-inset-bottom));
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.76),
+        var(--color-surface) 28%
+    );
+}
+
+.plant-form__actions {
+    display: grid;
+    gap: 10px;
+}
+
+.plant-form__actions :deep(.ui-button) {
+    width: 100%;
 }
 
 .page-header {
@@ -880,8 +1011,26 @@ watch([() => route.params.id, () => route.name], loadPage);
 }
 
 @media (max-width: 680px) {
+    .plant-form-shell--modal {
+        align-items: start;
+        padding: 12px;
+    }
+
+    .plant-form-shell--modal .plant-form {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .plant-form-modal-head {
+        width: 100%;
+    }
+
     .page-header {
         display: grid;
+    }
+
+    .edit-back-link {
+        width: 100%;
     }
 
     .edit-back-link :deep(.ui-button) {

@@ -74,6 +74,9 @@ const activeImageIndex = ref(0);
 const galleryDirection = ref("next");
 const galleryHasNavigated = ref(false);
 const isGalleryFullscreen = ref(false);
+const galleryTouchStartX = ref(0);
+const galleryTouchStartY = ref(0);
+const skipNextGalleryOpen = ref(false);
 const isTipsDialogOpen = ref(false);
 const isEditDialogOpen = ref(false);
 const isReportDialogOpen = ref(false);
@@ -694,6 +697,56 @@ const closeGalleryFullscreen = () => {
     isGalleryFullscreen.value = false;
 };
 
+const onGalleryTouchStart = (event) => {
+    const touch = event.changedTouches?.[0];
+    if (!touch) return;
+
+    galleryTouchStartX.value = touch.clientX;
+    galleryTouchStartY.value = touch.clientY;
+};
+
+const handleGallerySwipe = (event) => {
+    const touch = event.changedTouches?.[0];
+    if (!touch || !hasMultipleImages.value) return false;
+
+    const deltaX = touch.clientX - galleryTouchStartX.value;
+    const deltaY = touch.clientY - galleryTouchStartY.value;
+    const isHorizontalSwipe =
+        Math.abs(deltaX) > 48 && Math.abs(deltaX) > Math.abs(deltaY) * 1.25;
+
+    if (!isHorizontalSwipe) return false;
+
+    if (deltaX > 0) {
+        showPrevImage();
+    } else {
+        showNextImage();
+    }
+
+    return true;
+};
+
+const onPlantCoverTouchEnd = (event) => {
+    if (!handleGallerySwipe(event)) return;
+
+    skipNextGalleryOpen.value = true;
+    window.setTimeout(() => {
+        skipNextGalleryOpen.value = false;
+    }, 180);
+};
+
+const onFullscreenTouchEnd = (event) => {
+    handleGallerySwipe(event);
+};
+
+const handlePlantCoverClick = () => {
+    if (skipNextGalleryOpen.value) {
+        skipNextGalleryOpen.value = false;
+        return;
+    }
+
+    openGalleryFullscreen();
+};
+
 const openQuickPhotoPicker = () => {
     quickPhotoInput.value?.click();
 };
@@ -1126,7 +1179,9 @@ watch(
                         type="button"
                         class="plant-cover-button"
                         aria-label="Открыть фото на весь экран"
-                        @click="openGalleryFullscreen"
+                        @click="handlePlantCoverClick"
+                        @touchstart.passive="onGalleryTouchStart"
+                        @touchend="onPlantCoverTouchEnd"
                     >
                         <Transition :name="galleryTransitionName" mode="out-in">
                             <img
@@ -1390,8 +1445,14 @@ watch(
             <div
                 v-if="isGalleryFullscreen"
                 class="gallery-fullscreen"
-                @click="closeGalleryFullscreen"
+                @click.self="closeGalleryFullscreen"
             >
+                <button
+                    type="button"
+                    class="gallery-fullscreen__backdrop"
+                    aria-label="Закрыть фото"
+                    @click="closeGalleryFullscreen"
+                ></button>
                 <button
                     type="button"
                     class="gallery-fullscreen__close"
@@ -1409,17 +1470,23 @@ watch(
                 >
                     <ChevronLeft :size="32" />
                 </button>
-                <Transition :name="galleryTransitionName" mode="out-in">
-                    <img
-                        :key="
-                            activeImage?.id || activeImage?.url || plant.image
-                        "
-                        class="gallery-fullscreen__image"
-                        :src="activeImage?.url || plant.image"
-                        :alt="activeImage?.originalName || plant.name"
-                        @click.stop
-                    />
-                </Transition>
+                <div
+                    class="gallery-fullscreen__stage"
+                    @click.self="closeGalleryFullscreen"
+                    @touchstart.passive="onGalleryTouchStart"
+                    @touchend="onFullscreenTouchEnd"
+                >
+                    <Transition :name="galleryTransitionName" mode="out-in">
+                        <img
+                            :key="
+                                activeImage?.id || activeImage?.url || plant.image
+                            "
+                            class="gallery-fullscreen__image"
+                            :src="activeImage?.url || plant.image"
+                            :alt="activeImage?.originalName || plant.name"
+                        />
+                    </Transition>
+                </div>
                 <button
                     v-if="hasMultipleImages"
                     type="button"
@@ -1515,7 +1582,6 @@ watch(
                         :task="task"
                         :show-plant-name="false"
                         :show-room="false"
-                        :hide-mobile-due-badge="true"
                     />
                 </TransitionGroup>
                 <p v-else class="muted">Активных задач нет.</p>
@@ -1534,14 +1600,15 @@ watch(
                         <MessageCircle :size="13" />
                         {{ tipsCount }}
                     </UiBadge>
-                    <button
+                    <UiButton
                         v-if="isOwnPlant && dialogTips.length"
                         type="button"
-                        class="link-button"
+                        variant="ghost"
+                        class="tips-panel__show-all"
                         @click="isTipsDialogOpen = true"
                     >
-                        Все
-                    </button>
+                        Показать все
+                    </UiButton>
                 </div>
 
                 <div v-if="isOwnPlant" class="owner-tips-summary">
@@ -2356,6 +2423,7 @@ watch(
     border: 0;
     background: transparent;
     cursor: zoom-in;
+    touch-action: pan-y pinch-zoom;
 }
 
 .plant-cover {
@@ -2397,15 +2465,8 @@ watch(
     border-radius: 50%;
     color: #fff;
     background: rgba(0, 0, 0, 0.5);
-    opacity: 0;
-    transition: opacity 0.16s ease;
-}
-
-.plant-cover-button:hover .gallery-open-icon,
-.plant-cover-button:focus-visible .gallery-open-icon,
-.plant-cover-wrap:hover .plant-cover-delete,
-.plant-cover-wrap:focus-within .plant-cover-delete {
     opacity: 1;
+    transition: opacity 0.16s ease;
 }
 
 .plant-cover-delete {
@@ -2422,7 +2483,7 @@ watch(
     background: rgba(179, 38, 30, 0.84);
     box-shadow: var(--shadow-soft);
     cursor: pointer;
-    opacity: 0;
+    opacity: 1;
     transition: opacity 0.16s ease;
 }
 
@@ -2713,11 +2774,32 @@ watch(
     background: rgba(0, 0, 0, 0.94);
 }
 
-.gallery-fullscreen__image {
+.gallery-fullscreen__backdrop {
+    position: absolute;
+    inset: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+}
+
+.gallery-fullscreen__stage {
+    position: relative;
+    z-index: 1;
+    display: grid;
     grid-row: 1;
-    justify-self: center;
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    justify-items: center;
+    min-width: 0;
+    min-height: 0;
+    touch-action: pan-y pinch-zoom;
+}
+
+.gallery-fullscreen__image {
     max-width: 100%;
     max-height: calc(100vh - 132px);
+    max-height: calc(100dvh - 132px);
     object-fit: contain;
 }
 
@@ -2757,6 +2839,8 @@ watch(
 }
 
 .gallery-fullscreen__thumbs {
+    position: relative;
+    z-index: 1;
     grid-row: 2;
     display: flex;
     justify-content: center;
@@ -2882,6 +2966,11 @@ watch(
     grid-template-columns: minmax(0, 1fr) auto auto;
     align-items: center;
     gap: 10px;
+}
+
+.tips-panel__show-all {
+    justify-self: end;
+    min-height: 34px;
 }
 
 .tips-panel__head .panel__title {
@@ -3129,8 +3218,7 @@ watch(
 }
 
 .reject-tip-dialog__actions {
-    justify-content: flex-start;
-    gap: 14px;
+    align-items: stretch;
 }
 
 .reject-tip-dialog__submit :deep(svg) {
@@ -3240,6 +3328,8 @@ watch(
     display: grid;
     place-items: center;
     padding: 16px;
+    overflow-y: auto;
+    overflow-x: hidden;
     background: rgba(18, 31, 24, 0.52);
 }
 
@@ -3247,8 +3337,13 @@ watch(
     display: grid;
     width: min(760px, 100%);
     max-height: min(820px, calc(100vh - 32px));
+    max-width: calc(100vw - 32px);
+    max-height: min(820px, calc(100dvh - 32px));
     gap: 14px;
-    overflow: auto;
+    min-width: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     padding: 16px;
     border-radius: var(--radius-md);
     background: var(--color-surface);
@@ -3261,10 +3356,7 @@ watch(
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-}
-
-.edit-dialog__footer {
-    justify-content: flex-end;
+    min-width: 0;
 }
 
 .edit-dialog__close {
@@ -3450,6 +3542,8 @@ watch(
     display: grid;
     place-items: center;
     padding: 16px;
+    overflow-y: auto;
+    overflow-x: hidden;
     background: rgba(18, 31, 24, 0.52);
 }
 
@@ -3457,8 +3551,13 @@ watch(
     display: grid;
     width: min(640px, 100%);
     max-height: min(720px, calc(100vh - 32px));
+    max-width: calc(100vw - 32px);
+    max-height: min(720px, calc(100dvh - 32px));
     gap: 12px;
-    overflow: auto;
+    min-width: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     padding: 16px;
     border-radius: var(--radius-md);
     background: var(--color-surface);
@@ -3470,6 +3569,18 @@ watch(
     align-items: center;
     justify-content: space-between;
     gap: 10px;
+    min-width: 0;
+}
+
+.tips-dialog__head,
+.report-dialog__head,
+.edit-dialog__head {
+    position: sticky;
+    top: 0;
+    z-index: 6;
+    padding-top: 4px;
+    padding-bottom: 8px;
+    background: var(--color-surface);
 }
 
 .tips-dialog__close {
@@ -3491,15 +3602,24 @@ watch(
     display: grid;
     place-items: center;
     padding: 16px;
+    overflow-y: auto;
+    overflow-x: hidden;
     background: rgba(18, 31, 24, 0.52);
 }
 
 .report-dialog__card {
     display: grid;
     width: min(520px, 100%);
+    max-width: calc(100vw - 32px);
+    max-height: calc(100vh - 32px);
+    max-height: calc(100dvh - 32px);
     gap: 14px;
+    min-width: 0;
     padding: 16px;
     border-radius: var(--radius-md);
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
     background: var(--color-surface);
     box-shadow: var(--shadow-soft);
 }
@@ -3514,10 +3634,18 @@ watch(
     align-items: center;
     justify-content: space-between;
     gap: 10px;
+    min-width: 0;
 }
 
-.report-dialog__footer {
-    justify-content: flex-end;
+.report-dialog__head .panel__title,
+.report-dialog__form,
+.report-dialog__form p,
+.plant-report-item,
+.plant-report-item p,
+.plant-report-item__meta {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .report-dialog__close {
@@ -3545,6 +3673,35 @@ watch(
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
     background: var(--color-surface);
+}
+
+.edit-dialog__footer,
+.edit-dialog__actions,
+.report-dialog__footer {
+    display: grid;
+    width: 100%;
+    grid-template-columns: 1fr;
+    gap: 10px;
+}
+
+.edit-dialog__footer,
+.report-dialog__footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 6;
+    padding-top: 12px;
+    padding-bottom: max(4px, env(safe-area-inset-bottom));
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.82),
+        var(--color-surface) 22%
+    );
+}
+
+.edit-dialog__footer :deep(.ui-button),
+.edit-dialog__actions :deep(.ui-button),
+.report-dialog__footer :deep(.ui-button) {
+    width: 100%;
 }
 
 .plant-report-summary {
@@ -3890,17 +4047,8 @@ watch(
     }
 
     .edit-fields,
-    .edit-care-grid,
-    .edit-dialog__footer {
+    .edit-care-grid {
         grid-template-columns: 1fr;
-    }
-
-    .edit-dialog__footer {
-        display: grid;
-    }
-
-    .report-dialog__footer {
-        display: grid;
     }
 
     .history-row {
@@ -3977,9 +4125,10 @@ watch(
         grid-template-columns: minmax(0, 1fr) auto;
     }
 
-    .tips-panel__head .link-button {
+    .tips-panel__show-all {
         grid-column: 1 / -1;
-        justify-self: start;
+        justify-self: stretch;
+        width: 100%;
     }
 
     .tip-item__footer {

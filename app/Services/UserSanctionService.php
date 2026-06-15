@@ -66,6 +66,7 @@ class UserSanctionService
         DB::transaction(function () use ($user): void {
             $user->blocked_at = null;
             $user->block_reason = null;
+            $user->warnings_count = 0;
             $user->save();
 
             Plant::where('user_id', $user->id)

@@ -21,6 +21,7 @@ class AdminUpdateUserRequest extends FormRequest
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users', 'email')->ignore($userId)],
             'rank' => ['required', 'integer', 'min:0', 'max:100000'],
             'role_name' => ['required', 'string', 'exists:roles,name'],
+            'warnings_count' => ['required', 'integer', 'min:0', 'max:3'],
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
         ];
     }
