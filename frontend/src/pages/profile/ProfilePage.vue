@@ -1115,6 +1115,14 @@ onMounted(async () => {
                             {{ activeReportsEmptyText }}
                         </p>
                     </div>
+                    <div class="reports-card__actions">
+                        <UiButton
+                            variant="ghost"
+                            @click="isReportsDialogOpen = false"
+                        >
+                            Закрыть
+                        </UiButton>
+                    </div>
                 </section>
             </div>
         </Teleport>
@@ -1260,7 +1268,7 @@ onMounted(async () => {
     display: grid;
     place-items: center;
     padding: 18px;
-    overflow-y: auto;
+    overflow: hidden;
     background: rgba(7, 30, 15, 0.56);
 }
 
@@ -1340,8 +1348,12 @@ onMounted(async () => {
     grid-template-rows: auto minmax(0, 1fr);
     gap: 12px;
     width: min(620px, 100%);
+    max-width: calc(100vw - 36px);
     max-height: calc(100vh - 36px);
+    max-height: calc(100dvh - 36px);
     overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
     background: var(--color-surface);
 }
 
@@ -1486,7 +1498,7 @@ onMounted(async () => {
     max-height: calc(100dvh - 36px);
     overflow-x: hidden;
     overflow-y: hidden;
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
     background: var(--color-surface);
 }
 
@@ -1500,6 +1512,7 @@ onMounted(async () => {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
+    width: 100%;
 }
 
 .reports-card__title-row {
@@ -1544,6 +1557,7 @@ onMounted(async () => {
 }
 
 .reports-card__close {
+    flex: 0 0 auto;
     display: grid;
     width: 40px;
     height: 40px;
@@ -1561,6 +1575,24 @@ onMounted(async () => {
     min-height: 0;
     overflow-y: auto;
     padding-right: 4px;
+}
+
+.reports-card__actions {
+    display: grid;
+    position: sticky;
+    bottom: 0;
+    z-index: 6;
+    margin: 0 -16px -16px;
+    padding: 12px 16px max(12px, env(safe-area-inset-bottom));
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.82),
+        var(--color-surface) 28%
+    );
+}
+
+.reports-card__actions :deep(.ui-button) {
+    width: 100%;
 }
 
 .report-status-row {
@@ -1661,8 +1693,8 @@ onMounted(async () => {
     }
 
     .profile-edit-modal {
-        align-items: end;
-        padding: 0;
+        place-items: center;
+        padding: 16px;
         overflow: hidden;
     }
 
@@ -1678,10 +1710,11 @@ onMounted(async () => {
         grid-template-columns: 1fr;
         grid-template-rows: auto minmax(0, 1fr);
         width: 100%;
-        max-height: min(92dvh, calc(100vh - 18px));
+        max-width: calc(100vw - 32px);
+        max-height: min(92dvh, calc(100vh - 32px));
         overflow: hidden;
         padding-bottom: 0;
-        border-radius: var(--radius-md) var(--radius-md) 0 0;
+        border-radius: var(--radius-md);
     }
 
     .profile-edit__body {
@@ -1761,7 +1794,7 @@ onMounted(async () => {
     }
 
     .reports-card__head {
-        padding-right: 42px;
+        padding-right: 0;
     }
 
     .reports-card__tabs {

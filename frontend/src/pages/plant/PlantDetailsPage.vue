@@ -2270,6 +2270,15 @@ watch(
                 </article>
             </div>
             <p v-else class="muted">Жалоб на это растение пока нет.</p>
+            <footer class="report-dialog__footer">
+                <UiButton
+                    type="button"
+                    variant="ghost"
+                    @click="closePlantReportsDialog"
+                >
+                    Закрыть
+                </UiButton>
+            </footer>
         </section>
     </div>
 
@@ -3328,8 +3337,7 @@ watch(
     display: grid;
     place-items: center;
     padding: 16px;
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden;
     background: rgba(18, 31, 24, 0.52);
 }
 
@@ -3360,6 +3368,8 @@ watch(
 }
 
 .edit-dialog__close {
+    flex: 0 0 auto;
+    margin-left: auto;
     display: grid;
     width: 40px;
     height: 40px;
@@ -3542,8 +3552,7 @@ watch(
     display: grid;
     place-items: center;
     padding: 16px;
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden;
     background: rgba(18, 31, 24, 0.52);
 }
 
@@ -3584,6 +3593,8 @@ watch(
 }
 
 .tips-dialog__close {
+    flex: 0 0 auto;
+    margin-left: auto;
     display: grid;
     width: 40px;
     height: 40px;
@@ -3602,8 +3613,7 @@ watch(
     display: grid;
     place-items: center;
     padding: 16px;
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden;
     background: rgba(18, 31, 24, 0.52);
 }
 
@@ -3649,6 +3659,8 @@ watch(
 }
 
 .report-dialog__close {
+    flex: 0 0 auto;
+    margin-left: auto;
     display: grid;
     width: 40px;
     height: 40px;

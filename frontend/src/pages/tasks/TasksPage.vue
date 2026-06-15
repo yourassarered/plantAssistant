@@ -222,7 +222,10 @@ onBeforeUnmount(() => {
                 v-for="group in groupedByPlant"
                 :key="group.plantId"
                 class="task-group"
-                :class="{ 'task-group--today': group.todayCount > 0 }"
+                :class="{
+                    'task-group--today': group.todayCount > 0,
+                    'task-group--overdue': group.overdueCount > 0,
+                }"
             >
                 <button
                     type="button"
@@ -316,9 +319,12 @@ onBeforeUnmount(() => {
     background: var(--color-surface);
 }
 
-.task-group--today,
-.task-group--overdue {
+.task-group--today {
     border-color: #f1bd95;
+}
+
+.task-group--overdue {
+    border-color: #e1897f;
 }
 
 .task-group__head {
@@ -337,6 +343,26 @@ onBeforeUnmount(() => {
             transparent 34%
         ),
         linear-gradient(180deg, #f5f8f2, #eef5ea);
+}
+
+.task-group--today .task-group__head {
+    background:
+        radial-gradient(
+            circle at top right,
+            rgba(255, 223, 198, 0.52),
+            transparent 34%
+        ),
+        linear-gradient(180deg, #fff8ef, #f4f7ee);
+}
+
+.task-group--overdue .task-group__head {
+    background:
+        radial-gradient(
+            circle at top right,
+            rgba(255, 197, 190, 0.58),
+            transparent 36%
+        ),
+        linear-gradient(180deg, #fff3f1, #f9ece9);
 }
 
 .task-group__head img {

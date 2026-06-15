@@ -339,10 +339,11 @@ watch(
 .tip-modal {
     position: fixed;
     inset: 0;
-    z-index: 100;
+    z-index: 1000;
     display: grid;
     place-items: center;
     padding: 18px;
+    overflow: hidden;
     background: rgba(7, 30, 15, 0.56);
 }
 
@@ -350,6 +351,12 @@ watch(
     display: grid;
     gap: 12px;
     width: min(540px, 100%);
+    max-width: calc(100vw - 36px);
+    max-height: calc(100vh - 36px);
+    max-height: calc(100dvh - 36px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
     padding: 16px;
     border-radius: var(--radius-md);
     background: var(--color-surface);
@@ -357,8 +364,15 @@ watch(
 
 .tip-modal__card header {
     display: flex;
+    align-items: center;
     justify-content: space-between;
     gap: 10px;
+    position: sticky;
+    top: 0;
+    z-index: 6;
+    margin: -16px -16px 0;
+    padding: 16px 16px 10px;
+    background: var(--color-surface);
 }
 
 .tip-modal__card h2 {
@@ -375,16 +389,32 @@ watch(
 }
 
 .tip-modal__actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    position: sticky;
+    bottom: 0;
+    z-index: 6;
+    margin: 0 -16px -16px;
+    padding: 12px 16px max(12px, env(safe-area-inset-bottom));
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.82),
+        var(--color-surface) 28%
+    );
+}
+
+.tip-modal__actions :deep(.ui-button) {
+    width: 100%;
 }
 
 .tip-modal__close {
+    flex: 0 0 auto;
+    margin-left: auto;
     display: grid;
     place-items: center;
-    width: 30px;
-    height: 30px;
+    width: 40px;
+    height: 40px;
     border: 0;
     border-radius: var(--radius-xs);
     color: var(--color-muted);

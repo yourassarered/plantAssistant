@@ -1232,11 +1232,30 @@ onMounted(() => {
                             <div class="warning-slider">
                                 <input
                                     v-model.number="userForm.warnings_count"
+                                    :style="{
+                                        '--warning-progress': `${(Number(userForm.warnings_count || 0) / 3) * 100}%`,
+                                    }"
                                     max="3"
                                     min="0"
                                     step="1"
                                     type="range"
                                 />
+                                <div class="warning-slider__ticks" aria-hidden="true">
+                                    <span
+                                        v-for="point in [0, 1, 2, 3]"
+                                        :key="point"
+                                        :class="{
+                                            active:
+                                                Number(
+                                                    userForm.warnings_count ||
+                                                        0,
+                                                ) >= point,
+                                        }"
+                                    >
+                                        <i></i>
+                                        {{ point }}
+                                    </span>
+                                </div>
                                 <div class="warning-slider__meta">
                                     <strong
                                         >{{ userForm.warnings_count || 0 }}/3</strong
@@ -1442,6 +1461,11 @@ onMounted(() => {
                                 </p>
                             </div>
                         </template>
+                    </div>
+                    <div class="resolution-dialog__actions">
+                        <UiButton variant="ghost" @click="closeAuditDetails">
+                            Закрыть
+                        </UiButton>
                     </div>
                 </section>
             </div>
@@ -1798,8 +1822,7 @@ onMounted(() => {
     display: grid;
     place-items: center;
     padding: 18px;
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden;
     background: rgba(7, 30, 15, 0.58);
 }
 
@@ -1941,11 +1964,83 @@ onMounted(() => {
 
 .warning-slider {
     display: grid;
-    gap: 8px;
+    gap: 10px;
 }
 
 .warning-slider input[type="range"] {
+    --warning-progress: 0%;
+    appearance: none;
     width: 100%;
+    height: 8px;
+    border-radius: 999px;
+    outline: 0;
+    background: linear-gradient(
+        90deg,
+        var(--color-green) 0 var(--warning-progress),
+        #d7ded2 var(--warning-progress) 100%
+    );
+}
+
+.warning-slider input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    width: 22px;
+    height: 22px;
+    border: 3px solid #fff;
+    border-radius: 50%;
+    background: var(--color-green);
+    box-shadow: 0 4px 12px rgba(15, 112, 46, 0.28);
+    cursor: pointer;
+}
+
+.warning-slider input[type="range"]::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border: 3px solid #fff;
+    border-radius: 50%;
+    background: var(--color-green);
+    box-shadow: 0 4px 12px rgba(15, 112, 46, 0.28);
+    cursor: pointer;
+}
+
+.warning-slider__ticks {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+}
+
+.warning-slider__ticks span {
+    display: grid;
+    justify-items: center;
+    gap: 5px;
+    color: var(--color-muted);
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.warning-slider__ticks span:first-child {
+    justify-items: start;
+}
+
+.warning-slider__ticks span:last-child {
+    justify-items: end;
+}
+
+.warning-slider__ticks i {
+    display: block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid #c8d2c2;
+    border-radius: 50%;
+    background: var(--color-surface);
+}
+
+.warning-slider__ticks span.active {
+    color: var(--color-green-dark);
+}
+
+.warning-slider__ticks span.active i {
+    border-color: var(--color-green);
+    background: var(--color-green);
 }
 
 .warning-slider__meta {
