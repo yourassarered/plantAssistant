@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\Plant;
-use App\Models\Role;
 use App\Models\Room;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -12,8 +11,7 @@ class PlantSeeder extends Seeder
 {
     public function run(): void
     {
-        $userRoleId = Role::where('name', 'user')->firstOrFail()->id;
-        $users = User::where('role_id', $userRoleId)->orderBy('id')->get();
+        $users = User::orderBy('id')->get();
 
         $plantNames = [
             'Фикус Бенджамина',
