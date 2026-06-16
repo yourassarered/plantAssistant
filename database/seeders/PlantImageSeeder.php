@@ -14,7 +14,7 @@ class PlantImageSeeder extends Seeder
     private const SOURCE_DIRECTORY = 'images/placeholders/plants';
     private const STORAGE_DIRECTORY = 'seeders/plants';
     private const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp'];
-    private const MIN_IMAGES_PER_PLANT = 1;
+    private const MIN_IMAGES_PER_PLANT = 2;
     private const MAX_IMAGES_PER_PLANT = 2;
 
     public function run(): void

@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use App\Models\Plant;
 use App\Models\Report;
-use App\Models\Role;
 use App\Models\Tip;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -14,14 +13,17 @@ class ReportSeeder extends Seeder
     public function run(): void
     {
         $admin = User::whereHas('role', fn ($query) => $query->where('name', 'admin'))->first();
-        $userRoleId = Role::where('name', 'user')->firstOrFail()->id;
-        $users = User::where('role_id', $userRoleId)->orderBy('id')->get();
+        $users = User::orderBy('id')->get();
         $publicPlants = Plant::with('user')->where('is_public', true)->orderBy('id')->get();
         $tips = Tip::withTrashed()->with(['author', 'plant.user'])->orderBy('id')->get();
 
         if (! $admin || $users->count() < 3 || $publicPlants->count() < 4 || $tips->count() < 4) {
             return;
         }
+
+        // Сидер каждый раз собирает демонстрационный набор заново, чтобы старые
+        // принятые жалобы не накапливались после повторного запуска.
+        Report::query()->delete();
 
         $plantScenarios = [
             [
@@ -45,11 +47,11 @@ class ReportSeeder extends Seeder
             [
                 'plant' => $publicPlants[2],
                 'reason' => 'other',
-                'status' => 'rejected',
-                'details' => 'Пожаловался на оформление карточки, но нарушения правил не нашлось.',
-                'admin_comment' => 'Нарушений не обнаружено, жалоба отклонена.',
+                'status' => 'pending',
+                'details' => 'Пожаловался на оформление карточки, нужно вручную проверить, есть ли нарушение.',
+                'admin_comment' => null,
                 'resolution_action' => null,
-                'resolution_summary' => 'Нарушений не найдено, санкции не применялись.',
+                'resolution_summary' => null,
             ],
             [
                 'plant' => $publicPlants[3],
@@ -105,11 +107,11 @@ class ReportSeeder extends Seeder
             [
                 'tip' => $tips[2],
                 'reason' => 'spam',
-                'status' => 'accepted',
-                'details' => 'В совете есть навязчивая реклама удобрений и ссылок на магазины.',
-                'admin_comment' => 'Автору вынесено предупреждение и снижен ранг.',
-                'resolution_action' => 'tip_warn_rank',
-                'resolution_summary' => 'Автор получил предупреждение, ранг снижен на 1.',
+                'status' => 'pending',
+                'details' => 'В совете есть подозрение на рекламу удобрений и ссылок на магазины.',
+                'admin_comment' => null,
+                'resolution_action' => null,
+                'resolution_summary' => null,
             ],
             [
                 'tip' => $tips[3],
@@ -144,6 +146,167 @@ class ReportSeeder extends Seeder
                 adminComment: $scenario['admin_comment'],
                 resolutionAction: $scenario['resolution_action'],
                 resolutionSummary: $scenario['resolution_summary'],
+            );
+        }
+
+        $this->seedAdditionalPlantReports($admin, $users, $publicPlants);
+        $this->seedAdditionalTipReports($admin, $users, $tips);
+    }
+
+    private function seedAdditionalPlantReports(User $admin, $users, $publicPlants): void
+    {
+        $templates = [
+            [
+                'reason' => 'inappropriate_image',
+                'status' => 'pending',
+                'details' => 'На фотографии крупно виден не горшок и не растение, нужна ручная проверка.',
+                'admin_comment' => null,
+                'resolution_action' => null,
+                'resolution_summary' => null,
+            ],
+            [
+                'reason' => 'spam',
+                'status' => 'pending',
+                'details' => 'Карточка похожа на рекламу магазина, но модератор еще не проверил жалобу.',
+                'admin_comment' => null,
+                'resolution_action' => null,
+                'resolution_summary' => null,
+            ],
+            [
+                'reason' => 'misinformation',
+                'status' => 'pending',
+                'details' => 'В описании могут быть опасные рекомендации по уходу и неверный вид растения.',
+                'admin_comment' => null,
+                'resolution_action' => null,
+                'resolution_summary' => null,
+            ],
+            [
+                'reason' => 'other',
+                'status' => 'pending',
+                'details' => 'Жалоба скорее про личные предпочтения к оформлению карточки, нужна быстрая проверка.',
+                'admin_comment' => null,
+                'resolution_action' => null,
+                'resolution_summary' => null,
+            ],
+            [
+                'reason' => 'abuse',
+                'status' => 'pending',
+                'details' => 'В комментариях к карточке заметили грубые формулировки, нужна проверка.',
+                'admin_comment' => null,
+                'resolution_action' => null,
+                'resolution_summary' => null,
+            ],
+            [
+                'reason' => 'spam',
+                'status' => 'pending',
+                'details' => 'Пользователь решил, что частое обновление карточки является спамом.',
+                'admin_comment' => null,
+                'resolution_action' => null,
+                'resolution_summary' => null,
+            ],
+        ];
+
+        $plants = $publicPlants->slice(4)->take(3)->values();
+        foreach ($plants as $index => $plant) {
+            $template = $templates[$index % count($templates)];
+            $reporter = $this->pickReporter($users, [$plant->user_id], $index + 20);
+
+            if (! $reporter) {
+                continue;
+            }
+
+            $this->seedReport(
+                admin: $admin,
+                reporter: $reporter,
+                targetType: Report::TARGET_PLANT,
+                targetId: $plant->id,
+                reason: $template['reason'],
+                details: $template['details'],
+                status: $template['status'],
+                adminComment: $template['admin_comment'],
+                resolutionAction: $template['resolution_action'],
+                resolutionSummary: $template['resolution_summary'],
+            );
+        }
+    }
+
+    private function seedAdditionalTipReports(User $admin, $users, $tips): void
+    {
+        $templates = [
+            [
+                'reason' => 'misinformation',
+                'status' => 'pending',
+                'details' => 'Совет спорный: рекомендует поливать каждый день без учета грунта.',
+                'admin_comment' => null,
+                'resolution_action' => null,
+                'resolution_summary' => null,
+            ],
+            [
+                'reason' => 'spam',
+                'status' => 'pending',
+                'details' => 'Совет содержит рекламный текст и выглядит как продвижение товара.',
+                'admin_comment' => null,
+                'resolution_action' => null,
+                'resolution_summary' => null,
+            ],
+            [
+                'reason' => 'abuse',
+                'status' => 'pending',
+                'details' => 'В совете есть грубость в адрес владельца растения.',
+                'admin_comment' => null,
+                'resolution_action' => null,
+                'resolution_summary' => null,
+            ],
+            [
+                'reason' => 'other',
+                'status' => 'pending',
+                'details' => 'Жалоба неочевидная: нужно проверить тон и пользу совета.',
+                'admin_comment' => null,
+                'resolution_action' => null,
+                'resolution_summary' => null,
+            ],
+            [
+                'reason' => 'misinformation',
+                'status' => 'pending',
+                'details' => 'Совет предлагает пересадку в спорный грунт и может навредить.',
+                'admin_comment' => null,
+                'resolution_action' => null,
+                'resolution_summary' => null,
+            ],
+            [
+                'reason' => 'spam',
+                'status' => 'pending',
+                'details' => 'Есть подозрение на рекламный текст, требуется модераторская проверка.',
+                'admin_comment' => null,
+                'resolution_action' => null,
+                'resolution_summary' => null,
+            ],
+        ];
+
+        $reportedTips = $tips->slice(4)->take(14)->values();
+        foreach ($reportedTips as $index => $tip) {
+            $template = $templates[$index % count($templates)];
+            $excludedIds = array_filter([
+                $tip->author_id,
+                $tip->plant?->user_id,
+            ]);
+            $reporter = $this->pickReporter($users, $excludedIds, $index + 40);
+
+            if (! $reporter) {
+                continue;
+            }
+
+            $this->seedReport(
+                admin: $admin,
+                reporter: $reporter,
+                targetType: Report::TARGET_TIP,
+                targetId: $tip->id,
+                reason: $template['reason'],
+                details: $template['details'],
+                status: $template['status'],
+                adminComment: $template['admin_comment'],
+                resolutionAction: $template['resolution_action'],
+                resolutionSummary: $template['resolution_summary'],
             );
         }
     }

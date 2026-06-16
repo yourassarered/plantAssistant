@@ -5,11 +5,15 @@ namespace Database\Seeders;
 use App\Models\CareLog;
 use App\Models\Plant;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Carbon;
 
 class CareLogSeeder extends Seeder
 {
+    private const REFERENCE_DATE = '2026-06-17';
+
     public function run(): void
     {
+        $referenceDate = Carbon::parse(self::REFERENCE_DATE)->startOfDay();
         $comments = [
             'Почва подсохла, сделал обильный полив.',
             'Удалил сухие листья и осмотрел стебли.',
@@ -29,10 +33,16 @@ class CareLogSeeder extends Seeder
                     ->count();
 
                 $targetCount = 3 + (($plant->id + strlen($setting->type)) % 4);
+                $intervalDays = max((int) ($setting->interval_days ?? 7), 2);
+                $baseDate = $setting->last_done_at
+                    ? $setting->last_done_at->copy()
+                    : $referenceDate->copy()->subDays($intervalDays);
                 $latest = $setting->last_done_at;
 
                 for ($i = $existingCount; $i < $targetCount; $i++) {
-                    $performedAt = now()->subDays(max(1, ($i + 1) * max($setting->interval_days ?? 7, 2) - (($plant->id + $i) % 4)));
+                    $performedAt = $baseDate
+                        ->copy()
+                        ->subDays(($targetCount - $i) * $intervalDays + (($plant->id + $i) % 4));
                     if ($latest === null || $performedAt->greaterThan($latest)) {
                         $latest = $performedAt;
                     }

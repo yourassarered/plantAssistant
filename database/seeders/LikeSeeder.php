@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use App\Models\Like;
 use App\Models\Plant;
-use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 
@@ -13,8 +12,7 @@ class LikeSeeder extends Seeder
     public function run(): void
     {
         $publicPlants = Plant::where('is_public', true)->get();
-        $userRoleId = Role::where('name', 'user')->firstOrFail()->id;
-        $users = User::where('role_id', $userRoleId)->get();
+        $users = User::orderBy('id')->get();
 
         if ($publicPlants->isEmpty() || $users->isEmpty()) {
             return;

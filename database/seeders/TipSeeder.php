@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\Plant;
-use App\Models\Role;
 use App\Models\Tip;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -13,8 +12,7 @@ class TipSeeder extends Seeder
     public function run(): void
     {
         $publicPlants = Plant::where('is_public', true)->orderBy('id')->get();
-        $userRoleId = Role::where('name', 'user')->firstOrFail()->id;
-        $users = User::where('role_id', $userRoleId)->orderBy('id')->get();
+        $users = User::orderBy('id')->get();
 
         if ($publicPlants->isEmpty() || $users->count() < 2) {
             return;
@@ -40,7 +38,7 @@ class TipSeeder extends Seeder
                 continue;
             }
 
-            $targetCount = min(3, $availableAuthors->count());
+            $targetCount = min(2, $availableAuthors->count());
             for ($i = 0; $i < $targetCount; $i++) {
                 $author = $availableAuthors[($plantIndex + $i) % $availableAuthors->count()];
                 $content = $tipContents[($plant->id + $i) % count($tipContents)];

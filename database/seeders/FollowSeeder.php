@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\Follow;
-use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 
@@ -11,8 +10,7 @@ class FollowSeeder extends Seeder
 {
     public function run(): void
     {
-        $userRoleId = Role::where('name', 'user')->firstOrFail()->id;
-        $users = User::where('role_id', $userRoleId)->get();
+        $users = User::orderBy('id')->get();
 
         if ($users->count() < 2) {
             return;

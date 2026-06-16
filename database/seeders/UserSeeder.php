@@ -27,6 +27,28 @@ class UserSeeder extends Seeder
             ]
         );
 
+        $testAdmins = [
+            ['name' => 'Андрей Соколов', 'email' => 'a1@t.ru', 'rank' => 80],
+            ['name' => 'Виктория Лебедева', 'email' => 'a2@t.ru', 'rank' => 75],
+            ['name' => 'Никита Морозов', 'email' => 'a3@t.ru', 'rank' => 70],
+            ['name' => 'Екатерина Волкова', 'email' => 'a4@t.ru', 'rank' => 65],
+        ];
+
+        foreach ($testAdmins as $adminData) {
+            User::updateOrCreate(
+                ['email' => $adminData['email']],
+                [
+                    'name' => $adminData['name'],
+                    'password' => Hash::make('12345678'),
+                    'role_id' => $adminRole->id,
+                    'rank' => $adminData['rank'],
+                    'warnings_count' => 0,
+                    'blocked_at' => null,
+                    'block_reason' => null,
+                ]
+            );
+        }
+
         $presetUsers = [
             ['name' => 'Иван Петров', 'email' => 'ivan@example.com', 'rank' => 15],
             ['name' => 'Мария Сидорова', 'email' => 'maria@example.com', 'rank' => 23],
