@@ -103,6 +103,19 @@ const stringValue = (value, fallback = "") => {
     return fallback;
 };
 
+const avatarPlaceholderPath = "/images/placeholders/avatar-placeholder.png";
+
+const isAvatarPlaceholderUrl = (url) => {
+    const normalizedUrl = stringValue(url, "");
+
+    return !normalizedUrl || normalizedUrl.includes("avatar-placeholder.png");
+};
+
+export const avatarPlaceholderImage = resolveAssetUrl(avatarPlaceholderPath);
+
+const resolveAvatarUrl = (url) =>
+    resolveAssetUrl(isAvatarPlaceholderUrl(url) ? avatarPlaceholderPath : url);
+
 const numberValue = (value, fallback = 0) => {
     const normalizedValue = unwrapApiValue(value);
     const number = Number(normalizedValue);
@@ -127,12 +140,12 @@ export const unwrapApiCollection = (payload) => unwrapApiValue(payload) || [];
 
 export const mapApiUser = (user) => {
     const normalizedUser = unwrapApiValue(user) || {};
+    const avatarUrl = normalizedUser.avatar_url;
 
     return {
         ...normalizedUser,
-        avatar_url: normalizedUser.avatar_url
-            ? resolveAssetUrl(normalizedUser.avatar_url)
-            : "",
+        avatar_url: resolveAvatarUrl(avatarUrl),
+        hasAvatar: !isAvatarPlaceholderUrl(avatarUrl),
     };
 };
 
@@ -219,9 +232,10 @@ export const mapApiPlant = (plant) => {
         ownerIsBlocked: Boolean(
             objectField(owner, "is_blocked") ?? plant.owner_is_blocked ?? false,
         ),
-        ownerAvatarUrl: objectField(owner, "avatar_url")
-            ? resolveAssetUrl(objectField(owner, "avatar_url"))
-            : "",
+        ownerAvatarUrl: resolveAvatarUrl(objectField(owner, "avatar_url")),
+        ownerHasAvatar: !isAvatarPlaceholderUrl(
+            objectField(owner, "avatar_url"),
+        ),
         careSettings: allCareSettings,
         careLogs: careLogs.map((log) => ({
             id: log.id,

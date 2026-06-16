@@ -126,9 +126,9 @@ class UserController extends Controller
         $user = User::findOrFail($id);
         $validated = $request->validated();
 
-        if ($user->id === $request->user()->id && $validated['role_name'] !== $user->role?->name) {
+        if ($user->id === $request->user()->id) {
             return response()->json([
-                'message' => 'Нельзя изменить собственную роль',
+                'message' => 'Нельзя редактировать собственный профиль в админке',
             ], 403);
         }
 
@@ -150,8 +150,15 @@ class UserController extends Controller
             return $user;
         });
 
-        if ((int) $validated['warnings_count'] >= UserSanctionService::WARNING_LIMIT && ! $user->isBlocked()) {
+        $warningsCount = (int) $validated['warnings_count'];
+
+        if ($warningsCount >= UserSanctionService::WARNING_LIMIT && ! $user->isBlocked()) {
             $this->sanctions->block($user, 'Автоблокировка после 3 предупреждений.');
+            $user = $user->fresh('role');
+        } elseif ($warningsCount < UserSanctionService::WARNING_LIMIT && $user->isBlocked()) {
+            $this->sanctions->unblock($user);
+            $user->warnings_count = $warningsCount;
+            $user->save();
             $user = $user->fresh('role');
         }
 

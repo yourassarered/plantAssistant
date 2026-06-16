@@ -77,17 +77,6 @@ const isReportsDialogOpen = ref(false);
 const reportsDialogMode = ref("my");
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const reportStatusLabels = {
-    pending: "На рассмотрении",
-    accepted: "Принята",
-    rejected: "Отклонена",
-};
-
-const reportTypeLabels = {
-    plant: "Растение",
-    tip: "Совет",
-};
-
 const title = computed(() => (mode.value === "login" ? "Вход" : "Регистрация"));
 const passwordInputType = computed(() =>
     isPasswordVisible.value ? "text" : "password",
@@ -134,6 +123,11 @@ const reportStatus = (report) =>
 const reportType = (report) => getReportTypeLabel(report.target_type);
 const reportReason = (report) =>
     report.reason_label || getReportReasonLabel(report.reason);
+const reportStatusTone = (report) => report.status || "neutral";
+const reportDetailsText = (report) =>
+    report.details || "Подробности не указаны.";
+const reportResolutionText = (report) =>
+    report.resolution_summary || report.admin_comment || "";
 const activeReports = computed(() =>
     reportsDialogMode.value === "received"
         ? receivedReports.value
@@ -504,6 +498,11 @@ const updateProfile = async () => {
 };
 
 const deleteAvatar = async () => {
+    if (!authStore.user?.hasAvatar) {
+        toast.info("У профиля уже установлен стандартный аватар.");
+        return;
+    }
+
     try {
         await authStore.deleteAvatar();
         clearAvatarDraft();
@@ -675,11 +674,7 @@ onMounted(async () => {
                         type="button"
                         @click="toggleAuthMode"
                     >
-                        {{
-                            mode === "login"
-                                ? "Зарегистрироваться"
-                                : "Войти"
-                        }}
+                        {{ mode === "login" ? "Зарегистрироваться" : "Войти" }}
                     </button>
                 </p>
             </section>
@@ -768,26 +763,23 @@ onMounted(async () => {
                                     alt=""
                                 />
                                 <span v-else>{{
-                                    (
-                                        profileName ||
-                                        authStore.user?.name ||
-                                        "?"
-                                    )
+                                    (profileName || authStore.user?.name || "?")
                                         .slice(0, 1)
                                         .toUpperCase()
                                 }}</span>
                             </div>
                             <div class="avatar-editor__controls">
                                 <label class="avatar-upload">
-                                    Выбрать аватар
+                                    Сделать фото
                                     <input
                                         type="file"
-                                        accept="image/png,image/jpeg,image/webp"
+                                        accept="image/*"
+                                        capture="environment"
                                         @change="onAvatarFileChange"
                                     />
                                 </label>
                                 <UiButton
-                                    v-if="authStore.user?.avatar_url"
+                                    v-if="authStore.user?.hasAvatar"
                                     variant="ghost"
                                     @click="deleteAvatar"
                                 >
@@ -863,15 +855,15 @@ onMounted(async () => {
                                 </button>
                             </div>
                         </UiField>
-                        <div class="profile-edit__actions">
-                            <UiButton variant="ghost" @click="cancelProfileEdit">
-                                Отмена
-                            </UiButton>
-                            <UiButton @click="updateProfile">
-                                Сохранить профиль
-                            </UiButton>
-                        </div>
                     </div>
+                    <footer class="profile-edit__actions">
+                        <UiButton variant="ghost" @click="cancelProfileEdit">
+                            Отмена
+                        </UiButton>
+                        <UiButton @click="updateProfile">
+                            Сохранить профиль
+                        </UiButton>
+                    </footer>
                 </section>
             </div>
         </Teleport>
@@ -936,14 +928,14 @@ onMounted(async () => {
                             </div>
                         </div>
                     </div>
-                    <div class="profile-edit__actions">
+                    <footer class="profile-edit__actions">
                         <UiButton variant="ghost" @click="cancelAvatarCrop">
                             Отмена
                         </UiButton>
                         <UiButton @click="confirmAvatarCrop">
                             Применить кадр
                         </UiButton>
-                    </div>
+                    </footer>
                 </section>
             </div>
         </Teleport>
@@ -1078,35 +1070,45 @@ onMounted(async () => {
                             v-for="report in activeReports"
                             :key="report.id"
                             class="report-status-row"
+                            :data-status="reportStatusTone(report)"
                         >
-                            <div>
-                                <strong>{{ reportTitle(report) }}</strong>
-                                <span>
-                                    {{ reportType(report) }} ·
-                                    {{ reportReason(report) }} ·
-                                    {{ reportStatus(report) }}
-                                </span>
+                            <div class="report-status-row__header">
+                                <div class="report-status-row__title">
+                                    <strong>{{ reportTitle(report) }}</strong>
+                                    <span>Жалоба #{{ report.id }}</span>
+                                </div>
+                                <div class="report-status-row__badges">
+                                    <span
+                                        class="report-status-row__badge"
+                                        :data-tone="reportStatusTone(report)"
+                                    >
+                                        {{ reportStatus(report) }}
+                                    </span>
+                                    <span
+                                        class="report-status-row__badge report-status-row__badge--soft"
+                                    >
+                                        {{ reportType(report) }}
+                                    </span>
+                                    <span
+                                        class="report-status-row__badge report-status-row__badge--reason"
+                                    >
+                                        {{ reportReason(report) }}
+                                    </span>
+                                </div>
                             </div>
-                            <p>
-                                {{
-                                    report.details ||
-                                    report.resolution_summary ||
-                                    report.admin_comment ||
-                                    "Подробности не указаны."
-                                }}
-                            </p>
-                            <p
-                                v-if="
-                                    report.resolution_summary ||
-                                    report.admin_comment
-                                "
+
+                            <section class="report-status-row__note">
+                                <span>Описание</span>
+                                <p>{{ reportDetailsText(report) }}</p>
+                            </section>
+
+                            <section
+                                v-if="reportResolutionText(report)"
                                 class="report-status-row__resolution"
                             >
-                                {{
-                                    report.resolution_summary ||
-                                    report.admin_comment
-                                }}
-                            </p>
+                                <span>Решение</span>
+                                <p>{{ reportResolutionText(report) }}</p>
+                            </section>
                         </article>
                         <p
                             v-if="!activeReports.length"
@@ -1270,6 +1272,7 @@ onMounted(async () => {
     padding: 18px;
     overflow: hidden;
     background: rgba(7, 30, 15, 0.56);
+    backdrop-filter: blur(16px);
 }
 
 .avatar-crop-modal {
@@ -1280,21 +1283,31 @@ onMounted(async () => {
     place-items: center;
     padding: 18px;
     background: rgba(7, 30, 15, 0.68);
+    backdrop-filter: blur(16px);
 }
 
 .avatar-crop-dialog {
     display: grid;
-    gap: 12px;
     width: min(620px, 100%);
+    max-width: calc(100vw - 36px);
+    max-height: calc(100vh - 36px);
+    max-height: calc(100dvh - 36px);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 0;
+    padding: 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
     background: var(--color-surface);
+    box-shadow: var(--shadow-soft);
 }
 
 .avatar-crop-workspace {
     display: grid;
     justify-items: center;
+    min-height: 0;
     overflow: auto;
-    padding: 10px;
-    border-radius: var(--radius-sm);
+    padding: 16px 16px 4px;
     background: #172119;
 }
 
@@ -1344,23 +1357,20 @@ onMounted(async () => {
 
 .profile-edit {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: auto minmax(0, 1fr);
-    gap: 12px;
-    width: min(620px, 100%);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 0;
+    isolation: isolate;
+    width: min(760px, 100%);
     max-width: calc(100vw - 36px);
     max-height: calc(100vh - 36px);
     max-height: calc(100dvh - 36px);
-    overflow-y: auto;
-    overflow-x: hidden;
+    padding: 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
     overscroll-behavior: contain;
     background: var(--color-surface);
-}
-
-.profile-edit__head,
-.profile-edit__body,
-.profile-edit .ui-button {
-    grid-column: 1 / -1;
+    box-shadow: var(--shadow-soft);
 }
 
 .profile-edit__body {
@@ -1368,6 +1378,10 @@ onMounted(async () => {
     gap: 12px;
     min-width: 0;
     min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 16px 16px 4px;
+    overscroll-behavior: contain;
 }
 
 .avatar-editor {
@@ -1415,7 +1429,7 @@ onMounted(async () => {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: min(100%, 220px);
+    width: 100%;
     min-height: 38px;
     padding: 0 14px;
     border-radius: var(--radius-sm);
@@ -1426,7 +1440,7 @@ onMounted(async () => {
 }
 
 .avatar-editor__controls :deep(.ui-button) {
-    width: min(100%, 220px);
+    width: 100%;
 }
 
 .avatar-upload input {
@@ -1445,24 +1459,51 @@ onMounted(async () => {
     width: 100%;
 }
 
-.profile-edit__head,
-.profile-edit__actions {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
+.profile-edit__head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 12px;
+    min-width: 0;
+    padding: 16px 16px 18px;
+    border-bottom: 1px solid rgba(23, 33, 24, 0.08);
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(16px);
+    box-shadow: 0 10px 24px rgba(7, 30, 15, 0.05);
+}
+
+.profile-edit__head .panel__title {
+    margin: 0;
 }
 
 .profile-edit__close {
     display: grid;
-    width: 34px;
-    height: 34px;
+    width: 40px;
+    height: 40px;
     place-items: center;
     border: 0;
     border-radius: var(--radius-sm);
     color: var(--color-muted);
     background: var(--color-surface-soft);
     cursor: pointer;
+}
+
+.profile-edit__actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 14px 16px max(14px, env(safe-area-inset-bottom));
+    border-top: 1px solid rgba(23, 33, 24, 0.08);
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.9),
+        var(--color-surface) 34%
+    );
+}
+
+.profile-edit__actions :deep(.ui-button) {
+    width: 100%;
+    min-height: 46px;
 }
 
 .profile-stats {
@@ -1491,21 +1532,29 @@ onMounted(async () => {
 .reports-card {
     position: relative;
     display: grid;
-    gap: 12px;
+    gap: 0;
+    isolation: isolate;
     width: min(720px, 100%);
     max-width: calc(100vw - 36px);
     max-height: calc(100vh - 36px);
     max-height: calc(100dvh - 36px);
-    overflow-x: hidden;
-    overflow-y: hidden;
     grid-template-rows: auto minmax(0, 1fr) auto;
+    padding: 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
     background: var(--color-surface);
+    overflow: hidden;
+    box-shadow: var(--shadow-soft);
 }
 
 .reports-card__head {
     display: grid;
     gap: 10px;
-    padding: 2px 0 0;
+    padding: 16px 16px 18px;
+    border-bottom: 1px solid rgba(23, 33, 24, 0.08);
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(16px);
+    box-shadow: 0 10px 24px rgba(7, 30, 15, 0.05);
 }
 
 .reports-card__tabs {
@@ -1516,10 +1565,10 @@ onMounted(async () => {
 }
 
 .reports-card__title-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 12px;
     min-width: 0;
 }
 
@@ -1554,10 +1603,10 @@ onMounted(async () => {
     padding: 18px;
     overflow: hidden;
     background: rgba(7, 30, 15, 0.58);
+    backdrop-filter: blur(16px);
 }
 
 .reports-card__close {
-    flex: 0 0 auto;
     display: grid;
     width: 40px;
     height: 40px;
@@ -1572,62 +1621,181 @@ onMounted(async () => {
 .reports-card__body {
     display: grid;
     gap: 12px;
+    min-width: 0;
     min-height: 0;
     overflow-y: auto;
-    padding-right: 4px;
+    overflow-x: hidden;
+    padding: 16px 16px 4px;
+    overscroll-behavior: contain;
 }
 
 .reports-card__actions {
     display: grid;
-    position: sticky;
-    bottom: 0;
-    z-index: 6;
-    margin: 0 -16px -16px;
-    padding: 12px 16px max(12px, env(safe-area-inset-bottom));
+    padding: 14px 16px max(14px, env(safe-area-inset-bottom));
+    border-top: 1px solid rgba(23, 33, 24, 0.08);
     background: linear-gradient(
         180deg,
-        rgba(255, 255, 255, 0.82),
-        var(--color-surface) 28%
+        rgba(255, 255, 255, 0.9),
+        var(--color-surface) 34%
     );
 }
 
 .reports-card__actions :deep(.ui-button) {
     width: 100%;
+    min-height: 46px;
 }
 
 .report-status-row {
+    position: relative;
     display: grid;
-    gap: 8px;
-    padding: 12px 0;
-    border-bottom: 1px solid var(--color-border);
+    gap: 12px;
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid var(--color-border);
+    border-left: 5px solid var(--color-muted);
+    border-radius: var(--radius-sm);
+    background: linear-gradient(180deg, #fff, #fbfcf8);
+    box-shadow: 0 8px 18px rgba(37, 49, 39, 0.07);
 }
 
-.report-status-row:last-of-type {
-    border-bottom: 0;
+.report-status-row[data-status="pending"] {
+    border-left-color: var(--color-yellow);
 }
 
-.report-status-row div {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+.report-status-row[data-status="accepted"] {
+    border-left-color: var(--color-green);
+}
+
+.report-status-row[data-status="rejected"] {
+    border-left-color: var(--color-red);
+}
+
+.report-status-row__header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
     gap: 12px;
     min-width: 0;
 }
 
+.report-status-row__title {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+}
+
+.report-status-row__badges {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-width: 0;
+}
+
+.report-status-row__badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 26px;
+    padding: 0 10px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    color: var(--color-muted);
+    background: #edf1ea;
+    font-size: 12px;
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+.report-status-row__badge[data-tone="pending"] {
+    color: #7a5200;
+    border-color: #f6d35e;
+    background: #fff1bd;
+}
+
+.report-status-row__badge[data-tone="accepted"] {
+    color: var(--color-green-dark);
+    border-color: rgba(22, 132, 58, 0.18);
+    background: var(--color-green-soft);
+}
+
+.report-status-row__badge[data-tone="rejected"] {
+    color: #9b2013;
+    border-color: rgba(224, 69, 50, 0.18);
+    background: #ffe0dc;
+}
+
+.report-status-row__badge--soft {
+    color: var(--color-green-dark);
+    background: #eef8e6;
+}
+
+.report-status-row__badge--reason {
+    color: #1e5f9c;
+    background: #e4f0ff;
+}
+
+.report-status-row__note,
+.report-status-row__resolution {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+}
+
+.report-status-row__note {
+    border: 1px solid rgba(107, 117, 104, 0.16);
+    background: rgba(247, 248, 244, 0.82);
+}
+
+.report-status-row__resolution {
+    border: 1px solid rgba(22, 132, 58, 0.18);
+    background: var(--color-green-soft);
+}
+
 .report-status-row strong,
-.report-status-row span,
-.report-status-row p,
+.report-status-row__title span,
+.report-status-row__note span,
+.report-status-row__resolution span,
+.report-status-row__note p,
+.report-status-row__resolution p,
 .reports-card__empty {
     min-width: 0;
     margin: 0;
-    color: var(--color-muted);
     font-weight: 800;
     overflow-wrap: anywhere;
     word-break: break-word;
 }
 
-.report-status-row__resolution {
-    color: var(--color-green-dark) !important;
+.report-status-row strong {
+    color: var(--color-ink);
+    font-size: 16px;
+}
+
+.report-status-row__title span {
+    color: var(--color-muted);
+    font-size: 12px;
+}
+
+.report-status-row__note span,
+.report-status-row__resolution span {
+    color: var(--color-green-dark);
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0;
+    text-transform: uppercase;
+}
+
+.report-status-row__note p,
+.report-status-row__resolution p {
+    color: var(--color-muted);
+    line-height: 1.45;
+}
+
+.report-status-row__resolution p {
+    color: var(--color-green-dark);
 }
 
 .profile-stats article {
@@ -1718,9 +1886,7 @@ onMounted(async () => {
     }
 
     .profile-edit__body {
-        overflow-y: auto;
-        overflow-x: hidden;
-        padding-bottom: max(12px, env(safe-area-inset-bottom));
+        padding-bottom: 4px;
     }
 
     .avatar-editor {
@@ -1742,38 +1908,14 @@ onMounted(async () => {
     .account-card__body,
     .profile-edit__actions {
         align-items: stretch;
-        flex-direction: column;
     }
 
     .account-card__actions {
         grid-template-columns: 1fr;
     }
 
-    .profile-edit__head {
-        position: sticky;
-        top: 0;
-        z-index: 2;
-        padding-bottom: 10px;
-        background: var(--color-surface);
-    }
-
     .profile-edit__actions {
-        position: sticky;
-        bottom: 0;
-        z-index: 2;
-        padding-top: 12px;
-        padding-bottom: max(4px, env(safe-area-inset-bottom));
-        border-top: 1px solid var(--color-border);
-        background: linear-gradient(
-            180deg,
-            rgba(255, 255, 255, 0.82),
-            var(--color-surface) 22%
-        );
-    }
-
-    .account-card__actions :deep(.ui-button),
-    .profile-edit__actions :deep(.ui-button) {
-        width: 100%;
+        margin-top: 2px;
     }
 
     .dashboard-grid {
@@ -1789,12 +1931,13 @@ onMounted(async () => {
         width: min(720px, 100%);
         max-width: calc(100vw - 32px);
         max-height: min(92dvh, calc(100vh - 18px));
-        padding-bottom: max(14px, env(safe-area-inset-bottom));
-        border-radius: var(--radius-md);
     }
 
-    .reports-card__head {
-        padding-right: 0;
+    .reports-card__head,
+    .reports-card__body,
+    .reports-card__actions {
+        padding-left: 14px;
+        padding-right: 14px;
     }
 
     .reports-card__tabs {
@@ -1805,9 +1948,12 @@ onMounted(async () => {
         min-height: 42px;
     }
 
-    .report-status-row div {
-        display: grid;
-        gap: 4px;
+    .report-status-row__header {
+        grid-template-columns: 1fr;
+    }
+
+    .report-status-row__badges {
+        justify-content: flex-start;
     }
 }
 </style>

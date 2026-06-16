@@ -451,7 +451,7 @@ watch(publicCareTasks, (tasks) => {
 
         <div v-if="suggestPlant" class="tip-modal">
             <section class="tip-modal__card">
-                <header>
+                <header class="tip-modal__head">
                     <h2>
                         &#1057;&#1086;&#1074;&#1077;&#1090;
                         &#1076;&#1083;&#1103; {{ suggestPlant.name }}
@@ -465,20 +465,22 @@ watch(publicCareTasks, (tasks) => {
                     </button>
                 </header>
 
-                <textarea
-                    v-model="suggestText"
-                    rows="4"
-                    placeholder="&#1053;&#1072;&#1087;&#1080;&#1096;&#1080;&#1090;&#1077; &#1087;&#1088;&#1072;&#1082;&#1090;&#1080;&#1095;&#1077;&#1089;&#1082;&#1080;&#1081; &#1089;&#1086;&#1074;&#1077;&#1090; &#1087;&#1086; &#1091;&#1093;&#1086;&#1076;&#1091;"
-                />
+                <div class="tip-modal__body">
+                    <textarea
+                        v-model="suggestText"
+                        rows="4"
+                        placeholder="&#1053;&#1072;&#1087;&#1080;&#1096;&#1080;&#1090;&#1077; &#1087;&#1088;&#1072;&#1082;&#1090;&#1080;&#1095;&#1077;&#1089;&#1082;&#1080;&#1081; &#1089;&#1086;&#1074;&#1077;&#1090; &#1087;&#1086; &#1091;&#1093;&#1086;&#1076;&#1091;"
+                    />
+                </div>
 
-                <div class="tip-modal__actions">
+                <footer class="tip-modal__actions">
                     <UiButton variant="ghost" @click="closeSuggest">
                         &#1054;&#1090;&#1084;&#1077;&#1085;&#1072;
                     </UiButton>
                     <UiButton :disabled="sendingTip" @click="sendSuggest">
                         {{ sendTipButtonLabel }}
                     </UiButton>
-                </div>
+                </footer>
             </section>
         </div>
     </section>
@@ -551,34 +553,36 @@ watch(publicCareTasks, (tasks) => {
     padding: 18px;
     overflow: hidden;
     background: rgba(7, 30, 15, 0.56);
+    backdrop-filter: blur(16px);
 }
 
 .tip-modal__card {
     display: grid;
-    gap: 12px;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 0;
+    isolation: isolate;
     width: min(540px, 100%);
     max-width: calc(100vw - 36px);
     max-height: calc(100vh - 36px);
     max-height: calc(100dvh - 36px);
-    overflow-y: auto;
+    overflow: hidden;
     overflow-x: hidden;
     overscroll-behavior: contain;
-    padding: 16px;
     border-radius: var(--radius-md);
     background: var(--color-surface);
 }
 
-.tip-modal__card header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    position: sticky;
-    top: 0;
-    z-index: 6;
-    margin: -16px -16px 0;
-    padding: 16px 16px 10px;
-    background: var(--color-surface);
+.tip-modal__head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 12px;
+    min-width: 0;
+    padding: 16px 16px 18px;
+    border-bottom: 1px solid rgba(23, 33, 24, 0.08);
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(16px);
+    box-shadow: 0 10px 24px rgba(7, 30, 15, 0.05);
 }
 
 .tip-modal__card h2 {
@@ -586,8 +590,14 @@ watch(publicCareTasks, (tasks) => {
     font-size: 20px;
 }
 
-.tip-modal__card textarea {
+.tip-modal__body {
+    min-height: 0;
+    padding: 14px 16px 4px;
+}
+
+.tip-modal__body textarea {
     width: 100%;
+    min-height: 132px;
     resize: vertical;
     padding: 10px;
     border: 1px solid var(--color-border);
@@ -598,31 +608,27 @@ watch(publicCareTasks, (tasks) => {
     display: grid;
     grid-template-columns: 1fr;
     gap: 10px;
-    position: sticky;
-    bottom: 0;
-    z-index: 6;
-    margin: 0 -16px -16px;
-    padding: 12px 16px max(12px, env(safe-area-inset-bottom));
+    padding: 14px 16px max(14px, env(safe-area-inset-bottom));
+    border-top: 1px solid rgba(23, 33, 24, 0.08);
     background: linear-gradient(
         180deg,
-        rgba(255, 255, 255, 0.82),
-        var(--color-surface) 28%
+        rgba(255, 255, 255, 0.9),
+        var(--color-surface) 32%
     );
 }
 
 .tip-modal__actions :deep(.ui-button) {
     width: 100%;
+    min-height: 46px;
 }
 
 .tip-modal__close {
-    flex: 0 0 auto;
-    margin-left: auto;
     display: grid;
     width: 40px;
     height: 40px;
     place-items: center;
     border: 0;
-    border-radius: var(--radius-xs);
+    border-radius: var(--radius-sm);
     color: var(--color-muted);
     background: #edf1ea;
     cursor: pointer;

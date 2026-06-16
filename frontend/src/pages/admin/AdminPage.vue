@@ -479,6 +479,11 @@ const unblockUser = async (user) => {
 };
 
 const startEditUser = (user) => {
+    if (isSelf(user)) {
+        toast.info("Свой профиль нельзя редактировать из админки.");
+        return;
+    }
+
     editingUserId.value = user.id;
     userForm.value = {
         name: user.name || "",
@@ -541,6 +546,22 @@ const saveUser = async (user) => {
         await adminStore.updateUser(user.id, payload);
         toast.success("Пользователь обновлён");
         cancelEditUser();
+    } catch (error) {
+        toast.error(error.message);
+    }
+};
+
+const deleteUserAvatar = async (user) => {
+    if (!user?.hasAvatar) {
+        toast.info("У пользователя нет аватара.");
+        return;
+    }
+
+    if (!window.confirm(`Удалить аватар пользователя ${user.name}?`)) return;
+
+    try {
+        await adminStore.deleteUserAvatar(user.id);
+        toast.success("Аватар пользователя удалён");
     } catch (error) {
         toast.error(error.message);
     }
@@ -927,6 +948,7 @@ onMounted(() => {
                                 class="icon-button"
                                 type="button"
                                 aria-label="Редактировать пользователя"
+                                :disabled="isSelf(user)"
                                 @click="startEditUser(user)"
                             >
                                 <Pencil :size="18" />
@@ -1074,46 +1096,47 @@ onMounted(() => {
                         </button>
                     </div>
 
-                    <label
-                        v-for="option in resolutionOptions(selectedReport)"
-                        :key="option.value"
-                        class="resolution-option"
-                    >
-                        <input
-                            v-model="selectedResolutionAction"
-                            type="radio"
-                            :value="option.value"
-                        />
-                        <span>
-                            <strong>{{
-                                resolutionActionLabels[option.value]
-                            }}</strong>
-                            <small>{{ option.hint }}</small>
-                        </span>
-                    </label>
+                    <div class="resolution-dialog__body">
+                        <label
+                            v-for="option in resolutionOptions(selectedReport)"
+                            :key="option.value"
+                            class="resolution-option"
+                        >
+                            <input
+                                v-model="selectedResolutionAction"
+                                type="radio"
+                                :value="option.value"
+                            />
+                            <span>
+                                <strong>{{
+                                    resolutionActionLabels[option.value]
+                                }}</strong>
+                                <small>{{ option.hint }}</small>
+                            </span>
+                        </label>
 
-                    <UiField label="Комментарий модератора">
-                        <textarea
-                            :value="reportCommentValue(selectedReport)"
-                            rows="3"
-                            placeholder="Коротко опишите решение"
-                            @input="
-                                setReportComment(
-                                    selectedReport.id,
-                                    $event.target.value,
-                                )
-                            "
-                        />
-                    </UiField>
+                        <UiField label="Комментарий модератора">
+                            <textarea
+                                :value="reportCommentValue(selectedReport)"
+                                rows="3"
+                                placeholder="Коротко опишите решение"
+                                @input="
+                                    setReportComment(
+                                        selectedReport.id,
+                                        $event.target.value,
+                                    )
+                                "
+                            />
+                        </UiField>
 
-                    <p
-                        v-if="selectedResolutionIsFinalWarning"
-                        class="resolution-warning"
-                    >
-                        Это третье предупреждение: после применения решения
-                        аккаунт будет автоматически заблокирован.
-                    </p>
-
+                        <p
+                            v-if="selectedResolutionIsFinalWarning"
+                            class="resolution-warning"
+                        >
+                            Это третье предупреждение: после применения решения
+                            аккаунт будет автоматически заблокирован.
+                        </p>
+                    </div>
                     <div class="resolution-dialog__actions">
                         <UiButton
                             variant="ghost"
@@ -1155,20 +1178,21 @@ onMounted(() => {
                             <X :size="18" />
                         </button>
                     </div>
-
-                    <UiField label="Комментарий модератора">
-                        <textarea
-                            :value="reportCommentValue(selectedReport)"
-                            rows="4"
-                            placeholder="Коротко объясните причину отказа"
-                            @input="
-                                setReportComment(
-                                    selectedReport.id,
-                                    $event.target.value,
-                                )
-                            "
-                        />
-                    </UiField>
+                    <div class="resolution-dialog__body">
+                        <UiField label="Комментарий модератора">
+                            <textarea
+                                :value="reportCommentValue(selectedReport)"
+                                rows="4"
+                                placeholder="Коротко объясните причину отказа"
+                                @input="
+                                    setReportComment(
+                                        selectedReport.id,
+                                        $event.target.value,
+                                    )
+                                "
+                            />
+                        </UiField>
+                    </div>
 
                     <div
                         class="resolution-dialog__actions rejection-dialog__actions"
@@ -1215,85 +1239,128 @@ onMounted(() => {
                         class="user-edit-modal"
                         @submit.prevent="saveUser(editingUser)"
                     >
-                        <UiField label="Имя">
-                            <input v-model="userForm.name" />
-                        </UiField>
-                        <UiField label="Email">
-                            <input v-model="userForm.email" type="email" />
-                        </UiField>
-                        <UiField label="Ранг">
-                            <input
-                                v-model.number="userForm.rank"
-                                min="0"
-                                type="number"
-                            />
-                        </UiField>
-                        <UiField label="Предупреждения">
-                            <div class="warning-slider">
-                                <input
-                                    v-model.number="userForm.warnings_count"
-                                    :style="{
-                                        '--warning-progress': `${(Number(userForm.warnings_count || 0) / 3) * 100}%`,
-                                    }"
-                                    max="3"
-                                    min="0"
-                                    step="1"
-                                    type="range"
-                                />
-                                <div class="warning-slider__ticks" aria-hidden="true">
-                                    <span
-                                        v-for="point in [0, 1, 2, 3]"
-                                        :key="point"
-                                        :class="{
-                                            active:
-                                                Number(
-                                                    userForm.warnings_count ||
-                                                        0,
-                                                ) >= point,
-                                        }"
-                                    >
-                                        <i></i>
-                                        {{ point }}
-                                    </span>
-                                </div>
-                                <div class="warning-slider__meta">
-                                    <strong
-                                        >{{ userForm.warnings_count || 0 }}/3</strong
-                                    >
-                                    <span>
+                        <div class="user-edit-modal__body">
+                            <div class="user-avatar-editor">
+                                <div class="user-avatar-editor__preview">
+                                    <img
+                                        v-if="editingUser.avatar_url"
+                                        :src="editingUser.avatar_url"
+                                        :alt="editingUser.name"
+                                    />
+                                    <span v-else>
                                         {{
-                                            userWarningsWillBlock
-                                                ? "При сохранении пользователь сразу будет заблокирован."
-                                                : "Можно выставить до трёх предупреждений."
+                                            (
+                                                editingUser.name ||
+                                                editingUser.email ||
+                                                "?"
+                                            )
+                                                .slice(0, 1)
+                                                .toUpperCase()
                                         }}
                                     </span>
                                 </div>
+                                <div class="user-avatar-editor__content">
+                                    <strong>Аватар пользователя</strong>
+                                    <small>
+                                        {{
+                                            editingUser.hasAvatar
+                                                ? "Можно удалить текущий аватар, если он не подходит правилам."
+                                                : "Будет показан стандартный аватар."
+                                        }}
+                                    </small>
+                                    <UiButton
+                                        variant="danger"
+                                        type="button"
+                                        :disabled="!editingUser.hasAvatar"
+                                        @click="deleteUserAvatar(editingUser)"
+                                    >
+                                        <Trash2 :size="16" />
+                                        Удалить аватар
+                                    </UiButton>
+                                </div>
                             </div>
-                        </UiField>
-                        <UiField label="Роль">
-                            <select
-                                v-model="userForm.role_name"
-                                :disabled="isSelf(editingUser)"
-                            >
-                                <option value="user">Пользователь</option>
-                                <option value="admin">Администратор</option>
-                            </select>
-                        </UiField>
-                        <UiField label="Новый пароль">
-                            <input
-                                v-model="userForm.password"
-                                autocomplete="new-password"
-                                placeholder="Оставьте пустым без изменений"
-                                type="password"
-                            />
-                        </UiField>
-                        <UiField label="Повтор пароля">
-                            <input
-                                v-model="userForm.password_confirmation"
-                                autocomplete="new-password"
-                                type="password"
-                            />
-                        </UiField>
+                            <UiField label="Имя">
+                                <input v-model="userForm.name" />
+                            </UiField>
+                            <UiField label="Email">
+                                <input v-model="userForm.email" type="email" />
+                            </UiField>
+                            <UiField label="Ранг">
+                                <input
+                                    v-model.number="userForm.rank"
+                                    min="0"
+                                    type="number"
+                                />
+                            </UiField>
+                            <UiField label="Предупреждения">
+                                <div class="warning-slider">
+                                    <input
+                                        v-model.number="userForm.warnings_count"
+                                        :style="{
+                                            '--warning-progress': `${(Number(userForm.warnings_count || 0) / 3) * 100}%`,
+                                        }"
+                                        max="3"
+                                        min="0"
+                                        step="1"
+                                        type="range"
+                                    />
+                                    <div
+                                        class="warning-slider__ticks"
+                                        aria-hidden="true"
+                                    >
+                                        <span
+                                            v-for="point in [0, 1, 2, 3]"
+                                            :key="point"
+                                            :class="{
+                                                active:
+                                                    Number(
+                                                        userForm.warnings_count ||
+                                                            0,
+                                                    ) >= point,
+                                            }"
+                                        >
+                                            <i></i>
+                                            {{ point }}
+                                        </span>
+                                    </div>
+                                    <div class="warning-slider__meta">
+                                        <strong
+                                            >{{
+                                                userForm.warnings_count || 0
+                                            }}/3</strong
+                                        >
+                                        <span v-if="userWarningsWillBlock">
+                                            При сохранении пользователь сразу
+                                            будет заблокирован.
+                                        </span>
+                                    </div>
+                                </div>
+                            </UiField>
+                            <UiField label="Роль">
+                                <select
+                                    v-model="userForm.role_name"
+                                    :disabled="isSelf(editingUser)"
+                                >
+                                    <option value="user">Пользователь</option>
+                                    <option value="admin">Администратор</option>
+                                </select>
+                            </UiField>
+                            <UiField label="Новый пароль">
+                                <input
+                                    v-model="userForm.password"
+                                    autocomplete="new-password"
+                                    placeholder="Оставьте пустым без изменений"
+                                    type="password"
+                                />
+                            </UiField>
+                            <UiField label="Повтор пароля">
+                                <input
+                                    v-model="userForm.password_confirmation"
+                                    autocomplete="new-password"
+                                    type="password"
+                                />
+                            </UiField>
+                        </div>
                         <div class="user-edit-modal__actions">
                             <UiButton
                                 variant="ghost"
@@ -1335,132 +1402,141 @@ onMounted(() => {
                         </button>
                     </div>
 
-                    <div class="audit-details">
-                        <span v-if="auditDetailsLoading"
-                            >Загрузка деталей...</span
-                        >
-                        <template v-else>
-                            <dl class="audit-details__grid">
-                                <div>
-                                    <dt>Жалоба</dt>
-                                    <dd>
-                                        #{{ selectedAuditAction.target_id }}
-                                    </dd>
-                                </div>
-                                <div>
-                                    <dt>Объект</dt>
-                                    <dd>
-                                        {{
-                                            formatTargetType(
-                                                selectedAuditReport?.target_type ||
-                                                    selectedAuditAction.payload
-                                                        ?.report_target_type,
-                                            )
-                                        }}
-                                        #{{
-                                            selectedAuditReport?.target_id ||
-                                            selectedAuditAction.payload
-                                                ?.report_target_id
-                                        }}
-                                    </dd>
-                                </div>
-                                <div v-if="selectedAuditReport">
-                                    <dt>Название</dt>
-                                    <dd>
-                                        {{
-                                            reportTargetTitle(
-                                                selectedAuditReport,
-                                            )
-                                        }}
-                                    </dd>
-                                </div>
-                                <div v-if="selectedAuditReport">
-                                    <dt>Заявитель</dt>
-                                    <dd>
-                                        {{
-                                            selectedAuditReport.reporter
-                                                ?.name ||
-                                            "Неизвестный пользователь"
-                                        }}
-                                    </dd>
-                                </div>
-                                <div v-if="selectedAuditReport">
-                                    <dt>Причина</dt>
-                                    <dd>
-                                        {{
-                                            formatReason(
-                                                selectedAuditReport.reason,
-                                            )
-                                        }}
-                                    </dd>
-                                </div>
-                                <div>
-                                    <dt>Статус решения</dt>
-                                    <dd>
-                                        {{
-                                            (selectedAuditReport?.status ||
+                    <div class="resolution-dialog__body">
+                        <div class="audit-details">
+                            <span v-if="auditDetailsLoading"
+                                >Загрузка деталей...</span
+                            >
+                            <template v-else>
+                                <dl class="audit-details__grid">
+                                    <div>
+                                        <dt>Жалоба</dt>
+                                        <dd>
+                                            #{{ selectedAuditAction.target_id }}
+                                        </dd>
+                                    </div>
+                                    <div>
+                                        <dt>Объект</dt>
+                                        <dd>
+                                            {{
+                                                formatTargetType(
+                                                    selectedAuditReport?.target_type ||
+                                                        selectedAuditAction
+                                                            .payload
+                                                            ?.report_target_type,
+                                                )
+                                            }}
+                                            #{{
+                                                selectedAuditReport?.target_id ||
                                                 selectedAuditAction.payload
-                                                    ?.status) === "accepted"
-                                                ? "принята"
-                                                : "отклонена"
-                                        }}
-                                    </dd>
+                                                    ?.report_target_id
+                                            }}
+                                        </dd>
+                                    </div>
+                                    <div v-if="selectedAuditReport">
+                                        <dt>Название</dt>
+                                        <dd>
+                                            {{
+                                                reportTargetTitle(
+                                                    selectedAuditReport,
+                                                )
+                                            }}
+                                        </dd>
+                                    </div>
+                                    <div v-if="selectedAuditReport">
+                                        <dt>Заявитель</dt>
+                                        <dd>
+                                            {{
+                                                selectedAuditReport.reporter
+                                                    ?.name ||
+                                                "Неизвестный пользователь"
+                                            }}
+                                        </dd>
+                                    </div>
+                                    <div v-if="selectedAuditReport">
+                                        <dt>Причина</dt>
+                                        <dd>
+                                            {{
+                                                formatReason(
+                                                    selectedAuditReport.reason,
+                                                )
+                                            }}
+                                        </dd>
+                                    </div>
+                                    <div>
+                                        <dt>Статус решения</dt>
+                                        <dd>
+                                            {{
+                                                (selectedAuditReport?.status ||
+                                                    selectedAuditAction.payload
+                                                        ?.status) === "accepted"
+                                                    ? "принята"
+                                                    : "отклонена"
+                                            }}
+                                        </dd>
+                                    </div>
+                                    <div
+                                        v-if="
+                                            selectedAuditReport?.resolution_action ||
+                                            selectedAuditAction.payload
+                                                ?.resolution_action
+                                        "
+                                    >
+                                        <dt>Действие</dt>
+                                        <dd>
+                                            {{
+                                                resolutionActionLabels[
+                                                    selectedAuditReport?.resolution_action ||
+                                                        selectedAuditAction
+                                                            .payload
+                                                            .resolution_action
+                                                ] ||
+                                                selectedAuditReport?.resolution_action ||
+                                                selectedAuditAction.payload
+                                                    .resolution_action
+                                            }}
+                                        </dd>
+                                    </div>
+                                </dl>
+                                <div
+                                    v-if="selectedAuditReport?.details"
+                                    class="audit-details__note"
+                                >
+                                    <strong>Комментарий пользователя</strong>
+                                    <p>{{ selectedAuditReport.details }}</p>
                                 </div>
                                 <div
                                     v-if="
-                                        selectedAuditReport?.resolution_action ||
-                                        selectedAuditAction.payload
-                                            ?.resolution_action
+                                        selectedAuditReport?.resolution_summary
                                     "
+                                    class="audit-details__note"
                                 >
-                                    <dt>Действие</dt>
-                                    <dd>
+                                    <strong>Итоговое решение</strong>
+                                    <p>
                                         {{
-                                            resolutionActionLabels[
-                                                selectedAuditReport?.resolution_action ||
-                                                    selectedAuditAction.payload
-                                                        .resolution_action
-                                            ] ||
-                                            selectedAuditReport?.resolution_action ||
-                                            selectedAuditAction.payload
-                                                .resolution_action
+                                            selectedAuditReport.resolution_summary
                                         }}
-                                    </dd>
+                                    </p>
                                 </div>
-                            </dl>
-                            <div
-                                v-if="selectedAuditReport?.details"
-                                class="audit-details__note"
-                            >
-                                <strong>Комментарий пользователя</strong>
-                                <p>{{ selectedAuditReport.details }}</p>
-                            </div>
-                            <div
-                                v-if="selectedAuditReport?.resolution_summary"
-                                class="audit-details__note"
-                            >
-                                <strong>Итоговое решение</strong>
-                                <p>
-                                    {{ selectedAuditReport.resolution_summary }}
-                                </p>
-                            </div>
-                            <div
-                                v-if="
-                                    selectedAuditReport?.admin_comment ||
-                                    selectedAuditAction.payload?.admin_comment
-                                "
-                                class="audit-details__note"
-                            >
-                                <strong>Комментарий модератора</strong>
-                                <p>
-                                    {{
+                                <div
+                                    v-if="
                                         selectedAuditReport?.admin_comment ||
                                         selectedAuditAction.payload
-                                            .admin_comment
-                                    }}
-                                </p>
-                            </div>
-                        </template>
+                                            ?.admin_comment
+                                    "
+                                    class="audit-details__note"
+                                >
+                                    <strong>Комментарий модератора</strong>
+                                    <p>
+                                        {{
+                                            selectedAuditReport?.admin_comment ||
+                                            selectedAuditAction.payload
+                                                .admin_comment
+                                        }}
+                                    </p>
+                                </div>
+                            </template>
+                        </div>
                     </div>
                     <div class="resolution-dialog__actions">
                         <UiButton variant="ghost" @click="closeAuditDetails">
@@ -1824,25 +1900,32 @@ onMounted(() => {
     padding: 18px;
     overflow: hidden;
     background: rgba(7, 30, 15, 0.58);
+    backdrop-filter: blur(16px);
 }
 
 .resolution-dialog {
     display: grid;
-    gap: 18px;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 0;
+    isolation: isolate;
     width: min(760px, 100%);
     max-width: calc(100vw - 36px);
     max-height: calc(100vh - 36px);
     max-height: calc(100dvh - 36px);
+    padding: 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
     font-size: 16px;
     line-height: 1.55;
     background: var(--color-surface);
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden;
     overscroll-behavior: contain;
+    box-shadow: var(--shadow-soft);
 }
 
 .resolution-dialog textarea {
     width: 100%;
+    min-height: 112px;
     resize: vertical;
     padding: 10px 12px;
     border: 1px solid var(--color-border);
@@ -1853,42 +1936,55 @@ onMounted(() => {
 }
 
 .resolution-dialog__head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
     min-width: 0;
     gap: 12px;
-    position: sticky;
-    top: 0;
-    z-index: 6;
-    padding-top: 4px;
-    padding-bottom: 8px;
-    background: var(--color-surface);
+    padding: 16px 16px 18px;
+    border-bottom: 1px solid rgba(23, 33, 24, 0.08);
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(16px);
+    box-shadow: 0 10px 24px rgba(7, 30, 15, 0.05);
 }
 
 .resolution-dialog__head > div {
     min-width: 0;
 }
 
+.resolution-dialog__head .panel__title,
+.resolution-dialog__head p {
+    margin: 0;
+}
+
+.resolution-dialog__body {
+    display: grid;
+    gap: 12px;
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 16px 16px 4px;
+    overscroll-behavior: contain;
+}
+
 .resolution-dialog__actions {
     display: grid;
+    grid-template-columns: 1fr;
     width: 100%;
     gap: 10px;
-    position: sticky;
-    bottom: 0;
-    z-index: 6;
-    padding-top: 12px;
-    padding-bottom: max(4px, env(safe-area-inset-bottom));
+    padding: 14px 16px max(14px, env(safe-area-inset-bottom));
+    border-top: 1px solid rgba(23, 33, 24, 0.08);
     background: linear-gradient(
         180deg,
-        rgba(255, 255, 255, 0.82),
-        var(--color-surface) 28%
+        rgba(255, 255, 255, 0.9),
+        var(--color-surface) 34%
     );
 }
 
 .resolution-dialog__actions :deep(.ui-button) {
     width: 100%;
-    min-height: 44px;
+    min-height: 46px;
 }
 
 .rejection-dialog__actions {
@@ -1896,7 +1992,7 @@ onMounted(() => {
 }
 
 .resolution-dialog__head p {
-    margin: 4px 0 0;
+    margin-top: 4px;
     color: var(--color-muted);
     font-size: 15px;
     font-weight: 800;
@@ -1904,8 +2000,8 @@ onMounted(() => {
 
 .resolution-dialog__close {
     display: grid;
-    width: 36px;
-    height: 36px;
+    width: 40px;
+    height: 40px;
     place-items: center;
     border: 0;
     border-radius: var(--radius-sm);
@@ -1958,8 +2054,74 @@ onMounted(() => {
 
 .user-edit-modal {
     display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.user-edit-modal__body {
+    display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 16px 16px 4px;
+    overscroll-behavior: contain;
+}
+
+.user-avatar-editor {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: 104px minmax(0, 1fr);
+    gap: 14px;
+    align-items: center;
+    padding: 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface-soft);
+}
+
+.user-avatar-editor__preview {
+    display: grid;
+    width: 96px;
+    aspect-ratio: 1 / 1;
+    place-items: center;
+    overflow: hidden;
+    border-radius: 50%;
+    color: var(--color-green-dark);
+    background: var(--color-green-soft);
+    font-size: 34px;
+    font-weight: 900;
+}
+
+.user-avatar-editor__preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.user-avatar-editor__content {
+    display: grid;
+    gap: 8px;
+    min-width: 0;
+}
+
+.user-avatar-editor__content strong,
+.user-avatar-editor__content small {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.user-avatar-editor__content small {
+    color: var(--color-muted);
+    font-weight: 800;
+}
+
+.user-avatar-editor__content :deep(.ui-button) {
+    width: 100%;
+    min-height: 42px;
 }
 
 .warning-slider {
@@ -2058,24 +2220,20 @@ onMounted(() => {
 
 .user-edit-modal__actions {
     display: grid;
-    grid-column: 1 / -1;
     grid-template-columns: 1fr;
     gap: 10px;
-    position: sticky;
-    bottom: 0;
-    z-index: 6;
-    padding-top: 12px;
-    padding-bottom: max(4px, env(safe-area-inset-bottom));
+    padding: 14px 16px max(14px, env(safe-area-inset-bottom));
+    border-top: 1px solid rgba(23, 33, 24, 0.08);
     background: linear-gradient(
         180deg,
-        rgba(255, 255, 255, 0.82),
-        var(--color-surface) 28%
+        rgba(255, 255, 255, 0.9),
+        var(--color-surface) 34%
     );
 }
 
 .user-edit-modal__actions :deep(.ui-button) {
     width: 100%;
-    min-height: 44px;
+    min-height: 46px;
 }
 
 .icon-button,
@@ -2100,6 +2258,7 @@ onMounted(() => {
 }
 
 .icon-danger:disabled,
+.icon-button:disabled,
 .user-edit-modal select:disabled {
     cursor: not-allowed;
     opacity: 0.45;
@@ -2256,7 +2415,7 @@ onMounted(() => {
     .admin-filters--reports,
     .admin-filters--users,
     .admin-filters--wide,
-    .user-edit-modal,
+    .user-edit-modal__body,
     .user-actions {
         grid-template-columns: 1fr;
     }
@@ -2377,9 +2536,27 @@ onMounted(() => {
         width: 100%;
     }
 
+    .user-avatar-editor {
+        grid-template-columns: 1fr;
+        justify-items: stretch;
+    }
+
+    .user-avatar-editor__preview {
+        justify-self: center;
+    }
+
     .resolution-dialog {
         width: 100%;
         max-height: min(92dvh, calc(100vh - 20px));
+    }
+
+    .resolution-dialog__head,
+    .resolution-dialog__body,
+    .resolution-dialog__actions,
+    .user-edit-modal__body,
+    .user-edit-modal__actions {
+        padding-left: 14px;
+        padding-right: 14px;
     }
 
     .resolution-dialog__actions,

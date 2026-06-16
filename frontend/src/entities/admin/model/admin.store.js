@@ -141,6 +141,14 @@ export const useAdminStore = defineStore("admin", {
             );
             return updated;
         },
+        async deleteUserAvatar(userId) {
+            const payload = await apiClient.delete(`/users/${userId}/avatar`);
+            const updated = mapApiUser(payload.data || payload);
+            this.users = this.users.map((user) =>
+                user.id === updated.id ? updated : user,
+            );
+            return updated;
+        },
         async deleteUser(userId) {
             await apiClient.delete(`/users/${userId}`);
             this.users = this.users.filter((user) => user.id !== userId);
