@@ -1352,7 +1352,8 @@ watch(
                                 ref="quickPhotoInput"
                                 class="quick-photo-input"
                                 type="file"
-                                accept="image/png,image/jpeg,image/webp"
+                                accept="image/*"
+                                capture="environment"
                                 @change="uploadQuickPhoto"
                             />
                         </div>
@@ -1479,7 +1480,9 @@ watch(
                     <Transition :name="galleryTransitionName" mode="out-in">
                         <img
                             :key="
-                                activeImage?.id || activeImage?.url || plant.image
+                                activeImage?.id ||
+                                activeImage?.url ||
+                                plant.image
                             "
                             class="gallery-fullscreen__image"
                             :src="activeImage?.url || plant.image"
@@ -1891,31 +1894,32 @@ watch(
                 </button>
             </header>
 
-            <p class="muted">
-                Совет будет отклонён и больше не будет виден в списке.
-            </p>
-            <div class="reject-tip-dialog__report-card">
-                <label class="reject-tip-dialog__check">
-                    <input v-model="rejectTipReport" type="checkbox" />
-                    <span class="reject-tip-dialog__icon">
-                        <Flag :size="17" />
-                    </span>
-                    <span class="reject-tip-dialog__copy">
-                        <strong>Отправить жалобу модераторам</strong>
-                        <small
-                            >Если совет нарушает правила, добавьте короткий
-                            комментарий.</small
-                        >
-                    </span>
-                </label>
-                <textarea
-                    v-if="rejectTipReport"
-                    v-model="rejectTipReportDetails"
-                    rows="4"
-                    placeholder="Комментарий к жалобе"
-                />
+            <div class="reject-tip-dialog__body">
+                <p class="muted">
+                    Совет будет отклонён и больше не будет виден в списке.
+                </p>
+                <div class="reject-tip-dialog__report-card">
+                    <label class="reject-tip-dialog__check">
+                        <input v-model="rejectTipReport" type="checkbox" />
+                        <span class="reject-tip-dialog__icon">
+                            <Flag :size="17" />
+                        </span>
+                        <span class="reject-tip-dialog__copy">
+                            <strong>Отправить жалобу модераторам</strong>
+                            <small
+                                >Если совет нарушает правила, добавьте короткий
+                                комментарий.</small
+                            >
+                        </span>
+                    </label>
+                    <textarea
+                        v-if="rejectTipReport"
+                        v-model="rejectTipReportDetails"
+                        rows="4"
+                        placeholder="Комментарий к жалобе"
+                    />
+                </div>
             </div>
-
             <div class="edit-dialog__actions reject-tip-dialog__actions">
                 <UiButton
                     type="button"
@@ -1945,7 +1949,10 @@ watch(
         class="edit-dialog"
         @click.self="closeEditDialog"
     >
-        <form class="edit-dialog__card" @submit.prevent="saveEditDialog">
+        <form
+            class="edit-dialog__card plant-edit-dialog"
+            @submit.prevent="saveEditDialog"
+        >
             <header class="edit-dialog__head">
                 <h2 class="panel__title">Редактировать растение</h2>
                 <button
@@ -1958,96 +1965,105 @@ watch(
                 </button>
             </header>
 
-            <section class="edit-section">
-                <h3>Параметры</h3>
-                <div class="edit-fields">
-                    <UiField label="Название" :error="editErrors.name">
-                        <input v-model="editName" placeholder="Фикус" />
-                    </UiField>
-                    <UiField label="Комната" :error="editErrors.room">
-                        <input v-model="editRoom" />
-                    </UiField>
-                    <UiField label="Высота, см" :error="editErrors.height">
-                        <input
-                            v-model="editHeight"
-                            inputmode="decimal"
-                            placeholder="12,5"
-                            type="text"
-                        />
-                    </UiField>
-                    <UiField label="Дата посадки" :error="editErrors.plantedAt">
-                        <input v-model="editPlantedAt" type="date" />
-                    </UiField>
-                    <label class="edit-public-toggle">
-                        <span class="edit-public-toggle__text">
-                            <strong>Публичность</strong>
-                            <small>
-                                {{
-                                    isPublicLocked
-                                        ? "Растение скрыто модератором: повторная публикация недоступна"
-                                        : editIsPublic
-                                          ? "Растение видно в публичной ленте"
-                                          : "Растение видно только вам"
-                                }}
-                            </small>
-                        </span>
-                        <span class="edit-public-toggle__control">
+            <div class="plant-edit-dialog__body">
+                <section class="edit-section">
+                    <h3>Параметры</h3>
+                    <div class="edit-fields">
+                        <UiField label="Название" :error="editErrors.name">
+                            <input v-model="editName" placeholder="Фикус" />
+                        </UiField>
+                        <UiField label="Комната" :error="editErrors.room">
+                            <input v-model="editRoom" />
+                        </UiField>
+                        <UiField label="Высота, см" :error="editErrors.height">
                             <input
-                                v-model="editIsPublic"
-                                :disabled="isPublicLocked"
-                                type="checkbox"
+                                v-model="editHeight"
+                                inputmode="decimal"
+                                placeholder="12,5"
+                                type="text"
                             />
-                            <span></span>
-                        </span>
-                    </label>
-                </div>
-            </section>
-
-            <section class="edit-section">
-                <h3>График ухода</h3>
-                <div class="edit-care-grid">
-                    <article
-                        v-for="row in editCareRows"
-                        :key="row.type"
-                        class="edit-care-card"
-                        :class="{ 'edit-care-card--off': !row.enabled.value }"
-                    >
-                        <div class="edit-care-card__head">
-                            <span
-                                class="edit-care-card__icon"
-                                :style="{ backgroundColor: row.config.color }"
-                            >
-                                <component :is="row.icon" :size="18" />
-                            </span>
-                            <div>
-                                <h4>{{ row.config.label }}</h4>
-                                <p>
+                        </UiField>
+                        <UiField
+                            label="Дата посадки"
+                            :error="editErrors.plantedAt"
+                        >
+                            <input v-model="editPlantedAt" type="date" />
+                        </UiField>
+                        <label class="edit-public-toggle">
+                            <span class="edit-public-toggle__text">
+                                <strong>Публичность</strong>
+                                <small>
                                     {{
-                                        row.enabled.value
-                                            ? "Активно"
-                                            : "Отключено"
+                                        isPublicLocked
+                                            ? "Растение скрыто модератором: повторная публикация недоступна"
+                                            : editIsPublic
+                                              ? "Растение видно в публичной ленте"
+                                              : "Растение видно только вам"
                                     }}
-                                </p>
-                            </div>
-                            <label class="edit-switch">
+                                </small>
+                            </span>
+                            <span class="edit-public-toggle__control">
                                 <input
-                                    v-model="row.enabled.value"
+                                    v-model="editIsPublic"
+                                    :disabled="isPublicLocked"
                                     type="checkbox"
                                 />
                                 <span></span>
-                            </label>
-                        </div>
-                        <UiField label="Интервал, дней" :error="row.error">
-                            <input
-                                v-model="row.interval.value"
-                                :disabled="!row.enabled.value"
-                                min="1"
-                                type="number"
-                            />
-                        </UiField>
-                    </article>
-                </div>
-            </section>
+                            </span>
+                        </label>
+                    </div>
+                </section>
+
+                <section class="edit-section">
+                    <h3>График ухода</h3>
+                    <div class="edit-care-grid">
+                        <article
+                            v-for="row in editCareRows"
+                            :key="row.type"
+                            class="edit-care-card"
+                            :class="{
+                                'edit-care-card--off': !row.enabled.value,
+                            }"
+                        >
+                            <div class="edit-care-card__head">
+                                <span
+                                    class="edit-care-card__icon"
+                                    :style="{
+                                        backgroundColor: row.config.color,
+                                    }"
+                                >
+                                    <component :is="row.icon" :size="18" />
+                                </span>
+                                <div>
+                                    <h4>{{ row.config.label }}</h4>
+                                    <p>
+                                        {{
+                                            row.enabled.value
+                                                ? "Активно"
+                                                : "Отключено"
+                                        }}
+                                    </p>
+                                </div>
+                                <label class="edit-switch">
+                                    <input
+                                        v-model="row.enabled.value"
+                                        type="checkbox"
+                                    />
+                                    <span></span>
+                                </label>
+                            </div>
+                            <UiField label="Интервал, дней" :error="row.error">
+                                <input
+                                    v-model="row.interval.value"
+                                    :disabled="!row.enabled.value"
+                                    min="1"
+                                    type="number"
+                                />
+                            </UiField>
+                        </article>
+                    </div>
+                </section>
+            </div>
 
             <footer class="edit-dialog__footer">
                 <UiButton
@@ -2083,76 +2099,85 @@ watch(
                 </button>
             </header>
 
-            <div v-if="dialogTips.length" class="tips-list">
-                <article
-                    v-for="tip in dialogTips"
-                    :key="tip.id"
-                    class="tip-item tip-item--dialog"
-                >
-                    <div class="tip-item__header">
-                        <div class="tip-item__author-block">
-                            <button
-                                type="button"
-                                class="tip-author"
-                                @click="openUserProfile(tip)"
-                            >
-                                {{
-                                    tip.author?.data?.name ||
-                                    tip.author?.name ||
-                                    "\u041f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044c"
-                                }}
-                            </button>
-                            <dl class="tip-meta">
-                                <div v-if="formatTipCreatedAt(tip)">
-                                    <dt>
-                                        &#1057;&#1086;&#1079;&#1076;&#1072;&#1085;
-                                    </dt>
-                                    <dd>{{ formatTipCreatedAt(tip) }}</dd>
-                                </div>
-                                <div
-                                    v-if="
-                                        tip.status === 'accepted' &&
-                                        formatTipStatusChangedAt(tip)
-                                    "
+            <div class="tips-dialog__body">
+                <div v-if="dialogTips.length" class="tips-list">
+                    <article
+                        v-for="tip in dialogTips"
+                        :key="tip.id"
+                        class="tip-item tip-item--dialog"
+                    >
+                        <div class="tip-item__header">
+                            <div class="tip-item__author-block">
+                                <button
+                                    type="button"
+                                    class="tip-author"
+                                    @click="openUserProfile(tip)"
                                 >
-                                    <dt>
-                                        &#1055;&#1088;&#1080;&#1085;&#1103;&#1090;
-                                    </dt>
-                                    <dd>{{ formatTipStatusChangedAt(tip) }}</dd>
-                                </div>
-                            </dl>
+                                    {{
+                                        tip.author?.data?.name ||
+                                        tip.author?.name ||
+                                        "\u041f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044c"
+                                    }}
+                                </button>
+                                <dl class="tip-meta">
+                                    <div v-if="formatTipCreatedAt(tip)">
+                                        <dt>
+                                            &#1057;&#1086;&#1079;&#1076;&#1072;&#1085;
+                                        </dt>
+                                        <dd>{{ formatTipCreatedAt(tip) }}</dd>
+                                    </div>
+                                    <div
+                                        v-if="
+                                            tip.status === 'accepted' &&
+                                            formatTipStatusChangedAt(tip)
+                                        "
+                                    >
+                                        <dt>
+                                            &#1055;&#1088;&#1080;&#1085;&#1103;&#1090;
+                                        </dt>
+                                        <dd>
+                                            {{ formatTipStatusChangedAt(tip) }}
+                                        </dd>
+                                    </div>
+                                </dl>
+                            </div>
+                            <UiBadge
+                                :tone="
+                                    tip.status === 'accepted'
+                                        ? 'soon'
+                                        : 'neutral'
+                                "
+                            >
+                                {{ formatTipStatus(tip.status) }}
+                            </UiBadge>
                         </div>
-                        <UiBadge
-                            :tone="
-                                tip.status === 'accepted' ? 'soon' : 'neutral'
-                            "
-                        >
-                            {{ formatTipStatus(tip.status) }}
-                        </UiBadge>
-                    </div>
-                    <p>{{ tip.content }}</p>
-                    <div class="tip-item__footer">
-                        <div v-if="canModerateTipsDirectly" class="tip-actions">
+                        <p>{{ tip.content }}</p>
+                        <div class="tip-item__footer">
+                            <div
+                                v-if="canModerateTipsDirectly"
+                                class="tip-actions"
+                            >
+                                <button
+                                    type="button"
+                                    class="tip-icon-button tip-icon-button--danger"
+                                    aria-label="Удалить совет с наказанием"
+                                    @click="openTipModerationDialog(tip)"
+                                >
+                                    <Trash2 :size="16" />
+                                </button>
+                            </div>
                             <button
+                                v-if="canReportTip(tip)"
                                 type="button"
                                 class="tip-icon-button tip-icon-button--danger"
-                                aria-label="Удалить совет с наказанием"
-                                @click="openTipModerationDialog(tip)"
+                                aria-label="&#1055;&#1086;&#1078;&#1072;&#1083;&#1086;&#1074;&#1072;&#1090;&#1100;&#1089;&#1103; &#1085;&#1072; &#1089;&#1086;&#1074;&#1077;&#1090;"
+                                @click="reportTip(tip)"
                             >
-                                <Trash2 :size="16" />
+                                <Flag :size="15" />
                             </button>
                         </div>
-                        <button
-                            v-if="canReportTip(tip)"
-                            type="button"
-                            class="tip-icon-button tip-icon-button--danger"
-                            aria-label="&#1055;&#1086;&#1078;&#1072;&#1083;&#1086;&#1074;&#1072;&#1090;&#1100;&#1089;&#1103; &#1085;&#1072; &#1089;&#1086;&#1074;&#1077;&#1090;"
-                            @click="reportTip(tip)"
-                        >
-                            <Flag :size="15" />
-                        </button>
-                    </div>
-                </article>
+                    </article>
+                </div>
             </div>
         </section>
     </div>
@@ -2228,48 +2253,58 @@ watch(
                 </button>
             </header>
 
-            <div v-if="plantReportsLoading" class="muted">
-                Загружаем жалобы...
-            </div>
-            <div v-else-if="plantReports.length" class="plant-reports-list">
-                <article
-                    v-for="report in plantReports"
-                    :key="report.id"
-                    class="plant-report-item"
-                >
-                    <div class="plant-report-item__head">
-                        <strong
-                            >#{{ report.id }} ·
-                            {{ getReportReasonLabel(report.reason) }}</strong
-                        >
-                        <UiBadge
-                            :tone="
-                                report.status === 'accepted'
-                                    ? 'overdue'
-                                    : report.status === 'pending'
-                                      ? 'today'
-                                      : 'neutral'
+            <div class="report-dialog__body">
+                <div v-if="plantReportsLoading" class="muted">
+                    Загружаем жалобы...
+                </div>
+                <div v-else-if="plantReports.length" class="plant-reports-list">
+                    <article
+                        v-for="report in plantReports"
+                        :key="report.id"
+                        class="plant-report-item"
+                    >
+                        <div class="plant-report-item__head">
+                            <strong
+                                >#{{ report.id }} ·
+                                {{
+                                    getReportReasonLabel(report.reason)
+                                }}</strong
+                            >
+                            <UiBadge
+                                :tone="
+                                    report.status === 'accepted'
+                                        ? 'overdue'
+                                        : report.status === 'pending'
+                                          ? 'today'
+                                          : 'neutral'
+                                "
+                            >
+                                {{
+                                    report.status_label ||
+                                    getReportStatusLabel(report.status)
+                                }}
+                            </UiBadge>
+                        </div>
+                        <p>{{ report.details || "Подробности не указаны." }}</p>
+                        <p
+                            v-if="
+                                report.resolution_summary ||
+                                report.admin_comment
                             "
+                            class="plant-report-item__resolution"
                         >
                             {{
-                                report.status_label ||
-                                getReportStatusLabel(report.status)
+                                report.resolution_summary ||
+                                report.admin_comment
                             }}
-                        </UiBadge>
-                    </div>
-                    <p>{{ report.details || "Подробности не указаны." }}</p>
-                    <p
-                        v-if="report.resolution_summary || report.admin_comment"
-                        class="plant-report-item__resolution"
-                    >
-                        {{ report.resolution_summary || report.admin_comment }}
-                    </p>
-                    <span class="plant-report-item__meta">
-                        {{ formatIsoDateTime(report.created_at) }}
-                    </span>
-                </article>
+                        </p>
+                        <span class="plant-report-item__meta">
+                            {{ formatIsoDateTime(report.created_at) }}
+                        </span>
+                    </article>
+                </div>
+                <p v-else class="muted">Жалоб на это растение пока нет.</p>
             </div>
-            <p v-else class="muted">Жалоб на это растение пока нет.</p>
             <footer class="report-dialog__footer">
                 <UiButton
                     type="button"
@@ -3178,7 +3213,19 @@ watch(
 
 .reject-tip-dialog {
     display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 0;
+    overflow: hidden;
+}
+
+.reject-tip-dialog__body {
+    display: grid;
     gap: 12px;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 14px 16px 4px;
+    overscroll-behavior: contain;
 }
 
 .reject-tip-dialog__check {
@@ -3228,6 +3275,13 @@ watch(
 
 .reject-tip-dialog__actions {
     align-items: stretch;
+    padding: 14px 16px max(14px, env(safe-area-inset-bottom));
+    border-top: 1px solid rgba(23, 33, 24, 0.08);
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.9),
+        var(--color-surface) 32%
+    );
 }
 
 .reject-tip-dialog__submit :deep(svg) {
@@ -3339,6 +3393,7 @@ watch(
     padding: 16px;
     overflow: hidden;
     background: rgba(18, 31, 24, 0.52);
+    backdrop-filter: blur(16px);
 }
 
 .edit-dialog__card {
@@ -3347,35 +3402,56 @@ watch(
     max-height: min(820px, calc(100vh - 32px));
     max-width: calc(100vw - 32px);
     max-height: min(820px, calc(100dvh - 32px));
-    gap: 14px;
+    gap: 0;
+    isolation: isolate;
     min-width: 0;
     overflow-x: hidden;
-    overflow-y: auto;
+    overflow-y: hidden;
     overscroll-behavior: contain;
-    padding: 16px;
+    padding: 0;
     border-radius: var(--radius-md);
     background: var(--color-surface);
     box-shadow: var(--shadow-soft);
 }
 
+.plant-edit-dialog {
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+.plant-edit-dialog__body {
+    display: grid;
+    gap: 14px;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 14px 16px 4px;
+    overscroll-behavior: contain;
+}
+
 .edit-dialog__head,
 .edit-dialog__footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
+    gap: 12px;
     min-width: 0;
 }
 
+.edit-dialog__head,
+.report-dialog__head,
+.tips-dialog__head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+}
+
 .edit-dialog__close {
-    flex: 0 0 auto;
-    margin-left: auto;
     display: grid;
     width: 40px;
     height: 40px;
     place-items: center;
     border: 0;
-    border-radius: 50%;
+    border-radius: var(--radius-sm);
     color: var(--color-ink);
     background: var(--color-surface-soft);
     cursor: pointer;
@@ -3554,29 +3630,29 @@ watch(
     padding: 16px;
     overflow: hidden;
     background: rgba(18, 31, 24, 0.52);
+    backdrop-filter: blur(16px);
 }
 
 .tips-dialog__card {
     display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
     width: min(640px, 100%);
     max-height: min(720px, calc(100vh - 32px));
     max-width: calc(100vw - 32px);
     max-height: min(720px, calc(100dvh - 32px));
-    gap: 12px;
+    gap: 0;
+    isolation: isolate;
     min-width: 0;
     overflow-x: hidden;
-    overflow-y: auto;
+    overflow-y: hidden;
     overscroll-behavior: contain;
-    padding: 16px;
+    padding: 0;
     border-radius: var(--radius-md);
     background: var(--color-surface);
     box-shadow: var(--shadow-soft);
 }
 
 .tips-dialog__head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
     gap: 10px;
     min-width: 0;
 }
@@ -3584,23 +3660,37 @@ watch(
 .tips-dialog__head,
 .report-dialog__head,
 .edit-dialog__head {
-    position: sticky;
-    top: 0;
-    z-index: 6;
-    padding-top: 4px;
-    padding-bottom: 8px;
-    background: var(--color-surface);
+    position: relative;
+    z-index: 2;
+    padding: 16px 16px 18px;
+    border-bottom: 1px solid rgba(23, 33, 24, 0.08);
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(16px);
+    box-shadow: 0 10px 24px rgba(7, 30, 15, 0.05);
+}
+
+.tips-dialog__body {
+    display: grid;
+    gap: 12px;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 14px 16px 16px;
+    overscroll-behavior: contain;
+}
+
+.plant-edit-dialog .edit-dialog__head {
+    position: static;
+    z-index: auto;
 }
 
 .tips-dialog__close {
-    flex: 0 0 auto;
-    margin-left: auto;
     display: grid;
     width: 40px;
     height: 40px;
     place-items: center;
     border: 0;
-    border-radius: 50%;
+    border-radius: var(--radius-sm);
     color: var(--color-ink);
     background: var(--color-surface-soft);
     cursor: pointer;
@@ -3615,19 +3705,22 @@ watch(
     padding: 16px;
     overflow: hidden;
     background: rgba(18, 31, 24, 0.52);
+    backdrop-filter: blur(16px);
 }
 
 .report-dialog__card {
     display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
     width: min(520px, 100%);
     max-width: calc(100vw - 32px);
     max-height: calc(100vh - 32px);
     max-height: calc(100dvh - 32px);
-    gap: 14px;
+    gap: 0;
+    isolation: isolate;
     min-width: 0;
-    padding: 16px;
+    padding: 0;
     border-radius: var(--radius-md);
-    overflow-y: auto;
+    overflow-y: hidden;
     overflow-x: hidden;
     overscroll-behavior: contain;
     background: var(--color-surface);
@@ -3640,9 +3733,6 @@ watch(
 
 .report-dialog__head,
 .report-dialog__footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
     gap: 10px;
     min-width: 0;
 }
@@ -3650,6 +3740,8 @@ watch(
 .report-dialog__head .panel__title,
 .report-dialog__form,
 .report-dialog__form p,
+.report-dialog__body,
+.report-dialog__body p,
 .plant-report-item,
 .plant-report-item p,
 .plant-report-item__meta {
@@ -3659,14 +3751,12 @@ watch(
 }
 
 .report-dialog__close {
-    flex: 0 0 auto;
-    margin-left: auto;
     display: grid;
     width: 40px;
     height: 40px;
     place-items: center;
     border: 0;
-    border-radius: 50%;
+    border-radius: var(--radius-sm);
     color: var(--color-ink);
     background: var(--color-surface-soft);
     cursor: pointer;
@@ -3675,6 +3765,21 @@ watch(
 .report-dialog__form {
     display: grid;
     gap: 10px;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 14px 16px 4px;
+    overscroll-behavior: contain;
+}
+
+.report-dialog__body {
+    display: grid;
+    gap: 12px;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 14px 16px 4px;
+    overscroll-behavior: contain;
 }
 
 .report-dialog__form select,
@@ -3698,15 +3803,14 @@ watch(
 
 .edit-dialog__footer,
 .report-dialog__footer {
-    position: sticky;
-    bottom: 0;
-    z-index: 6;
-    padding-top: 12px;
-    padding-bottom: max(4px, env(safe-area-inset-bottom));
+    position: relative;
+    z-index: 2;
+    padding: 14px 16px max(14px, env(safe-area-inset-bottom));
+    border-top: 1px solid rgba(23, 33, 24, 0.08);
     background: linear-gradient(
         180deg,
-        rgba(255, 255, 255, 0.82),
-        var(--color-surface) 22%
+        rgba(255, 255, 255, 0.9),
+        var(--color-surface) 32%
     );
 }
 
@@ -3714,6 +3818,12 @@ watch(
 .edit-dialog__actions :deep(.ui-button),
 .report-dialog__footer :deep(.ui-button) {
     width: 100%;
+    min-height: 46px;
+}
+
+.plant-edit-dialog .edit-dialog__footer {
+    position: static;
+    z-index: auto;
 }
 
 .plant-report-summary {
@@ -3757,10 +3867,18 @@ watch(
 }
 
 .plant-report-item__head {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) max-content;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
+    gap: 12px;
+}
+
+.plant-report-item__head :deep(.ui-badge) {
+    min-width: 96px;
+    justify-content: center;
+    padding-inline: 12px;
+    white-space: nowrap;
 }
 
 .plant-report-item p,

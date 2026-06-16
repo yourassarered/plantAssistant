@@ -41,6 +41,7 @@ const dueLabel = computed(() => formatTaskDueDate(props.task.dueAt));
             'task-item--done': task.completed,
             'task-item--completing': task.isCompleting,
             'task-item--today': state === 'today' && !task.completed,
+            'task-item--overdue': state === 'overdue' && !task.completed,
             'task-item--hide-mobile-badge': hideMobileDueBadge,
             'task-item--highlighted': highlighted,
         }"
@@ -121,6 +122,12 @@ const dueLabel = computed(() => formatTaskDueDate(props.task.dueAt));
 .task-item--today {
     border-color: #f3c49f;
     background: #fff6ef;
+}
+
+.task-item--overdue {
+    border-color: #e1897f;
+    background: #fff3f1;
+    box-shadow: 0 0 0 1px rgba(191, 51, 35, 0.08);
 }
 
 .task-item--highlighted {

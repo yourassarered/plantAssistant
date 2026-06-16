@@ -82,7 +82,9 @@ const submitLabel = computed(() => {
     if (pageMode.value === "plant") return "Сохранить растение";
     return "Создать растение";
 });
-const createFormSubtitle = computed(() => "Новая запись будет добавлена в ваш список растений.");
+const createFormSubtitle = computed(
+    () => "Новая запись будет добавлена в ваш список растений.",
+);
 
 const { handleSubmit, errors, isSubmitting, resetForm } = useForm({
     validationSchema: plantFormSchema,
@@ -471,117 +473,136 @@ watch([() => route.params.id, () => route.name], loadPage);
                     </button>
                 </div>
 
-                <section v-if="showPlantSettings" class="panel form-section">
-                    <h2 class="panel__title">Параметры растения</h2>
-                    <div class="plant-fields">
-                        <UiField label="Название" :error="errors.name">
-                            <input v-model="name" placeholder="Фикус" />
-                        </UiField>
-                        <UiField label="Комната" :error="errors.room">
-                            <input v-model="room" />
-                        </UiField>
-                        <UiField label="Высота, см" :error="errors.height">
-                            <input
-                                v-model="height"
-                                inputmode="decimal"
-                                placeholder="12,5"
-                                type="text"
-                            />
-                        </UiField>
-                        <UiField label="Дата посадки" :error="errors.plantedAt">
-                            <input v-model="plantedAt" type="date" />
-                        </UiField>
-                        <label class="plant-public-toggle">
-                            <span class="plant-public-toggle__text">
-                                <strong>Публичность</strong>
-                                <small>
-                                    {{
-                                        isPublicLocked
-                                            ? "Растение скрыто модератором: повторная публикация недоступна"
-                                            : isPublic
-                                              ? "Растение видно в публичной ленте"
-                                              : "Растение видно только вам"
-                                    }}
-                                </small>
-                            </span>
-                            <span class="plant-public-toggle__control">
+                <div class="plant-form__body">
+                    <section
+                        v-if="showPlantSettings"
+                        class="panel form-section"
+                    >
+                        <h2 class="panel__title">Параметры растения</h2>
+                        <div class="plant-fields">
+                            <UiField label="Название" :error="errors.name">
+                                <input v-model="name" placeholder="Фикус" />
+                            </UiField>
+                            <UiField label="Комната" :error="errors.room">
+                                <input v-model="room" />
+                            </UiField>
+                            <UiField label="Высота, см" :error="errors.height">
                                 <input
-                                    v-model="isPublic"
-                                    :disabled="isPublicLocked"
-                                    type="checkbox"
+                                    v-model="height"
+                                    inputmode="decimal"
+                                    placeholder="12,5"
+                                    type="text"
                                 />
-                                <span></span>
-                            </span>
-                        </label>
-                    </div>
-                </section>
-
-                <section v-if="showCreatePhotoUpload" class="panel form-section">
-                    <h2 class="panel__title">Первое фото</h2>
-                    <div class="create-photo-upload">
-                        <label class="photo-drop">
-                            <ImagePlus :size="26" />
-                            <span>{{
-                                photoFile?.name || "Выбрать фото растения"
-                            }}</span>
-                            <input
-                                type="file"
-                                accept="image/png,image/jpeg,image/webp"
-                                @change="onPhotoFileChange"
-                            />
-                        </label>
-                        <p>
-                            Фото загрузится после создания растения. Если оставить
-                            поле пустым, будет показан плейсхолдер.
-                        </p>
-                    </div>
-                </section>
-
-                <section v-if="showCareSettings" class="panel care-editor">
-                    <h2 class="panel__title">График ухода</h2>
-                    <div class="care-grid">
-                        <article
-                            v-for="row in careRows"
-                            :key="row.type"
-                            class="care-card"
-                            :class="{ 'care-card--off': !row.enabled.value }"
-                        >
-                            <div class="care-card__head">
-                                <span
-                                    class="care-card__icon"
-                                    :style="{ backgroundColor: row.config.color }"
-                                >
-                                    <component :is="row.icon" :size="18" />
-                                </span>
-                                <div>
-                                    <h3>{{ row.config.label }}</h3>
-                                    <p>
+                            </UiField>
+                            <UiField
+                                label="Дата посадки"
+                                :error="errors.plantedAt"
+                            >
+                                <input v-model="plantedAt" type="date" />
+                            </UiField>
+                            <label class="plant-public-toggle">
+                                <span class="plant-public-toggle__text">
+                                    <strong>Публичность</strong>
+                                    <small>
                                         {{
-                                            row.enabled.value
-                                                ? "Активно"
-                                                : "Отключено"
+                                            isPublicLocked
+                                                ? "Растение скрыто модератором: повторная публикация недоступна"
+                                                : isPublic
+                                                  ? "Растение видно в публичной ленте"
+                                                  : "Растение видно только вам"
                                         }}
-                                    </p>
-                                </div>
-                                <label class="care-switch">
+                                    </small>
+                                </span>
+                                <span class="plant-public-toggle__control">
                                     <input
-                                        v-model="row.enabled.value"
+                                        v-model="isPublic"
+                                        :disabled="isPublicLocked"
                                         type="checkbox"
                                     />
                                     <span></span>
-                                </label>
-                            </div>
-                            <UiField label="Интервал, дней" :error="row.error">
+                                </span>
+                            </label>
+                        </div>
+                    </section>
+
+                    <section
+                        v-if="showCreatePhotoUpload"
+                        class="panel form-section"
+                    >
+                        <h2 class="panel__title">Первое фото</h2>
+                        <div class="create-photo-upload">
+                            <label class="photo-drop">
+                                <ImagePlus :size="26" />
+                                <span>{{
+                                    photoFile?.name || "Выбрать фото растения"
+                                }}</span>
                                 <input
-                                    v-model="row.interval.value"
-                                    :disabled="!row.enabled.value"
-                                    min="1"
-                                    type="number"
+                                    type="file"
+                                    accept="image/*"
+                                    capture="environment"
+                                    @change="onPhotoFileChange"
                                 />
-                            </UiField>
-                        </article>
-                    </div>
-                </section>
+                            </label>
+                            <p>
+                                Фото загрузится после создания растения. Если
+                                оставить поле пустым, будет показан плейсхолдер.
+                            </p>
+                        </div>
+                    </section>
+
+                    <section v-if="showCareSettings" class="panel care-editor">
+                        <h2 class="panel__title">График ухода</h2>
+                        <div class="care-grid">
+                            <article
+                                v-for="row in careRows"
+                                :key="row.type"
+                                class="care-card"
+                                :class="{
+                                    'care-card--off': !row.enabled.value,
+                                }"
+                            >
+                                <div class="care-card__head">
+                                    <span
+                                        class="care-card__icon"
+                                        :style="{
+                                            backgroundColor: row.config.color,
+                                        }"
+                                    >
+                                        <component :is="row.icon" :size="18" />
+                                    </span>
+                                    <div>
+                                        <h3>{{ row.config.label }}</h3>
+                                        <p>
+                                            {{
+                                                row.enabled.value
+                                                    ? "Активно"
+                                                    : "Отключено"
+                                            }}
+                                        </p>
+                                    </div>
+                                    <label class="care-switch">
+                                        <input
+                                            v-model="row.enabled.value"
+                                            type="checkbox"
+                                        />
+                                        <span></span>
+                                    </label>
+                                </div>
+                                <UiField
+                                    label="Интервал, дней"
+                                    :error="row.error"
+                                >
+                                    <input
+                                        v-model="row.interval.value"
+                                        :disabled="!row.enabled.value"
+                                        min="1"
+                                        type="number"
+                                    />
+                                </UiField>
+                            </article>
+                        </div>
+                    </section>
+                </div>
 
                 <div class="plant-form__actions">
                     <UiButton
@@ -607,7 +628,8 @@ watch([() => route.params.id, () => route.name], loadPage);
                     <span>{{ photoFile?.name || "Выбрать фото" }}</span>
                     <input
                         type="file"
-                        accept="image/png,image/jpeg,image/webp"
+                        accept="image/*"
+                        capture="environment"
                         @change="onPhotoFileChange"
                     />
                 </label>
@@ -650,6 +672,12 @@ watch([() => route.params.id, () => route.name], loadPage);
     gap: 12px;
 }
 
+.plant-form__body {
+    display: grid;
+    gap: 12px;
+    min-width: 0;
+}
+
 .plant-form-shell {
     display: grid;
     gap: 12px;
@@ -664,32 +692,56 @@ watch([() => route.params.id, () => route.name], loadPage);
     padding: 16px;
     overflow: hidden;
     background: rgba(7, 30, 15, 0.56);
+    backdrop-filter: blur(16px);
 }
 
 .plant-form-shell--modal .plant-form {
-    width: min(920px, 100%);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    width: min(760px, 100%);
     max-width: calc(100vw - 32px);
     max-height: calc(100vh - 32px);
     max-height: calc(100dvh - 32px);
-    padding: 16px;
+    isolation: isolate;
+    gap: 0;
+    padding: 0;
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
-    overflow: auto;
+    overflow: hidden;
     overscroll-behavior: contain;
     background: var(--color-surface);
     box-shadow: var(--shadow-soft);
 }
 
-.plant-form-modal-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
+.plant-form-shell--modal .plant-form__body {
+    display: grid;
     gap: 12px;
-    position: sticky;
-    top: 0;
-    z-index: 6;
-    margin: -16px -16px 0;
-    padding: 16px 16px 10px;
-    background: var(--color-surface);
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 16px 16px 4px;
+    overscroll-behavior: contain;
+}
+
+.plant-form-modal-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 12px;
+    min-width: 0;
+    padding: 16px 16px 18px;
+    border-bottom: 1px solid rgba(23, 33, 24, 0.08);
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(16px);
+    box-shadow: 0 10px 24px rgba(7, 30, 15, 0.05);
+}
+
+.plant-form-modal-head .page-title,
+.plant-form-modal-head .page-subtitle {
+    margin: 0;
+}
+
+.plant-form-modal-head .page-subtitle {
+    margin-top: 4px;
 }
 
 .plant-form-modal-close {
@@ -704,19 +756,20 @@ watch([() => route.params.id, () => route.name], loadPage);
     cursor: pointer;
 }
 
+.plant-form-modal-head > div {
+    min-width: 0;
+}
+
 .plant-form-shell--modal .plant-form__actions {
-    position: sticky;
-    bottom: 0;
-    z-index: 6;
     display: grid;
     grid-template-columns: 1fr;
     gap: 10px;
-    margin: 0 -16px -16px;
-    padding: 12px 16px max(12px, env(safe-area-inset-bottom));
+    padding: 14px 16px max(14px, env(safe-area-inset-bottom));
+    border-top: 1px solid rgba(23, 33, 24, 0.08);
     background: linear-gradient(
         180deg,
-        rgba(255, 255, 255, 0.76),
-        var(--color-surface) 28%
+        rgba(255, 255, 255, 0.9),
+        var(--color-surface) 34%
     );
 }
 
@@ -727,6 +780,7 @@ watch([() => route.params.id, () => route.name], loadPage);
 
 .plant-form__actions :deep(.ui-button) {
     width: 100%;
+    min-height: 46px;
 }
 
 .page-header {
@@ -756,6 +810,14 @@ watch([() => route.params.id, () => route.name], loadPage);
 .photo-manager {
     display: grid;
     gap: 12px;
+}
+
+.plant-form-shell--modal .form-section,
+.plant-form-shell--modal .care-editor {
+    padding: 14px;
+    border-radius: var(--radius-sm);
+    background: #f8faf5;
+    box-shadow: none;
 }
 
 .plant-fields {
@@ -1024,10 +1086,28 @@ watch([() => route.params.id, () => route.name], loadPage);
     .plant-form-shell--modal .plant-form {
         width: 100%;
         max-width: 100%;
+        max-height: calc(100dvh - 24px);
     }
 
     .plant-form-modal-head {
-        width: 100%;
+        padding: 16px 16px 16px;
+    }
+
+    .plant-form-shell--modal .plant-form__body {
+        padding: 14px 14px 4px;
+    }
+
+    .plant-form-modal-head .page-title {
+        font-size: 22px;
+    }
+
+    .plant-form-shell--modal .form-section,
+    .plant-form-shell--modal .care-editor {
+        padding: 12px;
+    }
+
+    .plant-form-shell--modal .plant-form__actions {
+        padding: 14px 14px max(14px, env(safe-area-inset-bottom));
     }
 
     .page-header {
