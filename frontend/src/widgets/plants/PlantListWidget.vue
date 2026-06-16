@@ -11,6 +11,7 @@ defineProps({
     showOwner: { type: Boolean, default: true },
     canLike: { type: Boolean, default: false },
     canSuggest: { type: Boolean, default: false },
+    detailsSource: { type: String, default: "" },
 });
 
 const emit = defineEmits(["toggle-like", "suggest", "open-owner"]);
@@ -30,6 +31,7 @@ const emit = defineEmits(["toggle-like", "suggest", "open-owner"]);
             :show-owner="showOwner"
             :can-like="canLike"
             :can-suggest="canSuggest"
+            :details-source="detailsSource"
             @toggle-like="emit('toggle-like', plant)"
             @suggest="emit('suggest', plant)"
             @open-owner="emit('open-owner', $event)"

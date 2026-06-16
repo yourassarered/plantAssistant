@@ -20,6 +20,7 @@ const props = defineProps({
     showOwner: { type: Boolean, default: true },
     canLike: { type: Boolean, default: false },
     canSuggest: { type: Boolean, default: false },
+    detailsSource: { type: String, default: "" },
 });
 
 const emit = defineEmits(["toggle-like", "suggest", "open-owner"]);
@@ -83,7 +84,11 @@ const badgeText = computed(() => {
 });
 
 const openPlant = () => {
-    router.push(`/plants/${props.plant.id}`);
+    router.push({
+        name: "plant-details",
+        params: { id: props.plant.id },
+        query: props.detailsSource ? { from: props.detailsSource } : {},
+    });
 };
 
 const openPlantFromKeyboard = (event) => {

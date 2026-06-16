@@ -202,6 +202,7 @@ watch(
             <PlantListWidget
                 :plants="plantStore.all"
                 variant="feed"
+                details-source="feed"
                 :show-actions="true"
                 :show-care="false"
                 :show-report-indicator="false"
@@ -219,7 +220,7 @@ watch(
 
         <div v-if="suggestPlant" class="tip-modal">
             <section class="tip-modal__card">
-                <header>
+                <header class="tip-modal__head">
                     <h2>Совет для {{ suggestPlant.name }}</h2>
                     <button
                         type="button"
@@ -230,20 +231,22 @@ watch(
                     </button>
                 </header>
 
-                <textarea
-                    v-model="suggestText"
-                    rows="4"
-                    placeholder="Напишите практический совет по уходу"
-                />
+                <div class="tip-modal__body">
+                    <textarea
+                        v-model="suggestText"
+                        rows="4"
+                        placeholder="Напишите практический совет по уходу"
+                    />
+                </div>
 
-                <div class="tip-modal__actions">
+                <footer class="tip-modal__actions">
                     <UiButton variant="ghost" @click="closeSuggest"
                         >Отмена</UiButton
                     >
                     <UiButton :disabled="sendingTip" @click="sendSuggest">
                         {{ sendingTip ? "Отправляем..." : "Отправить совет" }}
                     </UiButton>
-                </div>
+                </footer>
             </section>
         </div>
     </section>
@@ -345,34 +348,36 @@ watch(
     padding: 18px;
     overflow: hidden;
     background: rgba(7, 30, 15, 0.56);
+    backdrop-filter: blur(16px);
 }
 
 .tip-modal__card {
     display: grid;
-    gap: 12px;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 0;
+    isolation: isolate;
     width: min(540px, 100%);
     max-width: calc(100vw - 36px);
     max-height: calc(100vh - 36px);
     max-height: calc(100dvh - 36px);
-    overflow-y: auto;
+    overflow: hidden;
     overflow-x: hidden;
     overscroll-behavior: contain;
-    padding: 16px;
     border-radius: var(--radius-md);
     background: var(--color-surface);
 }
 
-.tip-modal__card header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    position: sticky;
-    top: 0;
-    z-index: 6;
-    margin: -16px -16px 0;
-    padding: 16px 16px 10px;
-    background: var(--color-surface);
+.tip-modal__head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 12px;
+    min-width: 0;
+    padding: 16px 16px 18px;
+    border-bottom: 1px solid rgba(23, 33, 24, 0.08);
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(16px);
+    box-shadow: 0 10px 24px rgba(7, 30, 15, 0.05);
 }
 
 .tip-modal__card h2 {
@@ -380,8 +385,14 @@ watch(
     font-size: 20px;
 }
 
-.tip-modal__card textarea {
+.tip-modal__body {
+    min-height: 0;
+    padding: 14px 16px 4px;
+}
+
+.tip-modal__body textarea {
     width: 100%;
+    min-height: 132px;
     resize: vertical;
     padding: 10px;
     border: 1px solid var(--color-border);
@@ -392,31 +403,27 @@ watch(
     display: grid;
     grid-template-columns: 1fr;
     gap: 10px;
-    position: sticky;
-    bottom: 0;
-    z-index: 6;
-    margin: 0 -16px -16px;
-    padding: 12px 16px max(12px, env(safe-area-inset-bottom));
+    padding: 14px 16px max(14px, env(safe-area-inset-bottom));
+    border-top: 1px solid rgba(23, 33, 24, 0.08);
     background: linear-gradient(
         180deg,
-        rgba(255, 255, 255, 0.82),
-        var(--color-surface) 28%
+        rgba(255, 255, 255, 0.9),
+        var(--color-surface) 32%
     );
 }
 
 .tip-modal__actions :deep(.ui-button) {
     width: 100%;
+    min-height: 46px;
 }
 
 .tip-modal__close {
-    flex: 0 0 auto;
-    margin-left: auto;
     display: grid;
     place-items: center;
     width: 40px;
     height: 40px;
     border: 0;
-    border-radius: var(--radius-xs);
+    border-radius: var(--radius-sm);
     color: var(--color-muted);
     background: #edf1ea;
     cursor: pointer;

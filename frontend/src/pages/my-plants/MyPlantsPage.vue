@@ -141,6 +141,7 @@ watch(
                 <PlantListWidget
                     :plants="plantStore.filteredPlants"
                     :show-owner="false"
+                    details-source="my-plants"
                 />
                 <div
                     v-if="!plantStore.filteredPlants.length"

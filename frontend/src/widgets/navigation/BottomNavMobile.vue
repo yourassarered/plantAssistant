@@ -1,22 +1,51 @@
 ﻿<script setup>
 import { Leaf, ListTodo, Shield, Sprout, UserRound } from "lucide-vue-next";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { useRoute } from "vue-router";
 
 import { useAuthStore } from "@/entities/auth/model/auth.store";
 
 const authStore = useAuthStore();
+const route = useRoute();
 const isKeyboardOpen = ref(false);
 let initialViewportHeight = 0;
 
 const items = computed(() => [
-    { to: "/feed", label: "Лента", icon: Leaf },
-    { to: "/my-plants", label: "Мои", icon: Sprout },
-    { to: "/tasks", label: "Уход", icon: ListTodo },
-    { to: "/profile", label: "Профиль", icon: UserRound },
+    { to: "/feed", section: "feed", label: "Лента", icon: Leaf },
+    { to: "/my-plants", section: "my-plants", label: "Мои", icon: Sprout },
+    { to: "/tasks", section: "tasks", label: "Уход", icon: ListTodo },
+    { to: "/profile", section: "profile", label: "Профиль", icon: UserRound },
     ...(authStore.isAdmin
-        ? [{ to: "/admin", label: "Админ", icon: Shield }]
+        ? [{ to: "/admin", section: "admin", label: "Админ", icon: Shield }]
         : []),
 ]);
+
+const routeSource = computed(() => {
+    const source = route.query.from;
+    return Array.isArray(source) ? source[0] : source;
+});
+
+const activeSection = computed(() => {
+    if (route.name === "plant-details") {
+        return ["feed", "my-plants"].includes(routeSource.value)
+            ? routeSource.value
+            : "";
+    }
+
+    if (
+        [
+            "my-plants",
+            "add-plant",
+            "edit-plant",
+            "edit-plant-care",
+            "edit-plant-photos",
+        ].includes(route.name)
+    ) {
+        return "my-plants";
+    }
+
+    return route.name || "";
+});
 
 const isEditableElement = (element) => {
     if (!(element instanceof HTMLElement)) return false;
@@ -80,6 +109,9 @@ onBeforeUnmount(() => {
             :key="item.to"
             :to="item.to"
             class="bottom-nav__item"
+            :class="{
+                'bottom-nav__item--active': activeSection === item.section,
+            }"
         >
             <component :is="item.icon" :size="20" />
             <span>{{ item.label }}</span>
@@ -139,7 +171,8 @@ onBeforeUnmount(() => {
     white-space: nowrap;
 }
 
-.bottom-nav__item.router-link-active {
+.bottom-nav__item.router-link-active,
+.bottom-nav__item--active {
     color: #0c5e2a;
     background: #fff;
     transform: translateY(-2px);
@@ -151,7 +184,8 @@ onBeforeUnmount(() => {
         transform: translateY(-1px);
     }
 
-    .bottom-nav__item.router-link-active:hover {
+    .bottom-nav__item.router-link-active:hover,
+    .bottom-nav__item--active:hover {
         color: #0c5e2a;
     }
 }

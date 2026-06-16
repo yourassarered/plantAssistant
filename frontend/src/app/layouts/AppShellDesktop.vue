@@ -1,21 +1,55 @@
 ﻿<script setup>
 import { Leaf, ListTodo, Shield, Sprout, UserRound } from "lucide-vue-next";
 import { computed } from "vue";
+import { useRoute } from "vue-router";
 
 import { useAuthStore } from "@/entities/auth/model/auth.store";
 import tabIcon from "@/shared/assets/tab-icon.svg";
 
 const authStore = useAuthStore();
+const route = useRoute();
 
 const navItems = computed(() => [
-    { to: "/feed", label: "Лента", icon: Leaf },
-    { to: "/my-plants", label: "Мои растения", icon: Sprout },
-    { to: "/tasks", label: "Задачи", icon: ListTodo },
-    { to: "/profile", label: "Профиль", icon: UserRound },
+    { to: "/feed", section: "feed", label: "Лента", icon: Leaf },
+    {
+        to: "/my-plants",
+        section: "my-plants",
+        label: "Мои растения",
+        icon: Sprout,
+    },
+    { to: "/tasks", section: "tasks", label: "Задачи", icon: ListTodo },
+    { to: "/profile", section: "profile", label: "Профиль", icon: UserRound },
     ...(authStore.isAdmin
-        ? [{ to: "/admin", label: "Админка", icon: Shield }]
+        ? [{ to: "/admin", section: "admin", label: "Админка", icon: Shield }]
         : []),
 ]);
+
+const routeSource = computed(() => {
+    const source = route.query.from;
+    return Array.isArray(source) ? source[0] : source;
+});
+
+const activeSection = computed(() => {
+    if (route.name === "plant-details") {
+        return ["feed", "my-plants"].includes(routeSource.value)
+            ? routeSource.value
+            : "";
+    }
+
+    if (
+        [
+            "my-plants",
+            "add-plant",
+            "edit-plant",
+            "edit-plant-care",
+            "edit-plant-photos",
+        ].includes(route.name)
+    ) {
+        return "my-plants";
+    }
+
+    return route.name || "";
+});
 </script>
 
 <template>
@@ -37,6 +71,10 @@ const navItems = computed(() => [
                     :key="item.to"
                     :to="item.to"
                     class="desktop-nav__link"
+                    :class="{
+                        'desktop-nav__link--active':
+                            activeSection === item.section,
+                    }"
                 >
                     <component :is="item.icon" :size="19" />
                     {{ item.label }}
@@ -121,7 +159,8 @@ const navItems = computed(() => [
         box-shadow 0.18s ease;
 }
 
-.desktop-nav__link.router-link-active {
+.desktop-nav__link.router-link-active,
+.desktop-nav__link--active {
     color: #fff;
     background: #0f702e;
     box-shadow: 0 12px 24px rgba(15, 112, 46, 0.18);
@@ -137,7 +176,8 @@ const navItems = computed(() => [
         background: rgba(15, 112, 46, 0.08);
     }
 
-    .desktop-nav__link.router-link-active:hover {
+    .desktop-nav__link.router-link-active:hover,
+    .desktop-nav__link--active:hover {
         background: #0c5e2a;
     }
 }
